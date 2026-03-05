@@ -1,4 +1,4 @@
-// ICER - Collection Score Algorithm (0-100 priority)
+// AtlasPM - Collection Score Algorithm (0-100 priority)
 
 export interface ScoreInput {
   balance: number;

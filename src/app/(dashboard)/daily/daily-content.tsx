@@ -1,26 +1,32 @@
 "use client";
 
-import { CalendarClock, AlertTriangle, FileText, Scale, DollarSign } from "lucide-react";
+import { CalendarClock, AlertTriangle, FileText, Scale, DollarSign, Brain } from "lucide-react";
 import { useDailySummary } from "@/hooks/use-metrics";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import TenantDetailModal from "@/components/tenant/tenant-detail-modal";
 import TenantEditModal from "@/components/tenant/tenant-edit-modal";
+import Button from "@/components/ui/button";
 import { fmt$, formatDate } from "@/lib/utils";
 import { getScoreLabel } from "@/lib/scoring";
 import { useAppStore } from "@/stores/app-store";
 
 export default function DailyContent() {
   const { data, isLoading } = useDailySummary();
-  const { setDetailTenantId } = useAppStore();
+  const { setDetailTenantId, setAiPanelOpen } = useAppStore();
 
   if (isLoading || !data) return <LoadingSpinner />;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <CalendarClock className="w-5 h-5 text-accent" />
-        <h1 className="text-xl font-bold text-text-primary">Daily Summary</h1>
-        <span className="text-sm text-text-dim">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <CalendarClock className="w-5 h-5 text-accent" />
+          <h1 className="text-xl font-bold text-text-primary">Daily Summary</h1>
+          <span className="text-sm text-text-dim">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span>
+        </div>
+        <Button size="sm" onClick={() => setAiPanelOpen(true)} className="bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20">
+          <Brain className="w-3.5 h-3.5" /> AI Briefing
+        </Button>
       </div>
 
       {data.urgentTenants?.length > 0 && (

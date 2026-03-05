@@ -17,7 +17,7 @@ export function useExportExcel() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `icer-export-${new Date().toISOString().split("T")[0]}.xlsx`;
+      a.download = `atlaspm-export-${new Date().toISOString().split("T")[0]}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Export downloaded");

@@ -1,4 +1,4 @@
-// ICER - Shared TypeScript Types
+// AtlasPM - Shared TypeScript Types
 
 export type UserRole = "ADMIN" | "PM" | "COLLECTOR" | "OWNER" | "BROKER";
 
@@ -58,6 +58,24 @@ export interface TenantView {
   taskCount: number;
 }
 
+export interface ContactJson {
+  name?: string;
+  phone?: string;
+  email?: string;
+}
+
+export interface CompanyJson {
+  name?: string;
+  phone?: string;
+  contract?: string;
+}
+
+export interface UtilityJson {
+  gas?: string;
+  electric?: string;
+  water?: string;
+}
+
 export interface BuildingView {
   id: string;
   yardiId: string;
@@ -67,9 +85,21 @@ export interface BuildingView {
   portfolio: string | null;
   region: string | null;
   zip: string | null;
+  block: string | null;
+  lot: string | null;
   type: string;
   owner: string | null;
   manager: string | null;
+  arTeam: string | null;
+  apTeam: string | null;
+  headPortfolio: string | null;
+  mgmtStartDate: string | null;
+  einNumber: string | null;
+  superintendent: ContactJson | null;
+  elevatorCompany: CompanyJson | null;
+  fireAlarmCompany: CompanyJson | null;
+  utilityMeters: UtilityJson | null;
+  utilityAccounts: UtilityJson | null;
   totalUnits: number;
   occupied: number;
   vacant: number;

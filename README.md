@@ -1,4 +1,4 @@
-# ICER Property Tracker
+# AtlasPM
 
 A comprehensive web-based property management and rent collection tracking application.
 
@@ -19,25 +19,21 @@ A comprehensive web-based property management and rent collection tracking appli
 
 ## Tech Stack
 
-Single-file HTML application with embedded data:
-- Vanilla JavaScript (no framework dependencies)
-- Chart.js for analytics visualizations
+- Next.js 14 (App Router)
+- PostgreSQL via Supabase + Prisma ORM
+- Tailwind CSS
+- NextAuth.js (credentials)
+- React Query + Zustand
+- Recharts for analytics
 - SheetJS (XLSX) for Excel import/export
-- LocalStorage for data persistence
-- CSS custom properties for theming
-
-## Planned: Full-Stack Multi-User System
-
-- Node.js + Express backend
-- PostgreSQL database
-- JWT authentication with role-based access
-- 5 user roles: Admin, Property Manager, Collector, Owner, Broker/Leasing Agent
-- Docker deployment
 
 ## Getting Started
 
-Open `ICER-Property-Tracker.html` in any modern browser. No server required.
+```bash
+npm install
+npm run dev
+```
 
 ## License
 
-Proprietary — ICER Management
+Proprietary

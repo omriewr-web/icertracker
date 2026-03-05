@@ -36,6 +36,26 @@ export function useCreateNote(tenantId: string) {
   });
 }
 
+export function useUpdateNote(tenantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ noteId, data }: { noteId: string; data: { text: string; category?: string } }) => {
+      const res = await fetch(`/api/tenants/${tenantId}/notes/${noteId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update note");
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["notes", tenantId] });
+      toast.success("Note updated");
+    },
+    onError: () => toast.error("Failed to update note"),
+  });
+}
+
 export function useDeleteNote(tenantId: string) {
   const qc = useQueryClient();
   return useMutation({

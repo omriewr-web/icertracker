@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 
@@ -23,7 +24,18 @@ export const GET = withAuth(async (req, { params }) => {
 export const PATCH = withAuth(async (req, { params }) => {
   const { id } = await params;
   const body = await req.json();
-  const building = await prisma.building.update({ where: { id }, data: body });
+  // Convert null JSON fields to Prisma.DbNull
+  const jsonFields = ["superintendent", "elevatorCompany", "fireAlarmCompany", "utilityMeters", "utilityAccounts"];
+  const data = { ...body };
+  for (const field of jsonFields) {
+    if (field in data && data[field] === null) {
+      data[field] = Prisma.DbNull;
+    }
+  }
+  if (data.mgmtStartDate && typeof data.mgmtStartDate === "string") {
+    data.mgmtStartDate = new Date(data.mgmtStartDate);
+  }
+  const building = await prisma.building.update({ where: { id }, data });
   return NextResponse.json(building);
 }, "edit");
 

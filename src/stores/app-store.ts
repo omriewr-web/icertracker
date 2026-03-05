@@ -33,6 +33,22 @@ interface AppState {
   editTenantId: string | null;
   setEditTenantId: (id: string | null) => void;
 
+  detailBuildingId: string | null;
+  setDetailBuildingId: (id: string | null) => void;
+
+  buildingFormOpen: boolean;
+  editBuildingId: string | null;
+  openBuildingForm: (id?: string | null) => void;
+  closeBuildingForm: () => void;
+
+  tenantCreateOpen: boolean;
+  setTenantCreateOpen: (open: boolean) => void;
+
+  aiPanelOpen: boolean;
+  setAiPanelOpen: (open: boolean) => void;
+  aiTenantId: string | null;
+  openAiForTenant: (id: string) => void;
+
   resetFilters: () => void;
 }
 
@@ -73,6 +89,22 @@ export const useAppStore = create<AppState>((set) => ({
 
   editTenantId: null,
   setEditTenantId: (id) => set({ editTenantId: id }),
+
+  detailBuildingId: null,
+  setDetailBuildingId: (id) => set({ detailBuildingId: id }),
+
+  buildingFormOpen: false,
+  editBuildingId: null,
+  openBuildingForm: (id) => set({ buildingFormOpen: true, editBuildingId: id ?? null }),
+  closeBuildingForm: () => set({ buildingFormOpen: false, editBuildingId: null }),
+
+  tenantCreateOpen: false,
+  setTenantCreateOpen: (open) => set({ tenantCreateOpen: open }),
+
+  aiPanelOpen: false,
+  setAiPanelOpen: (open) => set({ aiPanelOpen: open, ...(!open ? { aiTenantId: null } : {}) }),
+  aiTenantId: null,
+  openAiForTenant: (id) => set({ aiPanelOpen: true, aiTenantId: id }),
 
   resetFilters: () =>
     set({

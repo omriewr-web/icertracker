@@ -39,8 +39,8 @@ function LoginForm() {
     <div className="w-full max-w-sm">
       <div className="bg-card border border-border rounded-xl p-8">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-text-primary">ICER</h1>
-          <p className="text-text-muted text-sm mt-1">Property Tracker</p>
+          <h1 className="text-2xl font-bold text-text-primary">AtlasPM</h1>
+          <p className="text-text-muted text-sm mt-1">Property Management</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

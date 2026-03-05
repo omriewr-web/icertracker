@@ -58,3 +58,45 @@ export function useUpdateTenant() {
     onError: () => toast.error("Failed to update tenant"),
   });
 }
+
+export function useCreateTenant() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: any) => {
+      const res = await fetch("/api/tenants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to create tenant");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tenants"] });
+      qc.invalidateQueries({ queryKey: ["buildings"] });
+      qc.invalidateQueries({ queryKey: ["metrics"] });
+      toast.success("Tenant created");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useDeleteTenant() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/tenants/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete tenant");
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tenants"] });
+      qc.invalidateQueries({ queryKey: ["buildings"] });
+      qc.invalidateQueries({ queryKey: ["metrics"] });
+      toast.success("Tenant deleted");
+    },
+    onError: () => toast.error("Failed to delete tenant"),
+  });
+}

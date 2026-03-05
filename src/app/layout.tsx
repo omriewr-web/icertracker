@@ -3,7 +3,7 @@ import Providers from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ICER Property Tracker",
+  title: "AtlasPM",
   description: "Rent Collection & Portfolio Management",
 };
 

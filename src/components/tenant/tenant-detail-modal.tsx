@@ -16,22 +16,27 @@ import PaymentForm from "./payment-form";
 import PaymentList from "./payment-list";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import Button from "@/components/ui/button";
-import { Pencil } from "lucide-react";
+import ConfirmDialog from "@/components/ui/confirm-dialog";
+import { useDeleteTenant } from "@/hooks/use-tenants";
+import { Pencil, Trash2, Brain } from "lucide-react";
 
 const tabs = ["Details", "Notes", "Payments"] as const;
 
 export default function TenantDetailModal() {
-  const { detailTenantId, setDetailTenantId, setEditTenantId } = useAppStore();
+  const { detailTenantId, setDetailTenantId, setEditTenantId, openAiForTenant } = useAppStore();
   const [tab, setTab] = useState<(typeof tabs)[number]>("Details");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const { data: tenant, isLoading } = useTenant(detailTenantId);
   const { data: notes } = useNotes(detailTenantId);
   const { data: payments } = usePayments(detailTenantId);
+  const deleteTenant = useDeleteTenant();
 
   if (!detailTenantId) return null;
 
   const title = tenant ? `${tenant.name} — Unit ${tenant.unit?.unitNumber}` : "Tenant Details";
 
   return (
+    <>
     <Modal open={!!detailTenantId} onClose={() => setDetailTenantId(null)} title={title} wide>
       {isLoading ? (
         <LoadingSpinner />
@@ -59,10 +64,24 @@ export default function TenantDetailModal() {
               size="sm"
               onClick={() => {
                 setDetailTenantId(null);
+                openAiForTenant(tenant.id);
+              }}
+              className="text-accent"
+            >
+              <Brain className="w-3.5 h-3.5" /> AI Analysis
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setDetailTenantId(null);
                 setEditTenantId(tenant.id);
               }}
             >
               <Pencil className="w-3.5 h-3.5" /> Edit
+            </Button>
+            <Button variant="danger" size="sm" onClick={() => setConfirmDelete(true)}>
+              <Trash2 className="w-3.5 h-3.5" /> Delete
             </Button>
           </div>
 
@@ -121,6 +140,24 @@ export default function TenantDetailModal() {
         </div>
       ) : null}
     </Modal>
+
+    <ConfirmDialog
+      open={confirmDelete}
+      onClose={() => setConfirmDelete(false)}
+      onConfirm={() => {
+        if (!detailTenantId) return;
+        deleteTenant.mutate(detailTenantId, {
+          onSuccess: () => {
+            setConfirmDelete(false);
+            setDetailTenantId(null);
+          },
+        });
+      }}
+      title="Delete Tenant"
+      message="This will permanently delete this tenant and all their notes, payments, and related data. This cannot be undone."
+      loading={deleteTenant.isPending}
+    />
+    </>
   );
 }
 

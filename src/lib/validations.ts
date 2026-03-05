@@ -46,6 +46,24 @@ export const legalNoteSchema = z.object({
   ]),
 });
 
+const contactJsonSchema = z.object({
+  name: z.string().optional().default(""),
+  phone: z.string().optional().default(""),
+  email: z.string().optional().default(""),
+}).nullable().optional();
+
+const companyJsonSchema = z.object({
+  name: z.string().optional().default(""),
+  phone: z.string().optional().default(""),
+  contract: z.string().optional().default(""),
+}).nullable().optional();
+
+const utilityJsonSchema = z.object({
+  gas: z.string().optional().default(""),
+  electric: z.string().optional().default(""),
+  water: z.string().optional().default(""),
+}).nullable().optional();
+
 export const buildingCreateSchema = z.object({
   yardiId: z.string().min(1),
   address: z.string().min(1),
@@ -54,11 +72,25 @@ export const buildingCreateSchema = z.object({
   portfolio: z.string().nullable().optional(),
   region: z.string().nullable().optional(),
   zip: z.string().nullable().optional(),
+  block: z.string().nullable().optional(),
+  lot: z.string().nullable().optional(),
   type: z.string().default("Residential"),
   owner: z.string().nullable().optional(),
   manager: z.string().nullable().optional(),
+  arTeam: z.string().nullable().optional(),
+  apTeam: z.string().nullable().optional(),
+  headPortfolio: z.string().nullable().optional(),
+  mgmtStartDate: z.string().nullable().optional(),
+  einNumber: z.string().nullable().optional(),
+  superintendent: contactJsonSchema,
+  elevatorCompany: companyJsonSchema,
+  fireAlarmCompany: companyJsonSchema,
+  utilityMeters: utilityJsonSchema,
+  utilityAccounts: utilityJsonSchema,
   totalUnits: z.number().int().min(0).default(0),
 });
+
+export const buildingUpdateSchema = buildingCreateSchema.partial();
 
 export const userCreateSchema = z.object({
   email: z.string().email(),
@@ -142,4 +174,24 @@ export const emailSendSchema = z.object({
   subject: z.string().min(1),
   body: z.string().min(1),
   type: z.enum(["DEMAND_LETTER", "PAYMENT_REMINDER", "LATE_NOTICE", "COLLECTION_REPORT", "LEASE_RENEWAL", "CUSTOM"]).default("CUSTOM"),
+});
+
+export const tenantCreateSchema = z.object({
+  buildingId: z.string().min(1),
+  unitNumber: z.string().min(1),
+  name: z.string().min(1),
+  email: z.string().email().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  marketRent: z.number().min(0).optional().default(0),
+  legalRent: z.number().min(0).optional().default(0),
+  deposit: z.number().min(0).optional().default(0),
+  chargeCode: z.string().nullable().optional(),
+  isStabilized: z.boolean().optional().default(false),
+  leaseExpiration: z.string().nullable().optional(),
+  moveInDate: z.string().nullable().optional(),
+});
+
+export const noteUpdateSchema = z.object({
+  text: z.string().min(1, "Note text is required"),
+  category: z.enum(["GENERAL", "COLLECTION", "PAYMENT", "LEGAL", "LEASE", "MAINTENANCE"]).optional(),
 });

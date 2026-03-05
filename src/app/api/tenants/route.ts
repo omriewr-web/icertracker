@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { withAuth, buildWhereClause } from "@/lib/api-helpers";
+import { withAuth, buildWhereClause, parseBody } from "@/lib/api-helpers";
+import { tenantCreateSchema } from "@/lib/validations";
 import { TenantView } from "@/types";
+import { getArrearsCategory, getArrearsDays, getLeaseStatus, calcCollectionScore } from "@/lib/scoring";
 
 export const GET = withAuth(async (req, { user }) => {
   const url = new URL(req.url);
@@ -90,3 +92,61 @@ export const GET = withAuth(async (req, { user }) => {
 
   return NextResponse.json(result);
 });
+
+export const POST = withAuth(async (req) => {
+  const data = await parseBody(req, tenantCreateSchema);
+
+  // Find or create unit
+  let unit = await prisma.unit.findUnique({
+    where: { buildingId_unitNumber: { buildingId: data.buildingId, unitNumber: data.unitNumber } },
+  });
+  if (!unit) {
+    unit = await prisma.unit.create({
+      data: { buildingId: data.buildingId, unitNumber: data.unitNumber },
+    });
+  }
+
+  // Check if unit already has a tenant
+  const existingTenant = await prisma.tenant.findUnique({ where: { unitId: unit.id } });
+  if (existingTenant) {
+    return NextResponse.json({ error: "Unit already has a tenant" }, { status: 400 });
+  }
+
+  const balance = 0;
+  const marketRent = data.marketRent ?? 0;
+  const leaseExp = data.leaseExpiration ? new Date(data.leaseExpiration) : null;
+
+  const arrearsCategory = getArrearsCategory(balance, marketRent);
+  const arrearsDays = getArrearsDays(balance, marketRent);
+  const leaseStatus = getLeaseStatus(leaseExp);
+  const collectionScore = calcCollectionScore({
+    balance, marketRent, arrearsDays, leaseStatus,
+    legalFlag: false, legalRecommended: false, isVacant: false,
+  });
+
+  const tenant = await prisma.tenant.create({
+    data: {
+      unitId: unit.id,
+      name: data.name,
+      email: data.email ?? null,
+      phone: data.phone ?? null,
+      marketRent: data.marketRent ?? 0,
+      legalRent: data.legalRent ?? 0,
+      deposit: data.deposit ?? 0,
+      chargeCode: data.chargeCode ?? null,
+      isStabilized: data.isStabilized ?? false,
+      leaseExpiration: leaseExp,
+      moveInDate: data.moveInDate ? new Date(data.moveInDate) : null,
+      arrearsCategory,
+      arrearsDays,
+      leaseStatus,
+      collectionScore,
+      monthsOwed: 0,
+    },
+  });
+
+  // Mark unit as occupied
+  await prisma.unit.update({ where: { id: unit.id }, data: { isVacant: false } });
+
+  return NextResponse.json(tenant, { status: 201 });
+}, "edit");

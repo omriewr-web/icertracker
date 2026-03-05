@@ -58,12 +58,12 @@ export const GET = withAuth(async (req, { user }) => {
     taskCount: t._count.tasks,
   }));
 
-  const buffer = exportToExcel(views, "ICER-Export");
+  const buffer = exportToExcel(views, "AtlasPM-Export");
 
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="icer-export-${new Date().toISOString().split("T")[0]}.xlsx"`,
+      "Content-Disposition": `attachment; filename="atlaspm-export-${new Date().toISOString().split("T")[0]}.xlsx"`,
     },
   });
 }, "reports");

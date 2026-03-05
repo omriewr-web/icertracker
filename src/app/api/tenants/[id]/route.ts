@@ -67,3 +67,16 @@ export const PATCH = withAuth(async (req, { params }) => {
   const tenant = await prisma.tenant.update({ where: { id }, data: updateData });
   return NextResponse.json(tenant);
 }, "edit");
+
+export const DELETE = withAuth(async (req, { params }) => {
+  const { id } = await params;
+  const tenant = await prisma.tenant.findUnique({ where: { id } });
+  if (!tenant) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  await prisma.tenant.delete({ where: { id } });
+
+  // Mark unit as vacant
+  await prisma.unit.update({ where: { id: tenant.unitId }, data: { isVacant: true } });
+
+  return NextResponse.json({ success: true });
+}, "edit");

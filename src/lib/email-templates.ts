@@ -1,4 +1,4 @@
-// ICER - Email Templates for Collection Efforts
+// AtlasPM - Email Templates for Collection Efforts
 
 export interface EmailContext {
   tenantName: string;

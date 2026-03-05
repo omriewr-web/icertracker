@@ -1,4 +1,4 @@
-// ICER Property Tracker - Database Schema
+// AtlasPM - Database Schema
 // Stack: PostgreSQL via Supabase + Prisma ORM
 
 generator client {
@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum UserRole {
@@ -69,6 +70,12 @@ model Building {
   apTeam         String?
   headPortfolio  String?
   mgmtStartDate  DateTime?
+  einNumber      String?
+  superintendent Json?
+  elevatorCompany Json?
+  fireAlarmCompany Json?
+  utilityMeters  Json?
+  utilityAccounts Json?
   totalUnits     Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

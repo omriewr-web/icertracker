@@ -10,7 +10,8 @@ export const POST = withAuth(async (req, { user }) => {
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const { tenants, propertyName, errors } = parseRentRollExcel(buffer);
+  const result = parseRentRollExcel(buffer);
+  const { tenants, propertyName, errors } = result;
 
   if (tenants.length === 0) {
     return NextResponse.json({ error: "No tenant records found", errors }, { status: 400 });
@@ -120,5 +121,5 @@ export const POST = withAuth(async (req, { user }) => {
     },
   });
 
-  return NextResponse.json({ imported, skipped, errors, total: tenants.length });
+  return NextResponse.json({ imported, skipped, errors, total: tenants.length, format: result.format });
 }, "upload");

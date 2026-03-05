@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { buildingCreateSchema } from "@/lib/validations";
@@ -37,9 +38,21 @@ export const GET = withAuth(async (req, { user }) => {
       portfolio: b.portfolio,
       region: b.region,
       zip: b.zip,
+      block: b.block,
+      lot: b.lot,
       type: b.type,
       owner: b.owner,
       manager: b.manager,
+      arTeam: b.arTeam,
+      apTeam: b.apTeam,
+      headPortfolio: b.headPortfolio,
+      mgmtStartDate: b.mgmtStartDate,
+      einNumber: b.einNumber,
+      superintendent: b.superintendent,
+      elevatorCompany: b.elevatorCompany,
+      fireAlarmCompany: b.fireAlarmCompany,
+      utilityMeters: b.utilityMeters,
+      utilityAccounts: b.utilityAccounts,
       totalUnits: b._count.units,
       occupied,
       vacant,
@@ -52,8 +65,23 @@ export const GET = withAuth(async (req, { user }) => {
   return NextResponse.json(result);
 });
 
+// Convert null JSON fields to Prisma.DbNull for proper storage
+function sanitizeJsonFields(data: any) {
+  const jsonFields = ["superintendent", "elevatorCompany", "fireAlarmCompany", "utilityMeters", "utilityAccounts"];
+  const result = { ...data };
+  for (const field of jsonFields) {
+    if (result[field] === null) {
+      result[field] = Prisma.DbNull;
+    }
+  }
+  if (result.mgmtStartDate) {
+    result.mgmtStartDate = new Date(result.mgmtStartDate);
+  }
+  return result;
+}
+
 export const POST = withAuth(async (req, { user }) => {
   const data = await parseBody(req, buildingCreateSchema);
-  const building = await prisma.building.create({ data });
+  const building = await prisma.building.create({ data: sanitizeJsonFields(data) });
   return NextResponse.json(building, { status: 201 });
 }, "upload");

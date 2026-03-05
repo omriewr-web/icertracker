@@ -1,8 +1,8 @@
 {
-  "name": "icer-property-tracker",
+  "name": "atlaspm",
   "version": "0.1.0",
   "private": true,
-  "description": "ICER Property Tracker - Rent Collection & Portfolio Management",
+  "description": "AtlasPM - Rent Collection & Portfolio Management",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -16,37 +16,38 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@auth/prisma-adapter": "^2.0.0",
+    "@prisma/client": "^5.20.0",
+    "@tanstack/react-query": "^5.50.0",
+    "bcryptjs": "^2.4.3",
+    "clsx": "^2.1.0",
+    "date-fns": "^3.6.0",
+    "lucide-react": "^0.400.0",
     "next": "^14.2.0",
+    "next-auth": "^4.24.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "@prisma/client": "^5.20.0",
-    "@auth/prisma-adapter": "^2.0.0",
-    "next-auth": "^4.24.0",
-    "bcryptjs": "^2.4.3",
-    "@tanstack/react-query": "^5.50.0",
-    "zustand": "^4.5.0",
+    "react-hot-toast": "^2.4.1",
     "recharts": "^2.12.0",
-    "lucide-react": "^0.400.0",
-    "clsx": "^2.1.0",
+    "resend": "^3.5.0",
     "tailwind-merge": "^2.3.0",
     "xlsx": "^0.18.5",
-    "resend": "^3.5.0",
-    "react-hot-toast": "^2.4.1",
-    "date-fns": "^3.6.0",
-    "zod": "^3.23.0"
+    "zod": "^3.23.0",
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
-    "prisma": "^5.20.0",
-    "typescript": "^5.5.0",
-    "tsx": "^4.16.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
-    "@types/bcryptjs": "^2.4.6",
-    "tailwindcss": "^3.4.0",
-    "postcss": "^8.4.38",
     "autoprefixer": "^10.4.19",
     "eslint": "^8.57.0",
-    "eslint-config-next": "^14.2.0"
+    "eslint-config-next": "^14.2.0",
+    "postcss": "^8.4.38",
+    "prisma": "^5.20.0",
+    "tailwindcss": "^3.4.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
   }
 }
