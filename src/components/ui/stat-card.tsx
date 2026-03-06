@@ -69,8 +69,8 @@ export default function StatCard({
           {subtext && <p className="text-xs text-text-muted mt-1">{subtext}</p>}
         </div>
         {Icon && (
-          <div className="p-2 rounded-lg" style={{ backgroundColor: color ? `${color}15` : "rgba(59,130,246,0.1)" }}>
-            <Icon className="w-5 h-5" style={color ? { color } : { color: "#3B82F6" }} />
+          <div className="p-2 rounded-lg" style={{ backgroundColor: color ? `${color}15` : "rgba(201,168,76,0.1)" }}>
+            <Icon className="w-5 h-5" style={color ? { color } : { color: "#C9A84C" }} />
           </div>
         )}
       </div>

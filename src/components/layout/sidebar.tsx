@@ -74,11 +74,20 @@ export default function Sidebar() {
         sidebarCollapsed ? "w-16" : "w-56"
       )}
     >
-      {!sidebarCollapsed && (
-        <div className="p-3 border-b border-border overflow-hidden">
-          <PropertySelector />
-        </div>
-      )}
+      <div className="p-3 border-b border-border overflow-hidden">
+        {sidebarCollapsed ? (
+          <div className="flex justify-center">
+            <img src="/images/atlaspm-logo.jpg" alt="AtlasPM" style={{ height: '32px', width: 'auto' }} />
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 mb-2">
+              <img src="/images/atlaspm-logo.jpg" alt="AtlasPM" style={{ height: '44px', width: 'auto' }} />
+            </div>
+            <PropertySelector />
+          </>
+        )}
+      </div>
 
       <nav className="flex-1 py-2 overflow-y-auto" aria-label="Main navigation">
         {sections.map(({ section, items }) => (

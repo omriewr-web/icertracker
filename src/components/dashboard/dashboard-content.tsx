@@ -54,22 +54,22 @@ export default function DashboardContent() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatCard label="Total Units" value={metrics.totalUnits} icon={Building2} subtext={`${pct(metrics.occupancyRate)} occupied`} href="/data" />
+        <StatCard label="Total Units" value={metrics.totalUnits} icon={Building2} color="#C9A84C" subtext={`${pct(metrics.occupancyRate)} occupied`} href="/data" />
         <StatCard
           label="Occupied"
           value={metrics.occupied}
           icon={Users}
-          color="#10B981"
+          color="#C9A84C"
           onClick={() => { setArrearsFilter("current"); router.push("/alerts"); }}
         />
-        <StatCard label="Vacant" value={metrics.vacant} icon={Building2} color="#F59E0B" subtext={metrics.lostRent > 0 ? `${fmt$(metrics.lostRent)} lost/mo` : undefined} href="/vacancies" />
-        <StatCard label="Total Balance" value={fmt$(metrics.totalBalance)} icon={DollarSign} color="#EF4444" href="/alerts" />
-        <StatCard label="Legal Cases" value={metrics.legalCaseCount} icon={Scale} color="#8B5CF6" href="/legal" />
+        <StatCard label="Vacant" value={metrics.vacant} icon={Building2} color="#C9A84C" subtext={metrics.lostRent > 0 ? `${fmt$(metrics.lostRent)} lost/mo` : undefined} href="/vacancies" />
+        <StatCard label="Total Balance" value={fmt$(metrics.totalBalance)} icon={DollarSign} color="#C9A84C" href="/alerts" />
+        <StatCard label="Legal Cases" value={metrics.legalCaseCount} icon={Scale} color="#C9A84C" href="/legal" />
         <StatCard
           label="Expiring Leases"
           value={metrics.expiringSoon}
           icon={FileText}
-          color="#F97316"
+          color="#C9A84C"
           subtext={`${metrics.expiredLease} expired`}
           onClick={() => { setLeaseFilter("expiring-soon"); router.push("/leases"); }}
         />

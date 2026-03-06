@@ -19,8 +19,8 @@ export default function BalanceChart({ buildings }: Props) {
       <BarChart data={data} layout="vertical" margin={{ left: 10, right: 20 }}>
         <defs>
           <linearGradient id="balance-bar-gradient" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.7} />
-            <stop offset="100%" stopColor="#60A5FA" stopOpacity={0.9} />
+            <stop offset="0%" stopColor="#C9A84C" stopOpacity={0.7} />
+            <stop offset="100%" stopColor="#D4B95E" stopOpacity={0.9} />
           </linearGradient>
         </defs>
         <XAxis type="number" tickFormatter={(v) => fmt$(v)} tick={{ fill: "#8899AA", fontSize: 11 }} />

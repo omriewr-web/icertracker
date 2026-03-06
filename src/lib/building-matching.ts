@@ -147,6 +147,41 @@ export function getDisplayAddress(building: { address: string; altAddress?: stri
   return extractAddressFromEntity(building.address) || building.address;
 }
 
+/**
+ * Match a building row (with block/lot/buildingId) against existing buildings.
+ * Priority: 1) block+lot  2) normalized address  3) yardiId/building_id
+ */
+export function matchBuildingByRow(
+  row: { address: string; block?: string | null; lot?: string | null; buildingId?: string | null },
+  existing: Array<{ id: string; address: string; block: string | null; lot: string | null; yardiId: string }>
+): { id: string; matchedBy: string } | null {
+  // 1. Block + Lot match (primary)
+  if (row.block && row.lot) {
+    const normBlock = normalizeBlockLot(row.block);
+    const normLot = normalizeBlockLot(row.lot);
+    const match = existing.find(
+      (b) =>
+        b.block && b.lot &&
+        normalizeBlockLot(b.block) === normBlock &&
+        normalizeBlockLot(b.lot) === normLot
+    );
+    if (match) return { id: match.id, matchedBy: "block+lot" };
+  }
+
+  // 2. Normalized address match (fallback)
+  const normAddr = normalizeAddress(row.address);
+  const addrMatch = existing.find((b) => normalizeAddress(b.address) === normAddr);
+  if (addrMatch) return { id: addrMatch.id, matchedBy: "address" };
+
+  // 3. building_id → yardiId match
+  if (row.buildingId) {
+    const idMatch = existing.find((b) => b.yardiId === row.buildingId);
+    if (idMatch) return { id: idMatch.id, matchedBy: "building_id" };
+  }
+
+  return null;
+}
+
 export function generateYardiId(address: string): string {
   const sanitized = address
     .replace(/[^a-zA-Z0-9]/g, "-")

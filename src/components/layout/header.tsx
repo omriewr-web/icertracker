@@ -9,7 +9,7 @@ export default function Header() {
   const { setAiPanelOpen, setSidebarOpen, sidebarOpen } = useAppStore();
 
   return (
-    <header role="banner" className="h-14 bg-card-gradient border-b border-border shadow-[0_1px_0_rgba(59,130,246,0.1)] flex items-center justify-between px-4 sm:px-6 shrink-0">
+    <header role="banner" className="h-14 bg-card-gradient border-b border-border shadow-[0_1px_0_rgba(201,168,76,0.1)] flex items-center justify-between px-4 sm:px-6 shrink-0">
       <div className="flex items-center gap-2 sm:gap-3">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}

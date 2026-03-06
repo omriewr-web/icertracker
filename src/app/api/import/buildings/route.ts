@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { parseBuildingDataExcel, buildingRowToPrismaData } from "@/lib/parsers/buildingParser";
-import type { ParsedBuildingRow } from "@/lib/parsers/buildingParser";
-import { normalizeAddress, normalizeBlockLot, generateYardiId } from "@/lib/building-matching";
+import { matchBuildingByRow, generateYardiId } from "@/lib/building-matching";
 
 // POST /api/import/buildings
 // ?mode=preview  → parse file, return preview of what will be created/updated
@@ -52,7 +51,7 @@ export const POST = withAuth(async (req: NextRequest) => {
   const preview: PreviewRow[] = [];
 
   for (const row of result.buildings) {
-    const match = matchBuilding(row, existingBuildings);
+    const match = matchBuildingByRow(row, existingBuildings);
     preview.push({
       rowIndex: row.rowIndex,
       address: row.address,
@@ -132,37 +131,3 @@ export const POST = withAuth(async (req: NextRequest) => {
   });
 }, "upload");
 
-/**
- * Match a parsed row against existing buildings.
- * Priority: 1) block+lot  2) normalized address  3) yardiId/building_id
- */
-function matchBuilding(
-  row: ParsedBuildingRow,
-  existing: Array<{ id: string; address: string; block: string | null; lot: string | null; yardiId: string }>
-): { id: string; matchedBy: string } | null {
-  // 1. Block + Lot match (primary)
-  if (row.block && row.lot) {
-    const normBlock = normalizeBlockLot(row.block);
-    const normLot = normalizeBlockLot(row.lot);
-    const match = existing.find(
-      (b) =>
-        b.block && b.lot &&
-        normalizeBlockLot(b.block) === normBlock &&
-        normalizeBlockLot(b.lot) === normLot
-    );
-    if (match) return { id: match.id, matchedBy: "block+lot" };
-  }
-
-  // 2. Normalized address match (fallback)
-  const normAddr = normalizeAddress(row.address);
-  const addrMatch = existing.find((b) => normalizeAddress(b.address) === normAddr);
-  if (addrMatch) return { id: addrMatch.id, matchedBy: "address" };
-
-  // 3. building_id → yardiId match
-  if (row.buildingId) {
-    const idMatch = existing.find((b) => b.yardiId === row.buildingId);
-    if (idMatch) return { id: idMatch.id, matchedBy: "building_id" };
-  }
-
-  return null;
-}

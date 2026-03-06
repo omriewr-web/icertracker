@@ -1,5 +1,10 @@
 import * as XLSX from "xlsx";
 
+export interface ChargeRow {
+  chargeCode: string;
+  amount: number;
+}
+
 export interface ParsedTenant {
   property: string;
   unit: string;
@@ -9,6 +14,7 @@ export interface ParsedTenant {
   marketRent: number;
   chargeCode?: string;
   chargeAmount: number;
+  charges: ChargeRow[];
   deposit: number;
   balance: number;
   moveIn?: string;
@@ -173,6 +179,7 @@ function parseYardiRentRoll(
         col4.toLowerCase() === "vacant" ||
         col4.toLowerCase().includes("vacant");
 
+      const firstCharge: ChargeRow[] = col6 ? [{ chargeCode: col6, amount: num(r[COL.amount]) }] : [];
       currentTenant = {
         property: "", // filled in when we hit the property Total row
         unit: col0,
@@ -183,6 +190,7 @@ function parseYardiRentRoll(
         marketRent: num(r[COL.marketRent]),
         chargeCode: col6 || undefined,
         chargeAmount: num(r[COL.amount]),
+        charges: firstCharge,
         deposit: num(r[COL.deposit]),
         balance: num(r[COL.balance]),
         moveIn: dateStr(r[COL.moveIn]),
@@ -200,7 +208,8 @@ function parseYardiRentRoll(
       col6 &&
       col6 !== "Total"
     ) {
-      // Add charge amount to running total
+      // Preserve individual charge row and add to running total
+      currentTenant.charges.push({ chargeCode: col6, amount: num(r[COL.amount]) });
       currentTenant.chargeAmount += num(r[COL.amount]);
       continue;
     }
@@ -270,6 +279,7 @@ function parseICERAging(rows: any[]): ParseResult {
       chargeAmount: num(
         col(r, "Actual Rent", "ActualRent", "Charge Amount", "Amount"),
       ),
+      charges: [],
       deposit: num(col(r, "Deposit", "deposit", "Security Deposit")),
       balance: num(
         col(r, "Balance", "balance", "BALANCE", "Total Balance"),
@@ -357,6 +367,7 @@ function parseYardiAging(
       marketRent: 0,
       chargeCode: undefined,
       chargeAmount: 0,
+      charges: [],
       deposit: 0,
       balance: num(get(r, "balance") ?? get(r, "total") ?? 0),
       isVacant,
@@ -483,6 +494,7 @@ function parseGeneric(rawRows: any[][]): ParseResult {
       marketRent: num(get(r, "marketRent")),
       chargeCode: undefined,
       chargeAmount: num(get(r, "chargeAmount")),
+      charges: [],
       deposit: num(get(r, "deposit")),
       balance: num(get(r, "balance")),
       moveIn: dateStr(get(r, "moveIn")),

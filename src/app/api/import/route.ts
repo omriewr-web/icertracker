@@ -19,15 +19,37 @@ export const POST = withAuth(async (req, { user }) => {
     return NextResponse.json({ error: "No tenant records found", errors }, { status: 400 });
   }
 
+  // Create import batch upfront so we can link ImportRows
+  const importBatch = await prisma.importBatch.create({
+    data: {
+      filename: file.name,
+      format: result.format,
+      recordCount: 0,
+      status: "processing",
+    },
+  });
+
   let imported = 0;
   let skipped = 0;
   const buildingCache = new Map<string, string>();
   const existing = await fetchBuildingsForMatching();
 
-  for (const raw of tenants) {
+  for (let rowIdx = 0; rowIdx < tenants.length; rowIdx++) {
+    const raw = tenants[rowIdx];
     const parsed = parsedTenantRowSchema.safeParse(raw);
     if (!parsed.success) {
-      errors.push(`${raw.unit} ${raw.name}: validation failed – ${parsed.error.issues.map((i) => i.message).join(", ")}`);
+      const rowErrors = parsed.error.issues.map((i) => i.message);
+      errors.push(`${raw.unit} ${raw.name}: validation failed – ${rowErrors.join(", ")}`);
+      await prisma.importRow.create({
+        data: {
+          importBatchId: importBatch.id,
+          rowIndex: rowIdx,
+          rawData: raw as any,
+          status: "ERROR",
+          entityType: "tenant",
+          errors: rowErrors,
+        },
+      });
       skipped++;
       continue;
     }
@@ -72,6 +94,16 @@ export const POST = withAuth(async (req, { user }) => {
           create: { unitId: unit.id, proposedRent: t.marketRent },
           update: { proposedRent: t.marketRent },
         });
+        await prisma.importRow.create({
+          data: {
+            importBatchId: importBatch.id,
+            rowIndex: rowIdx,
+            rawData: raw as any,
+            status: "UPDATED",
+            entityType: "vacancy",
+            entityId: unit.id,
+          },
+        });
         imported++;
         continue;
       }
@@ -110,13 +142,18 @@ export const POST = withAuth(async (req, { user }) => {
       };
 
       let tenant;
+      let rowAction: "CREATED" | "UPDATED";
       if (t.residentId) {
+        const existing = await prisma.tenant.findUnique({ where: { yardiResidentId: t.residentId } });
+        rowAction = existing ? "UPDATED" : "CREATED";
         tenant = await prisma.tenant.upsert({
           where: { yardiResidentId: t.residentId },
           create: { unitId: unit.id, yardiResidentId: t.residentId, ...tenantData },
           update: tenantData,
         });
       } else {
+        const existing = await prisma.tenant.findUnique({ where: { unitId: unit.id } });
+        rowAction = existing ? "UPDATED" : "CREATED";
         tenant = await prisma.tenant.upsert({
           where: { unitId: unit.id },
           create: { unitId: unit.id, ...tenantData },
@@ -124,15 +161,17 @@ export const POST = withAuth(async (req, { user }) => {
         });
       }
 
-      // ── Phase 1 dual-write: Lease + BalanceSnapshot ──
+      // ── Dual-write: Lease + BalanceSnapshot + RecurringCharges ──
       const normalizedLeaseStatus = leaseExp
         ? (leaseExp < new Date() ? "EXPIRED" : "ACTIVE")
         : "MONTH_TO_MONTH";
 
+      const leaseId = `${tenant.id}-lease`;
+
       await prisma.lease.upsert({
-        where: { id: `${tenant.id}-lease` },
+        where: { id: leaseId },
         create: {
-          id: `${tenant.id}-lease`,
+          id: leaseId,
           unitId: unit.id,
           tenantId: tenant.id,
           leaseStart: t.moveIn ? new Date(t.moveIn) : null,
@@ -153,34 +192,84 @@ export const POST = withAuth(async (req, { user }) => {
         },
       });
 
+      // Write individual charge rows as RecurringCharges
+      const charges = (raw as any).charges ?? [];
+      if (charges.length > 0) {
+        // Deactivate old charges, replace with current import
+        await prisma.recurringCharge.updateMany({
+          where: { leaseId },
+          data: { active: false },
+        });
+        for (const charge of charges) {
+          if (charge.chargeCode && charge.amount !== 0) {
+            await prisma.recurringCharge.create({
+              data: {
+                leaseId,
+                chargeCode: charge.chargeCode,
+                amount: charge.amount,
+                active: true,
+              },
+            });
+          }
+        }
+      }
+
       await prisma.balanceSnapshot.create({
         data: {
           tenantId: tenant.id,
-          leaseId: `${tenant.id}-lease`,
+          leaseId,
+          importBatchId: importBatch.id,
           snapshotDate: new Date(),
-          currentCharges: t.marketRent,
+          currentCharges: t.chargeAmount || t.marketRent,
           currentBalance: t.balance,
           pastDueBalance: t.balance > 0 ? t.balance : 0,
           arrearsStatus: arrearsCategory,
         },
       });
 
+      // Track this row
+      await prisma.importRow.create({
+        data: {
+          importBatchId: importBatch.id,
+          rowIndex: rowIdx,
+          rawData: raw as any,
+          status: rowAction,
+          entityType: "tenant",
+          entityId: tenant.id,
+        },
+      });
+
       imported++;
     } catch (e: any) {
       errors.push(`${t.unit} ${t.name}: ${e.message}`);
+      await prisma.importRow.create({
+        data: {
+          importBatchId: importBatch.id,
+          rowIndex: rowIdx,
+          rawData: raw as any,
+          status: "ERROR",
+          entityType: "tenant",
+          errors: [e.message],
+        },
+      }).catch(() => {}); // don't fail the whole import if row tracking fails
       skipped++;
     }
   }
 
-  await prisma.importBatch.create({
+  // Update batch with final counts
+  await prisma.importBatch.update({
+    where: { id: importBatch.id },
     data: {
-      filename: file.name,
-      format: "excel",
       recordCount: imported,
       status: errors.length > 0 ? "completed_with_errors" : "completed",
       errors: errors.length > 0 ? errors : undefined,
     },
   });
 
-  return NextResponse.json({ imported, skipped, errors, total: tenants.length, format: result.format });
+  return NextResponse.json({
+    imported, skipped, errors,
+    total: tenants.length,
+    format: result.format,
+    batchId: importBatch.id,
+  });
 }, "upload");

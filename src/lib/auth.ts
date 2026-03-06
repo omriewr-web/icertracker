@@ -2,6 +2,10 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import { bootstrapAdmin } from "./bootstrap-admin";
+
+// Bootstrap admin on module load
+const _adminBootstrap = bootstrapAdmin().catch(console.error);
 
 export const authOptions: NextAuthOptions = {
   providers: [

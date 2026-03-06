@@ -13,6 +13,14 @@ export const GET = withAuth(async (req, { params }) => {
       legalCase: true,
       notes: { orderBy: { createdAt: "desc" }, include: { author: { select: { name: true } } } },
       payments: { orderBy: { date: "desc" }, include: { recorder: { select: { name: true } } } },
+      leases: {
+        orderBy: { createdAt: "desc" },
+        include: {
+          recurringCharges: { where: { active: true } },
+          balanceSnapshots: { orderBy: { snapshotDate: "desc" }, take: 5 },
+        },
+      },
+      balanceSnapshots: { orderBy: { snapshotDate: "desc" }, take: 1 },
     },
   });
 

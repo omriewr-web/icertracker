@@ -4,16 +4,16 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        bg: "#0B0F14",
-        card: "#1A2029",
-        "card-hover": "#222B37",
-        border: "#2A3441",
-        "border-light": "#3A4755",
-        "text-primary": "#E8ECF1",
-        "text-muted": "#8899AA",
-        "text-dim": "#5A6B7C",
-        accent: "#3B82F6",
-        "accent-light": "#60A5FA",
+        bg: "#0D1B2A",
+        card: "#132238",
+        "card-hover": "#1A2D45",
+        border: "#1E3A5F",
+        "border-light": "#2A4A6B",
+        "text-primary": "#FFFFFF",
+        "text-muted": "#A0AEC0",
+        "text-dim": "#5A7A9A",
+        accent: "#C9A84C",
+        "accent-light": "#D4B95E",
       },
       fontFamily: {
         sans: ["DM Sans", "system-ui", "sans-serif"],
@@ -29,8 +29,8 @@ module.exports = {
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
         glowPulse: {
-          "0%, 100%": { boxShadow: "0 0 8px rgba(59,130,246,0.2)" },
-          "50%": { boxShadow: "0 0 16px rgba(59,130,246,0.4)" },
+          "0%, 100%": { boxShadow: "0 0 8px rgba(201,168,76,0.2)" },
+          "50%": { boxShadow: "0 0 16px rgba(201,168,76,0.4)" },
         },
       },
       animation: {
@@ -39,7 +39,7 @@ module.exports = {
         "glow-pulse": "glowPulse 2s ease-in-out infinite",
       },
       boxShadow: {
-        glow: "0 0 12px rgba(59,130,246,0.25)",
+        glow: "0 0 12px rgba(201,168,76,0.25)",
       },
     },
   },
