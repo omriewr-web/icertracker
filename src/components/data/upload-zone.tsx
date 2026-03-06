@@ -8,7 +8,7 @@ import {
 import Button from "@/components/ui/button";
 import {
   useAnalyzeImport, useConfirmImport, useImportExcel,
-  type AiAnalysis, type ColumnMapping, type ConfirmResult, type MatchedProfile,
+  type AiAnalysis, type ColumnMapping, type ConfirmResult, type StageResult, type MatchedProfile,
 } from "@/hooks/use-import";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +48,7 @@ export default function UploadZone() {
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
   const [matchedProfile, setMatchedProfile] = useState<MatchedProfile | null>(null);
   const [aiUsed, setAiUsed] = useState(false);
-  const [confirmResult, setConfirmResult] = useState<ConfirmResult | null>(null);
+  const [confirmResult, setConfirmResult] = useState<ConfirmResult | StageResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const analyzeMutation = useAnalyzeImport();
@@ -486,31 +486,49 @@ export default function UploadZone() {
       {/* ── Step 5b: Results ── */}
       {step === "done" && confirmResult && (
         <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-          <div className="bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-3 text-sm text-green-400">
-            <div className="flex items-center gap-2 mb-1">
-              <CheckCircle className="w-4 h-4" />
-              <span className="font-medium">Import Complete</span>
-            </div>
-            <div className="text-xs text-green-400/80 space-y-0.5">
-              <p>Imported: {confirmResult.imported} rows</p>
-              {confirmResult.skipped > 0 && <p>Skipped: {confirmResult.skipped} rows</p>}
-              {confirmResult.profileSaved && (
-                <p className="text-purple-400/80">Import profile saved for future use</p>
+          {"staged" in confirmResult && confirmResult.staged ? (
+            <>
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-3 text-sm text-blue-400">
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="font-medium">Staged for Review</span>
+                </div>
+                <div className="text-xs text-blue-400/80 space-y-0.5">
+                  <p>Total rows: {confirmResult.summary.total}</p>
+                  <p>New tenants: {confirmResult.summary.newTenants} | Updates: {confirmResult.summary.updates}</p>
+                  {confirmResult.summary.vacancies > 0 && <p>Vacancies: {confirmResult.summary.vacancies}</p>}
+                  {confirmResult.summary.errors > 0 && <p className="text-amber-400/80">Errors: {confirmResult.summary.errors}</p>}
+                </div>
+              </div>
+              <p className="text-xs text-text-dim">Go to the Review Queue tab to approve or reject this import.</p>
+            </>
+          ) : "imported" in confirmResult ? (
+            <>
+              <div className="bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-3 text-sm text-green-400">
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="font-medium">Import Complete</span>
+                </div>
+                <div className="text-xs text-green-400/80 space-y-0.5">
+                  <p>Imported: {confirmResult.imported} rows</p>
+                  {confirmResult.skipped > 0 && <p>Skipped: {confirmResult.skipped} rows</p>}
+                  {confirmResult.profileSaved && (
+                    <p className="text-purple-400/80">Import profile saved for future use</p>
+                  )}
+                </div>
+              </div>
+              {confirmResult.errors.length > 0 && (
+                <details>
+                  <summary className="cursor-pointer text-xs text-amber-400 hover:text-amber-300">
+                    {confirmResult.errors.length} warning{confirmResult.errors.length !== 1 ? "s" : ""}
+                  </summary>
+                  <ul className="mt-1 text-xs text-text-dim list-disc list-inside max-h-32 overflow-y-auto">
+                    {confirmResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+                  </ul>
+                </details>
               )}
-            </div>
-          </div>
-
-          {/* Import warnings/errors */}
-          {confirmResult.errors.length > 0 && (
-            <details>
-              <summary className="cursor-pointer text-xs text-amber-400 hover:text-amber-300">
-                {confirmResult.errors.length} warning{confirmResult.errors.length !== 1 ? "s" : ""}
-              </summary>
-              <ul className="mt-1 text-xs text-text-dim list-disc list-inside max-h-32 overflow-y-auto">
-                {confirmResult.errors.map((e, i) => <li key={i}>{e}</li>)}
-              </ul>
-            </details>
-          )}
+            </>
+          ) : null}
 
           <button onClick={handleReset} className="text-xs text-accent underline">Import another file</button>
         </div>

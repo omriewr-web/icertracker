@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Home, Users, Wrench, Upload, FileDown } from "lucide-react";
+import { Building2, Home, Users, Wrench, Upload, FileDown, ClipboardCheck } from "lucide-react";
 import BuildingsTab from "@/components/data/buildings-tab";
 import UnitsTab from "@/components/data/units-tab";
 import TenantsTab from "@/components/data/tenants-tab";
 import VendorsTab from "@/components/data/vendors-tab";
 import ImportTab from "@/components/data/import-tab";
 import ExportTab from "@/components/data/export-tab";
+import StagingTab from "@/components/data/staging-tab";
 
 const tabs = [
   { key: "buildings", label: "Buildings", icon: Building2 },
@@ -15,6 +16,7 @@ const tabs = [
   { key: "tenants", label: "Tenants", icon: Users },
   { key: "vendors", label: "Vendors", icon: Wrench },
   { key: "import", label: "Import", icon: Upload },
+  { key: "review", label: "Review Queue", icon: ClipboardCheck },
   { key: "export", label: "Export", icon: FileDown },
 ] as const;
 
@@ -50,6 +52,7 @@ export default function DataContent() {
         {tab === "tenants" && <TenantsTab />}
         {tab === "vendors" && <VendorsTab />}
         {tab === "import" && <ImportTab />}
+        {tab === "review" && <StagingTab />}
         {tab === "export" && <ExportTab />}
       </div>
     </div>

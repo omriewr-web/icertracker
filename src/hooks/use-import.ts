@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 
 export interface ColumnMapping {
@@ -72,7 +72,8 @@ export function useConfirmImport() {
       fileType: string;
       matchedProfileId?: string;
       aiUsed: boolean;
-    }): Promise<ConfirmResult> => {
+      mode?: "stage" | "direct";
+    }): Promise<ConfirmResult | StageResult> => {
       const formData = new FormData();
       formData.append("file", payload.file);
       formData.append("columnMapping", JSON.stringify(payload.columnMapping));
@@ -81,6 +82,7 @@ export function useConfirmImport() {
       formData.append("fileType", payload.fileType);
       if (payload.matchedProfileId) formData.append("matchedProfileId", payload.matchedProfileId);
       formData.append("aiUsed", String(payload.aiUsed));
+      formData.append("mode", payload.mode || "stage");
       const res = await fetch("/api/import/confirm", { method: "POST", body: formData });
       if (!res.ok) {
         const err = await res.json();
@@ -89,10 +91,15 @@ export function useConfirmImport() {
       return res.json();
     },
     onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ["tenants"] });
-      qc.invalidateQueries({ queryKey: ["buildings"] });
-      qc.invalidateQueries({ queryKey: ["metrics"] });
-      toast.success(`Imported ${data.imported} records`);
+      if ("staged" in data && data.staged) {
+        qc.invalidateQueries({ queryKey: ["staging-batches"] });
+        toast.success(`Staged for review: ${data.summary.total} rows (${data.summary.newTenants} new, ${data.summary.updates} updates)`);
+      } else if ("imported" in data) {
+        qc.invalidateQueries({ queryKey: ["tenants"] });
+        qc.invalidateQueries({ queryKey: ["buildings"] });
+        qc.invalidateQueries({ queryKey: ["metrics"] });
+        toast.success(`Imported ${data.imported} records`);
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -163,6 +170,111 @@ export function useMappedImport() {
       qc.invalidateQueries({ queryKey: ["buildings"] });
       qc.invalidateQueries({ queryKey: ["metrics"] });
       toast.success(`Imported ${data.imported} records`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// ── Staging hooks ───────────────────────────────────────────
+
+export interface StagingSummary {
+  total: number;
+  newTenants: number;
+  updates: number;
+  vacancies: number;
+  errors: number;
+  buildings: string[];
+}
+
+export interface StagingBatch {
+  id: string;
+  importType: string;
+  fileName: string;
+  uploadedById: string;
+  status: string;
+  summaryJson: StagingSummary;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
+  importBatchId: string | null;
+  createdAt: string;
+}
+
+export interface StageResult {
+  staged: boolean;
+  stagingId: string;
+  summary: StagingSummary;
+}
+
+export function useStagingBatches(status?: string) {
+  return useQuery({
+    queryKey: ["staging-batches", status],
+    queryFn: async (): Promise<StagingBatch[]> => {
+      const params = new URLSearchParams();
+      if (status) params.set("status", status);
+      const res = await fetch(`/api/import/staging?${params}`);
+      if (!res.ok) throw new Error("Failed to fetch staging batches");
+      return res.json();
+    },
+  });
+}
+
+export function useStagingBatchDetail(id: string | null) {
+  return useQuery({
+    queryKey: ["staging-batch", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/import/staging?id=${id}`);
+      if (!res.ok) throw new Error("Failed to fetch staging batch");
+      return res.json();
+    },
+    enabled: !!id,
+  });
+}
+
+export function useApproveStagingBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, notes }: { id: string; notes?: string }) => {
+      const res = await fetch("/api/import/staging", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action: "approve", notes }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Approval failed");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["staging-batches"] });
+      qc.invalidateQueries({ queryKey: ["tenants"] });
+      qc.invalidateQueries({ queryKey: ["buildings"] });
+      qc.invalidateQueries({ queryKey: ["metrics"] });
+      toast.success(`Approved: imported ${data.imported} records`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useRejectStagingBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, notes }: { id: string; notes?: string }) => {
+      const res = await fetch("/api/import/staging", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action: "reject", notes }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Rejection failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["staging-batches"] });
+      toast.success("Batch rejected");
     },
     onError: (e: Error) => toast.error(e.message),
   });
