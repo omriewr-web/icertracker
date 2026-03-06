@@ -8,6 +8,7 @@ export interface ColumnMapping {
   sourceHeader: string;
   mappedField: string | null;
   confidence: number;
+  method?: string;
 }
 
 export interface AiAnalysis {
@@ -24,6 +25,7 @@ export interface AiAnalysis {
     mappedField: string | null;
     confidence: number;
     reason: string;
+    method?: string;
   }>;
   requiredFieldsStatus: {
     missingRequiredFields: string[];
@@ -33,11 +35,67 @@ export interface AiAnalysis {
   assumptions: string[];
 }
 
+export interface MatchedProfile {
+  id: string;
+  name: string;
+  confidence: number;
+}
+
 export interface AnalyzeResult {
   analysis: AiAnalysis;
   sampleRows: string[][];
+  rawSampleRows: Record<string, unknown>[];
   rowCount: number;
   sheetName: string;
+  matchedProfile: MatchedProfile | null;
+  aiUsed: boolean;
+}
+
+export interface ConfirmResult {
+  imported: number;
+  skipped: number;
+  errors: string[];
+  total: number;
+  format: string;
+  batchId: string;
+  profileSaved: boolean;
+}
+
+export function useConfirmImport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      file: File;
+      columnMapping: ColumnMapping[];
+      dataStartRow: number;
+      headerRows: number[];
+      fileType: string;
+      matchedProfileId?: string;
+      aiUsed: boolean;
+    }): Promise<ConfirmResult> => {
+      const formData = new FormData();
+      formData.append("file", payload.file);
+      formData.append("columnMapping", JSON.stringify(payload.columnMapping));
+      formData.append("dataStartRow", String(payload.dataStartRow));
+      formData.append("headerRows", JSON.stringify(payload.headerRows));
+      formData.append("fileType", payload.fileType);
+      if (payload.matchedProfileId) formData.append("matchedProfileId", payload.matchedProfileId);
+      formData.append("aiUsed", String(payload.aiUsed));
+      const res = await fetch("/api/import/confirm", { method: "POST", body: formData });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Import failed");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["tenants"] });
+      qc.invalidateQueries({ queryKey: ["buildings"] });
+      qc.invalidateQueries({ queryKey: ["metrics"] });
+      toast.success(`Imported ${data.imported} records`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 }
 
 export function useAnalyzeImport() {
