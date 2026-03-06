@@ -3,12 +3,96 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 
+export interface ColumnMapping {
+  columnIndex: number;
+  sourceHeader: string;
+  mappedField: string | null;
+  confidence: number;
+}
+
+export interface AiAnalysis {
+  fileType: string;
+  confidence: number;
+  headerRows: number[];
+  dataStartRow: number;
+  ignoredRowTypes: string[];
+  ignoredRowIndices: number[];
+  columns: Array<{
+    columnIndex: number;
+    sourceHeader: string;
+    normalizedHeader: string;
+    mappedField: string | null;
+    confidence: number;
+    reason: string;
+  }>;
+  requiredFieldsStatus: {
+    missingRequiredFields: string[];
+    presentRequiredFields: string[];
+  };
+  warnings: string[];
+  assumptions: string[];
+}
+
+export interface AnalyzeResult {
+  analysis: AiAnalysis;
+  sampleRows: string[][];
+  rowCount: number;
+  sheetName: string;
+}
+
+export function useAnalyzeImport() {
+  return useMutation({
+    mutationFn: async (file: File): Promise<AnalyzeResult> => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/import/analyze", { method: "POST", body: formData });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Analysis failed");
+      }
+      return res.json();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 export function useImportExcel() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
+      const res = await fetch("/api/import", { method: "POST", body: formData });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Import failed");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["tenants"] });
+      qc.invalidateQueries({ queryKey: ["buildings"] });
+      qc.invalidateQueries({ queryKey: ["metrics"] });
+      toast.success(`Imported ${data.imported} records`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useMappedImport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ file, columnMapping, dataStartRow, headerRows }: {
+      file: File;
+      columnMapping: ColumnMapping[];
+      dataStartRow: number;
+      headerRows: number[];
+    }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("columnMapping", JSON.stringify(columnMapping));
+      formData.append("dataStartRow", String(dataStartRow));
+      formData.append("headerRows", JSON.stringify(headerRows));
       const res = await fetch("/api/import", { method: "POST", body: formData });
       if (!res.ok) {
         const err = await res.json();

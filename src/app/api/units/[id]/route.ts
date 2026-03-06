@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
+import { assertUnitAccess } from "@/lib/data-scope";
 
-export const PATCH = withAuth(async (req, { params }) => {
+export const PATCH = withAuth(async (req, { user, params }) => {
   const { id } = await params;
+  const denied = await assertUnitAccess(user, id);
+  if (denied) return denied;
   const body = await req.json();
   const unit = await prisma.unit.update({
     where: { id },
@@ -16,8 +19,11 @@ export const PATCH = withAuth(async (req, { params }) => {
   return NextResponse.json(unit);
 }, "edit");
 
-export const DELETE = withAuth(async (req, { params }) => {
+export const DELETE = withAuth(async (req, { user, params }) => {
   const { id } = await params;
+  const denied = await assertUnitAccess(user, id);
+  if (denied) return denied;
+
   await prisma.unit.delete({ where: { id } });
   return NextResponse.json({ success: true });
 }, "edit");

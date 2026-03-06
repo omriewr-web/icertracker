@@ -3,9 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { tenantUpdateSchema } from "@/lib/validations";
 import { getArrearsCategory, getArrearsDays, getLeaseStatus, calcCollectionScore } from "@/lib/scoring";
+import { assertTenantAccess } from "@/lib/data-scope";
 
-export const GET = withAuth(async (req, { params }) => {
+export const GET = withAuth(async (req, { user, params }) => {
   const { id } = await params;
+  const denied = await assertTenantAccess(user, id);
+  if (denied) return denied;
+
   const tenant = await prisma.tenant.findUnique({
     where: { id },
     include: {
@@ -28,8 +32,11 @@ export const GET = withAuth(async (req, { params }) => {
   return NextResponse.json(tenant);
 });
 
-export const PATCH = withAuth(async (req, { params }) => {
+export const PATCH = withAuth(async (req, { user, params }) => {
   const { id } = await params;
+  const denied = await assertTenantAccess(user, id);
+  if (denied) return denied;
+
   const data = await parseBody(req, tenantUpdateSchema);
 
   const current = await prisma.tenant.findUnique({ where: { id }, include: { legalCase: true } });
@@ -76,8 +83,11 @@ export const PATCH = withAuth(async (req, { params }) => {
   return NextResponse.json(tenant);
 }, "edit");
 
-export const DELETE = withAuth(async (req, { params }) => {
+export const DELETE = withAuth(async (req, { user, params }) => {
   const { id } = await params;
+  const denied = await assertTenantAccess(user, id);
+  if (denied) return denied;
+
   const tenant = await prisma.tenant.findUnique({ where: { id } });
   if (!tenant) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

@@ -797,3 +797,60 @@ model ImportRow {
   @@index([status])
   @@map("import_rows")
 }
+
+// ── Self-Learning Import Profiles ────────────────────────────────
+
+model ImportProfile {
+  id               String   @id @default(cuid())
+  organizationId   String   @default("default")
+  name             String
+  importType       String
+  sheetNamePattern String?
+  headerRowCount   Int
+  fingerprintJson  Json
+  mappingJson      Json
+  ignoredRulesJson Json?
+  isActive         Boolean  @default(true)
+  createdById      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  runs             ImportRun[]
+  feedback         ImportFeedback[]
+  @@index([organizationId, importType])
+  @@map("import_profiles")
+}
+
+model ImportRun {
+  id               String   @id @default(cuid())
+  organizationId   String   @default("default")
+  fileName         String
+  importType       String
+  matchedProfileId String?
+  aiUsed           Boolean  @default(false)
+  status           String   @default("pending")
+  analysisJson     Json
+  finalMappingJson Json?
+  createdById      String?
+  createdAt        DateTime @default(now())
+  matchedProfile   ImportProfile? @relation(fields: [matchedProfileId], references: [id])
+  feedback         ImportFeedback[]
+  @@index([organizationId, importType])
+  @@index([matchedProfileId])
+  @@map("import_runs")
+}
+
+model ImportFeedback {
+  id                 String   @id @default(cuid())
+  importRunId        String
+  importProfileId    String?
+  fieldName          String
+  originalSuggestion String?
+  finalUserChoice    String?
+  corrected          Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  importRun          ImportRun     @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  importProfile      ImportProfile? @relation(fields: [importProfileId], references: [id])
+  @@index([importRunId])
+  @@index([importProfileId])
+  @@map("import_feedback")
+}

@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
+import { assertBuildingAccess } from "@/lib/data-scope";
 
-export const GET = withAuth(async (req, { params }) => {
+export const GET = withAuth(async (req, { user, params }) => {
   const { id } = await params;
+  const denied = await assertBuildingAccess(user, id);
+  if (denied) return denied;
+
   const building = await prisma.building.findUnique({
     where: { id },
     include: {
@@ -21,8 +25,10 @@ export const GET = withAuth(async (req, { params }) => {
   return NextResponse.json(building);
 });
 
-export const PATCH = withAuth(async (req, { params }) => {
+export const PATCH = withAuth(async (req, { user, params }) => {
   const { id } = await params;
+  const denied = await assertBuildingAccess(user, id);
+  if (denied) return denied;
   const body = await req.json();
   // Convert null JSON fields to Prisma.DbNull
   const jsonFields = ["superintendent", "elevatorCompany", "fireAlarmCompany", "utilityMeters", "utilityAccounts", "lifeSafety", "elevatorInfo", "boilerInfo", "complianceDates"];
@@ -39,8 +45,11 @@ export const PATCH = withAuth(async (req, { params }) => {
   return NextResponse.json(building);
 }, "edit");
 
-export const DELETE = withAuth(async (req, { params }) => {
+export const DELETE = withAuth(async (req, { user, params }) => {
   const { id } = await params;
+  const denied = await assertBuildingAccess(user, id);
+  if (denied) return denied;
+
   await prisma.building.delete({ where: { id } });
   return NextResponse.json({ success: true });
 }, "upload");

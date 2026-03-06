@@ -1,10 +1,97 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
-import { parseRentRollExcel } from "@/lib/excel-import";
+import { parseRentRollExcel, type ParsedTenant } from "@/lib/excel-import";
 import { parsedTenantRowSchema } from "@/lib/validations";
 import { getArrearsCategory, getArrearsDays, getLeaseStatus, calcCollectionScore } from "@/lib/scoring";
-import { findMatchingBuilding, fetchBuildingsForMatching, generateYardiId, normalizeAddress } from "@/lib/building-matching";
+import { findMatchingBuilding, fetchBuildingsForMatching, generateYardiId, normalizeAddress, extractAddressFromEntity } from "@/lib/building-matching";
+import * as XLSX from "xlsx";
+
+// ── Mapped import: convert AI column mapping → ParsedTenant[] ──
+
+interface ColumnMappingEntry {
+  columnIndex: number;
+  sourceHeader: string;
+  mappedField: string | null;
+  confidence: number;
+}
+
+function numVal(v: any): number {
+  if (v == null || v === "") return 0;
+  const n = typeof v === "string" ? parseFloat(v.replace(/[$,]/g, "")) : Number(v);
+  return isNaN(n) ? 0 : n;
+}
+
+function dateVal(v: any): string | undefined {
+  if (!v) return undefined;
+  if (v instanceof Date) return v.toISOString().split("T")[0];
+  if (typeof v === "number" && v > 30000 && v < 60000) {
+    const d = XLSX.SSF.parse_date_code(v);
+    if (d) return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+  }
+  const parsed = new Date(v);
+  return isNaN(parsed.getTime()) ? undefined : parsed.toISOString().split("T")[0];
+}
+
+function parseMappedRows(
+  buffer: Buffer,
+  mapping: ColumnMappingEntry[],
+  dataStartRow: number,
+): { tenants: ParsedTenant[]; propertyName: string; errors: string[]; format: string } {
+  const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const rawRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+  // Build field → column index map
+  const fieldMap: Record<string, number> = {};
+  for (const m of mapping) {
+    if (m.mappedField) fieldMap[m.mappedField] = m.columnIndex;
+  }
+
+  const get = (row: any[], field: string): any =>
+    fieldMap[field] !== undefined ? row[fieldMap[field]] : undefined;
+
+  const tenants: ParsedTenant[] = [];
+  const errors: string[] = [];
+
+  for (let i = dataStartRow - 1; i < rawRows.length; i++) {
+    const r = rawRows[i];
+    if (!r || r.every((v: any) => v === "" || v === null || v === undefined)) continue;
+
+    const unit = String(get(r, "unit") ?? "").trim();
+    const name = String(get(r, "full_name") ?? get(r, "last_name") ?? "").trim();
+    if (!unit && !name) continue;
+    if (!unit) {
+      errors.push(`Row ${i + 1}: missing unit number`);
+      continue;
+    }
+
+    const fullName = String(get(r, "full_name") ?? "").trim()
+      || [String(get(r, "first_name") ?? "").trim(), String(get(r, "last_name") ?? "").trim()].filter(Boolean).join(" ");
+
+    const isVacant = !fullName || fullName.toLowerCase().includes("vacant");
+
+    tenants.push({
+      property: String(get(r, "building_id") ?? "").trim(),
+      unit,
+      unitType: undefined,
+      residentId: String(get(r, "tenant_code") ?? "").trim() || undefined,
+      name: isVacant ? "VACANT" : fullName,
+      marketRent: numVal(get(r, "market_rent") || get(r, "monthly_rent")),
+      chargeCode: undefined,
+      chargeAmount: numVal(get(r, "monthly_rent") || get(r, "market_rent")),
+      charges: [],
+      deposit: numVal(get(r, "security_deposit")),
+      balance: numVal(get(r, "current_balance")),
+      moveIn: dateVal(get(r, "move_in_date") || get(r, "lease_start_date")),
+      leaseExpiration: dateVal(get(r, "lease_end_date")),
+      moveOut: dateVal(get(r, "move_out_date")),
+      isVacant,
+    });
+  }
+
+  return { tenants, propertyName: "", errors, format: "ai-mapped" };
+}
 
 export const POST = withAuth(async (req, { user }) => {
   const formData = await req.formData();
@@ -12,7 +99,23 @@ export const POST = withAuth(async (req, { user }) => {
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const result = parseRentRollExcel(buffer);
+
+  // Check for AI column mapping
+  const columnMappingRaw = formData.get("columnMapping") as string | null;
+  const dataStartRowRaw = formData.get("dataStartRow") as string | null;
+
+  let result: { tenants: ParsedTenant[]; propertyName: string; errors: string[]; format: string };
+
+  if (columnMappingRaw && dataStartRowRaw) {
+    // ── AI-mapped import path ──
+    const mapping: ColumnMappingEntry[] = JSON.parse(columnMappingRaw);
+    const dataStartRow = parseInt(dataStartRowRaw, 10);
+    result = parseMappedRows(buffer, mapping, dataStartRow);
+  } else {
+    // ── Legacy auto-detect parser path ──
+    result = parseRentRollExcel(buffer);
+  }
+
   const { tenants, propertyName, errors } = result;
 
   if (tenants.length === 0) {
@@ -56,12 +159,16 @@ export const POST = withAuth(async (req, { user }) => {
     const t = parsed.data;
     try {
       const propKey = t.property || propertyName || "Unknown";
-      const cacheKey = normalizeAddress(propKey);
+      // Extract Yardi code from parenthesized suffix: "Entity Name(code)" → "code"
+      const yardiMatch = propKey.match(/\(([^)]+)\)\s*$/);
+      const yardiCode = yardiMatch ? yardiMatch[1] : null;
+      const extractedAddr = extractAddressFromEntity(propKey);
+      const cacheKey = normalizeAddress(extractedAddr || propKey);
       let buildingId = buildingCache.get(cacheKey);
 
       if (!buildingId) {
         const match = findMatchingBuilding(
-          { address: propKey, block: null, lot: null, entity: null },
+          { address: extractedAddr || propKey, block: null, lot: null, entity: propKey, yardiId: yardiCode },
           existing
         );
         if (match) {

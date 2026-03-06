@@ -107,7 +107,8 @@ export const POST = withAuth(async (req: NextRequest) => {
         created++;
       }
     } catch (err: any) {
-      importErrors.push(`Row ${row.rowIndex} (${row.address}): ${err.message}`);
+      const detail = err.meta?.target || err.meta?.field_name || "";
+      importErrors.push(`Row ${row.rowIndex} (${row.address}): ${err.message}${detail ? ` [field: ${detail}]` : ""}`);
     }
   }
 

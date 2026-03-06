@@ -2,9 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { violationSyncSchema } from "@/lib/validations";
 import { syncBuildingViolations, syncAllBuildings } from "@/lib/violation-sync";
+import { assertBuildingAccess } from "@/lib/data-scope";
 
-export const POST = withAuth(async (req: NextRequest) => {
+export const POST = withAuth(async (req: NextRequest, { user }) => {
   const body = await parseBody(req, violationSyncSchema);
+
+  if (body.buildingId) {
+    const denied = await assertBuildingAccess(user, body.buildingId);
+    if (denied) return denied;
+  } else if (user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   let results;
   if (body.buildingId) {

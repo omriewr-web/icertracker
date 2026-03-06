@@ -3,9 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { complianceGenerateSchema } from "@/lib/validations";
 import { generateDefaultComplianceItems } from "@/lib/compliance-templates";
+import { assertBuildingAccess } from "@/lib/data-scope";
 
-export const POST = withAuth(async (req: NextRequest) => {
+export const POST = withAuth(async (req: NextRequest, { user }) => {
   const { buildingId } = await parseBody(req, complianceGenerateSchema);
+
+  const denied = await assertBuildingAccess(user, buildingId);
+  if (denied) return denied;
 
   // Check building exists
   const building = await prisma.building.findUnique({ where: { id: buildingId } });

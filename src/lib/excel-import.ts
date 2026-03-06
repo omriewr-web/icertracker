@@ -83,6 +83,18 @@ function detectFormat(
   if (a1.includes("rent roll with lease charges")) return "yardi-rentroll";
   if (a1.includes("aged receivables")) return "yardi-aging";
 
+  // Check for Yardi rent roll without title row (headers in first few rows)
+  for (let i = 0; i < Math.min(3, rawRows.length); i++) {
+    const vals = rawRows[i]?.map((v: any) => String(v ?? "").trim().toLowerCase()) ?? [];
+    if (
+      vals[0] === "unit" &&
+      (vals.includes("name") || vals.includes("resident")) &&
+      (vals.includes("market") || vals.includes("balance") || vals.includes("amount"))
+    ) {
+      return "yardi-rentroll";
+    }
+  }
+
   // Check if first row has clean column headers
   const firstRowKeys = rawRows[0] ?? [];
   const headerStr = firstRowKeys.map((v: any) => norm(String(v))).join(",");
@@ -115,49 +127,118 @@ function parseYardiRentRoll(
   let propertyName = "";
   let currentProperty = "";
 
-  // Column indices based on the known Yardi Rent Roll layout
-  const COL = {
-    unit: 0,
-    unitType: 1,
-    residentId: 3,
-    name: 4,
-    marketRent: 5,
-    chargeCode: 6,
-    amount: 7,
-    deposit: 8,
-    otherDeposit: 9,
-    moveIn: 10,
-    leaseExp: 11,
-    moveOut: 12,
-    balance: 13,
+  // ── Step 1: Find header row (contains "Unit" and "Name"/"Resident") ──
+  let headerStart = -1;
+  for (let i = 0; i < Math.min(10, rawRows.length); i++) {
+    const vals = rawRows[i]?.map((v: any) => String(v ?? "").trim().toLowerCase()) ?? [];
+    if (
+      vals.includes("unit") &&
+      (vals.includes("name") || vals.includes("resident") || vals.includes("market"))
+    ) {
+      headerStart = i;
+      break;
+    }
+  }
+
+  if (headerStart === -1) {
+    return { tenants, propertyName, errors: ["Could not find Yardi rent roll header row"], format: "yardi-rentroll" };
+  }
+
+  // ── Step 2: Combine split headers if next row is a continuation ──
+  const row1 = rawRows[headerStart].map((v: any) => String(v ?? "").trim());
+  let combined = [...row1];
+  let dataStart = headerStart + 1;
+
+  if (headerStart + 1 < rawRows.length) {
+    const row2 = rawRows[headerStart + 1]?.map((v: any) => String(v ?? "").trim()) ?? [];
+    const continuationWords = ["rent", "deposit", "code", "expiration", "sq ft", "sqft"];
+    const hasContinuation = row2.some(
+      (v: string) => v && continuationWords.some((w) => v.toLowerCase().includes(w)),
+    );
+    if (hasContinuation) {
+      combined = row1.map((h, i) => {
+        const h2 = (row2[i] || "").trim();
+        if (!h && !h2) return "";
+        if (!h2) return h;
+        if (!h) return h2;
+        return `${h} ${h2}`;
+      });
+      dataStart = headerStart + 2;
+    }
+  }
+
+  // ── Step 3: Build column index map from combined headers ──
+  const HEADER_ALIASES: Record<string, string> = {
+    "unit": "unit",
+    "unit type": "unitType",
+    "unit sq ft": "_skip",
+    "unit sqft": "_skip",
+    "resident": "residentId",
+    "resident id": "residentId",
+    "name": "name",
+    "market rent": "marketRent",
+    "market": "marketRent",
+    "charge code": "chargeCode",
+    "amount": "amount",
+    "resident deposit": "deposit",
+    "other deposit": "otherDeposit",
+    "deposit": "deposit",
+    "move in": "moveIn",
+    "lease expiration": "leaseExp",
+    "lease exp": "leaseExp",
+    "move out": "moveOut",
+    "balance": "balance",
   };
 
-  let currentTenant: ParsedTenant | null = null;
+  const COL: Record<string, number> = {};
+  for (let i = 0; i < combined.length; i++) {
+    const normalized = combined[i].toLowerCase().trim();
+    const field = HEADER_ALIASES[normalized];
+    if (field && field !== "_skip" && COL[field] === undefined) {
+      COL[field] = i;
+    }
+  }
 
-  for (let i = 6; i < rawRows.length; i++) {
+  if (COL.unit === undefined || COL.name === undefined) {
+    return {
+      tenants, propertyName,
+      errors: [`Missing required columns: Unit and Name. Found headers: ${combined.filter(Boolean).join(", ")}`],
+      format: "yardi-rentroll",
+    };
+  }
+
+  // ── Step 4: Parse data rows ──
+  const SECTION_HEADERS = new Set([
+    "current/notice/vacant residents",
+    "future residents/applicants",
+    "past residents",
+    "summary groups",
+    "summary of charges by charge code",
+    "unit",
+  ]);
+
+  let currentTenant: ParsedTenant | null = null;
+  const getCol = (r: any[], field: string): any =>
+    COL[field] !== undefined ? r[COL[field]] : undefined;
+
+  for (let i = dataStart; i < rawRows.length; i++) {
     const r = rawRows[i];
     if (!r || r.every((v: any) => v === "" || v === 0 || v == null)) continue;
 
-    const col0 = String(r[COL.unit] ?? "").trim();
-    const col4 = String(r[COL.name] ?? "").trim();
-    const col6 = String(r[COL.chargeCode] ?? "").trim();
+    const unitVal = String(getCol(r, "unit") ?? "").trim();
+    const nameVal = String(getCol(r, "name") ?? "").trim();
 
     // Skip section headers
-    if (
-      col0 === "Current/Notice/Vacant Residents" ||
-      col0 === "Future Residents/Applicants" ||
-      col0 === "Past Residents" ||
-      col0 === "Summary Groups" ||
-      col0 === "Summary of Charges by Charge Code" ||
-      col0 === "Unit" // repeated header
-    )
-      continue;
+    if (SECTION_HEADERS.has(unitVal.toLowerCase())) continue;
 
-    // Property total row: col[3]="Total", col[4]=property name
-    const col3 = String(r[3] ?? "").trim();
-    if (col3 === "Total" && col4 && col4.length > 3) {
-      currentProperty = col4;
-      // Update all tenants that don't have a property set yet
+    // ── Total row: residentId = "Total", name = building name ──
+    const resIdVal = String(getCol(r, "residentId") ?? "").trim();
+    if (resIdVal === "Total" && nameVal.length > 3) {
+      if (currentTenant) tenants.push(currentTenant);
+      currentTenant = null;
+      currentProperty = nameVal;
+
+      // Backfill property for tenants without one
       for (let j = tenants.length - 1; j >= 0; j--) {
         if (!tenants[j].property) tenants[j].property = currentProperty;
         else break;
@@ -166,53 +247,55 @@ function parseYardiRentRoll(
       continue;
     }
 
-    // Per-unit total row: col6 = "Total" (skip)
-    if (col6 === "Total" || col6 === "Totals:") continue;
+    // Skip per-unit total rows (chargeCode column = "Total")
+    const chargeCodeVal = String(getCol(r, "chargeCode") ?? "").trim();
+    if (chargeCodeVal === "Total" || chargeCodeVal === "Totals:") continue;
 
-    // New tenant row: has unit number in col0 and name in col4
-    if (col0 && col4 && col4 !== "Total") {
-      // Save previous tenant
+    // ── New tenant row: has unit and name ──
+    if (unitVal && nameVal && nameVal !== "Total") {
       if (currentTenant) tenants.push(currentTenant);
 
-      const isVacant =
-        !col4 ||
-        col4.toLowerCase() === "vacant" ||
-        col4.toLowerCase().includes("vacant");
+      const isVacant = !nameVal || nameVal.toLowerCase().includes("vacant");
+      const firstCharge: ChargeRow[] =
+        COL.chargeCode !== undefined && chargeCodeVal
+          ? [{ chargeCode: chargeCodeVal, amount: num(getCol(r, "amount")) }]
+          : [];
 
-      const firstCharge: ChargeRow[] = col6 ? [{ chargeCode: col6, amount: num(r[COL.amount]) }] : [];
       currentTenant = {
-        property: "", // filled in when we hit the property Total row
-        unit: col0,
-        unitType: String(r[COL.unitType] ?? "").trim() || undefined,
-        residentId:
-          String(r[COL.residentId] ?? "").trim() || undefined,
-        name: isVacant ? "VACANT" : col4,
-        marketRent: num(r[COL.marketRent]),
-        chargeCode: col6 || undefined,
-        chargeAmount: num(r[COL.amount]),
+        property: "",
+        unit: unitVal,
+        unitType: String(getCol(r, "unitType") ?? "").trim() || undefined,
+        residentId: String(getCol(r, "residentId") ?? "").trim() || undefined,
+        name: isVacant ? "VACANT" : nameVal,
+        marketRent: num(getCol(r, "marketRent")),
+        chargeCode: chargeCodeVal || undefined,
+        chargeAmount: num(getCol(r, "amount")),
         charges: firstCharge,
-        deposit: num(r[COL.deposit]),
-        balance: num(r[COL.balance]),
-        moveIn: dateStr(r[COL.moveIn]),
-        leaseExpiration: dateStr(r[COL.leaseExp]),
-        moveOut: dateStr(r[COL.moveOut]) || undefined,
+        deposit: num(getCol(r, "deposit")),
+        balance: num(getCol(r, "balance")),
+        moveIn: dateStr(getCol(r, "moveIn")),
+        leaseExpiration: dateStr(getCol(r, "leaseExp")),
+        moveOut: dateStr(getCol(r, "moveOut")) || undefined,
         isVacant,
       };
       continue;
     }
 
-    // Additional charge-code row for the current tenant (same tenant, different charge)
+    // ── Charge-code row (14-col format with chargeCode column) ──
     if (
       currentTenant &&
-      !col0 &&
-      col6 &&
-      col6 !== "Total"
+      !unitVal &&
+      COL.chargeCode !== undefined &&
+      chargeCodeVal &&
+      chargeCodeVal !== "Total"
     ) {
-      // Preserve individual charge row and add to running total
-      currentTenant.charges.push({ chargeCode: col6, amount: num(r[COL.amount]) });
-      currentTenant.chargeAmount += num(r[COL.amount]);
+      currentTenant.charges.push({ chargeCode: chargeCodeVal, amount: num(getCol(r, "amount")) });
+      currentTenant.chargeAmount += num(getCol(r, "amount"));
       continue;
     }
+
+    // ── Charge-only row (12-col format, no chargeCode column): skip ──
+    // Rows with blank unit and only an amount value are charge detail rows
   }
 
   // Push last tenant

@@ -11,10 +11,16 @@ import { getScoreLabel } from "@/lib/scoring";
 import { useAppStore } from "@/stores/app-store";
 
 export default function DailyContent() {
-  const { data, isLoading } = useDailySummary();
+  const { data, isLoading, isError } = useDailySummary();
   const { setDetailTenantId, setAiPanelOpen } = useAppStore();
 
-  if (isLoading || !data) return <PageSkeleton />;
+  if (isLoading) return <PageSkeleton />;
+
+  const hasContent =
+    (data?.urgentTenants?.length ?? 0) > 0 ||
+    (data?.expiringLeases?.length ?? 0) > 0 ||
+    (data?.legalCases?.length ?? 0) > 0 ||
+    (data?.recentPayments?.length ?? 0) > 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -29,7 +35,19 @@ export default function DailyContent() {
         </Button>
       </div>
 
-      {data.urgentTenants?.length > 0 && (
+      {isError && (
+        <div className="bg-card-gradient border border-border rounded-xl p-8 text-center">
+          <p className="text-red-400 text-sm">Failed to load daily summary. Please try refreshing.</p>
+        </div>
+      )}
+
+      {!isError && !hasContent && (
+        <div className="bg-card-gradient border border-border rounded-xl p-8 text-center">
+          <p className="text-text-dim text-sm">No data to display. Import tenants to see your daily summary.</p>
+        </div>
+      )}
+
+      {data?.urgentTenants?.length > 0 && (
         <Section title="Urgent — High Priority Accounts" icon={AlertTriangle} iconColor="text-red-400">
           <div className="space-y-1">
             {data.urgentTenants.map((t: any) => {
@@ -57,7 +75,7 @@ export default function DailyContent() {
         </Section>
       )}
 
-      {data.expiringLeases?.length > 0 && (
+      {data?.expiringLeases?.length > 0 && (
         <Section title="Leases Expiring Soon" icon={FileText} iconColor="text-amber-400">
           <div className="space-y-1">
             {data.expiringLeases.map((t: any) => (
@@ -73,7 +91,7 @@ export default function DailyContent() {
         </Section>
       )}
 
-      {data.legalCases?.length > 0 && (
+      {data?.legalCases?.length > 0 && (
         <Section title="Active Legal Cases" icon={Scale} iconColor="text-purple-400">
           <div className="space-y-1">
             {data.legalCases.map((c: any) => (
@@ -94,7 +112,7 @@ export default function DailyContent() {
         </Section>
       )}
 
-      {data.recentPayments?.length > 0 && (
+      {data?.recentPayments?.length > 0 && (
         <Section title="Recent Payments" icon={DollarSign} iconColor="text-green-400">
           <div className="space-y-1">
             {data.recentPayments.map((p: any) => (

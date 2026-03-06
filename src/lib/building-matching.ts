@@ -42,6 +42,7 @@ interface BuildingCandidate {
   block?: string | null;
   lot?: string | null;
   entity?: string | null;
+  yardiId?: string | null;
 }
 
 interface ExistingBuilding {
@@ -57,6 +58,12 @@ export function findMatchingBuilding(
   candidate: BuildingCandidate,
   existingBuildings: ExistingBuilding[]
 ): { id: string; matchedBy: string } | null {
+  // 0. YardiId match (exact)
+  if (candidate.yardiId) {
+    const match = existingBuildings.find((b) => b.yardiId === candidate.yardiId);
+    if (match) return { id: match.id, matchedBy: "yardiId" };
+  }
+
   // 1. Block+lot match (both non-empty, normalized)
   if (candidate.block && candidate.lot) {
     const normBlock = normalizeBlockLot(candidate.block);

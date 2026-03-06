@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { detectBoroId, debugFetchSource } from "@/lib/nyc-open-data";
+import { assertBuildingAccess } from "@/lib/data-scope";
 
 // GET /api/violations/test?buildingId=xxx
 // or  /api/violations/test?block=02662&lot=0028&boro=2
 // Returns raw debug info: the exact URL called, HTTP status, row count, sample row
-export const GET = withAuth(async (req: NextRequest) => {
+export const GET = withAuth(async (req: NextRequest, { user }) => {
   const url = new URL(req.url);
   const buildingId = url.searchParams.get("buildingId");
   const manualBlock = url.searchParams.get("block");
@@ -20,6 +21,9 @@ export const GET = withAuth(async (req: NextRequest) => {
   let buildingInfo: any = {};
 
   if (buildingId) {
+    const denied = await assertBuildingAccess(user, buildingId);
+    if (denied) return denied;
+
     const building = await prisma.building.findUnique({
       where: { id: buildingId },
       select: { id: true, address: true, block: true, lot: true, zip: true },

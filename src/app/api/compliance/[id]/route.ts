@@ -4,6 +4,7 @@ import { withAuth, parseBody } from "@/lib/api-helpers";
 import { complianceItemUpdateSchema } from "@/lib/validations";
 import { calculateNextDueDate } from "@/lib/compliance-templates";
 import { getDisplayAddress } from "@/lib/building-matching";
+import { assertComplianceAccess } from "@/lib/data-scope";
 import type { ComplianceItemView } from "@/types";
 
 function mapComplianceItem(item: any): ComplianceItemView {
@@ -38,8 +39,11 @@ function mapComplianceItem(item: any): ComplianceItemView {
   };
 }
 
-export const PATCH = withAuth(async (req: NextRequest, { params }) => {
+export const PATCH = withAuth(async (req: NextRequest, { user, params }) => {
   const { id } = await params;
+  const denied = await assertComplianceAccess(user, id);
+  if (denied) return denied;
+
   const data = await parseBody(req, complianceItemUpdateSchema);
 
   const existing = await prisma.complianceItem.findUnique({ where: { id } });
@@ -73,8 +77,10 @@ export const PATCH = withAuth(async (req: NextRequest, { params }) => {
   return NextResponse.json(mapComplianceItem(updated));
 }, "compliance");
 
-export const DELETE = withAuth(async (req: NextRequest, { params }) => {
+export const DELETE = withAuth(async (req: NextRequest, { user, params }) => {
   const { id } = await params;
+  const denied = await assertComplianceAccess(user, id);
+  if (denied) return denied;
 
   const item = await prisma.complianceItem.findUnique({ where: { id } });
   if (!item) {

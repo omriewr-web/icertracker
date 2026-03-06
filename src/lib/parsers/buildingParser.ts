@@ -57,6 +57,39 @@ const COLUMN_MAP: Record<string, string> = {
   notes: "notes",
 };
 
+/** Aliases: maps alternate/user-provided column names (normalized) → canonical COLUMN_MAP key */
+const HEADER_ALIASES: Record<string, string> = {
+  // Yardi Code → building_id
+  yardi_code: "building_id",
+  yardi_id: "building_id",
+  // Entity → building_name
+  entity: "building_name",
+  // Region → borough
+  region: "borough",
+  // Unit Count → units
+  unit_count: "units",
+  // Zip Code → zip
+  zip_code: "zip",
+  zipcode: "zip",
+  // BIN # (DOB) → bin
+  "bin_#_(dob)": "bin",
+  bin_dob: "bin",
+  bin_number: "bin",
+  // Owner → owner_name
+  owner: "owner_name",
+  // Number of floors → floors
+  number_of_floors: "floors",
+  // Year of construction → year_built
+  year_of_construction: "year_built",
+  // HPD Registration → hpd_registration_id
+  hpd_registration: "hpd_registration_id",
+  // Petroleum Bulk Storage (Oil Tank) → oil_tank
+  "petroleum_bulk_storage_(oil_tank)": "oil_tank",
+  petroleum_bulk_storage: "oil_tank",
+  // EIN Number → ein_number (stored in notes/extra)
+  ein_number: "einNumber",
+};
+
 export interface ParsedBuildingRow {
   rowIndex: number;
 
@@ -113,6 +146,7 @@ export interface ParsedBuildingRow {
   // Meta
   lastInspectionDate?: string;
   notes?: string;
+  einNumber?: string;
 }
 
 export interface BuildingImportResult {
@@ -127,15 +161,36 @@ function normalizeHeader(h: string): string {
   return h.toLowerCase().trim().replace(/\s+/g, "_");
 }
 
+/** Resolve a raw header string to a COLUMN_MAP key, checking aliases */
+function resolveHeader(h: string): string | undefined {
+  const norm = normalizeHeader(h);
+  // Direct match in COLUMN_MAP
+  if (COLUMN_MAP[norm]) return norm;
+  // Check aliases → canonical key
+  const aliased = HEADER_ALIASES[norm];
+  if (aliased) {
+    // aliased is either a COLUMN_MAP key or a direct field key (e.g. "einNumber")
+    if (COLUMN_MAP[aliased]) return aliased;
+    return aliased; // direct field key
+  }
+  return undefined;
+}
+
 function cellToString(val: any): string | undefined {
   if (val === null || val === undefined || val === "") return undefined;
   return String(val).trim();
 }
 
+const INT4_MAX = 2_147_483_647;
+const INT4_MIN = -2_147_483_648;
+
 function cellToInt(val: any): number | undefined {
   if (val === null || val === undefined || val === "") return undefined;
   const n = typeof val === "number" ? val : parseInt(String(val).replace(/[^0-9.-]/g, ""), 10);
-  return isNaN(n) ? undefined : n;
+  if (isNaN(n)) return undefined;
+  // Clamp to INT4 range to prevent Postgres overflow errors
+  if (n > INT4_MAX || n < INT4_MIN) return undefined;
+  return n;
 }
 
 function cellToBool(val: any): boolean | undefined {
@@ -185,22 +240,28 @@ export function parseBuildingDataExcel(buffer: Buffer): BuildingImportResult {
     return { format: "building-data", buildings: [], errors: ["File has no data rows"] };
   }
 
-  // Find header row (first row containing "address" column)
-  let headerRowIdx = 0;
-  for (let i = 0; i < Math.min(5, raw.length); i++) {
-    if (raw[i].some((c: any) => normalizeHeader(String(c)) === "address")) {
+  // Find header row: first row where at least 2 columns resolve to known fields
+  let headerRowIdx = -1;
+  for (let i = 0; i < Math.min(10, raw.length); i++) {
+    const matches = raw[i].filter((c: any) => resolveHeader(String(c)) !== undefined).length;
+    if (matches >= 2) {
       headerRowIdx = i;
       break;
     }
   }
+  if (headerRowIdx === -1) {
+    return { format: "building-data", buildings: [], errors: ["Could not detect header row — no recognized column names found"] };
+  }
 
-  const headers = raw[headerRowIdx].map((h: any) => normalizeHeader(String(h)));
-
-  // Build column index → field key mapping
+  // Build column index → field key mapping (resolve aliases)
   const colMap: Record<number, string> = {};
-  for (let i = 0; i < headers.length; i++) {
-    const mapped = COLUMN_MAP[headers[i]];
-    if (mapped) colMap[i] = mapped;
+  for (let i = 0; i < raw[headerRowIdx].length; i++) {
+    const resolved = resolveHeader(String(raw[headerRowIdx][i]));
+    if (resolved) {
+      // resolved is either a COLUMN_MAP key or a direct field key
+      const fieldKey = COLUMN_MAP[resolved] || resolved;
+      colMap[i] = fieldKey;
+    }
   }
 
   const buildings: ParsedBuildingRow[] = [];
@@ -286,6 +347,7 @@ export function parseBuildingDataExcel(buffer: Buffer): BuildingImportResult {
       superintendent: cellToString(m.superintendent),
       lastInspectionDate: excelDateToString(m.lastInspectionDate),
       notes: cellToString(m.notes),
+      einNumber: cellToString(m.einNumber),
     };
 
     buildings.push(building);
@@ -354,6 +416,7 @@ export function buildingRowToPrismaData(row: ParsedBuildingRow) {
     if (!isNaN(d.getTime())) data.lastInspectionDate = d;
   }
   if (row.notes) data.notes = row.notes;
+  if (row.einNumber) data.einNumber = row.einNumber;
 
   // Also populate legacy JSON fields for backward compat
   const lifeSafety: Record<string, any> = {};
