@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { getArrearsCategory, getArrearsDays, getLeaseStatus, calcCollectionScore } from "@/lib/scoring";
-import { findMatchingBuilding, fetchBuildingsForMatching, generateYardiId, normalizeAddress, extractAddressFromEntity } from "@/lib/building-matching";
+import { findMatchingBuilding, fetchBuildingsForMatching, normalizeAddress, extractAddressFromEntity } from "@/lib/building-matching";
 import type { CommitResult, CommitContext } from "./types";
+
+const YARDI_CODE_RE = /^t\d{4,}$/i;
 
 interface ParsedTenantRow {
   rowIndex: number;
@@ -32,6 +34,12 @@ interface ParsedTenantRow {
  * Commit rent roll / tenant list rows to DB.
  * Single source of truth — called by confirm/route.ts (direct mode) and staging/route.ts (approval).
  *
+ * Building matching priority:
+ *   1. yardiId (extracted from entity name parentheses, e.g. "993sum")
+ *   2. Normalized address
+ *   3. Entity name contains-match
+ *   4. If no match → skip rows with warning (do NOT create Unknown building)
+ *
  * Tenant matching priority:
  *   1. yardiResidentId (exact)
  *   2. buildingId + unitNumber + name (case-insensitive)
@@ -42,7 +50,7 @@ export async function commitRentRollImport(
   ctx: CommitContext,
 ): Promise<CommitResult> {
   const existingBuildings = await fetchBuildingsForMatching();
-  const buildingCache = new Map<string, string>();
+  const buildingCache = new Map<string, string | null>();
   let imported = 0;
   let skipped = 0;
   const errors: string[] = [];
@@ -56,30 +64,42 @@ export async function commitRentRollImport(
 
     const t = row.parsed;
     try {
-      // Resolve building
+      // ── Resolve building ──
       const propKey = t.property || "Unknown";
       const yardiMatch = propKey.match(/\(([^)]+)\)\s*$/);
       const yardiCode = yardiMatch ? yardiMatch[1] : null;
       const extractedAddr = extractAddressFromEntity(propKey);
-      const cacheKey = normalizeAddress(extractedAddr || propKey);
+      const cacheKey = yardiCode || normalizeAddress(extractedAddr || propKey);
       let buildingId = buildingCache.get(cacheKey);
 
-      if (!buildingId) {
+      if (buildingId === undefined) {
         const match = findMatchingBuilding(
           { address: extractedAddr || propKey, block: null, lot: null, entity: propKey, yardiId: yardiCode },
           existingBuildings,
         );
         if (match) {
           buildingId = match.id;
+          const matchedBuilding = existingBuildings.find((b) => b.id === match.id);
+          console.log(`Matched building [${matchedBuilding?.address}] via ${match.matchedBy} [${yardiCode || extractedAddr || propKey}]`);
         } else {
-          const yardiId = generateYardiId(propKey);
-          const building = await prisma.building.create({ data: { yardiId, address: propKey } });
-          buildingId = building.id;
-          existingBuildings.push({ id: buildingId, address: propKey, block: null, lot: null, entity: null, yardiId });
+          buildingId = null;
+          console.log(`WARNING: No building match for yardiId [${yardiCode}] entity [${propKey}]`);
         }
         buildingCache.set(cacheKey, buildingId);
       }
 
+      // If no building match, skip these rows — don't create Unknown buildings
+      if (!buildingId) {
+        const msg = `Row ${row.rowIndex + 1}: No matching building for "${propKey}" — skipping.`;
+        errors.push(msg);
+        await prisma.importRow.create({
+          data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: "SKIPPED", entityType: "tenant", errors: [msg] },
+        }).catch(() => {});
+        skipped++;
+        continue;
+      }
+
+      // ── Upsert unit ──
       const unitRecord = await prisma.unit.upsert({
         where: { buildingId_unitNumber: { buildingId, unitNumber: t.unit } },
         create: { buildingId, unitNumber: t.unit, unitType: t.unitType, isVacant: t.isVacant },
@@ -99,7 +119,17 @@ export async function commitRentRollImport(
         continue;
       }
 
-      // Compute derived fields
+      // ── Guard: if name looks like a Yardi t-code, it's an ID not a name ──
+      let tenantName = t.name;
+      let residentId = t.residentId;
+      if (YARDI_CODE_RE.test(tenantName)) {
+        // Promote the t-code to residentId if we don't already have one
+        if (!residentId) residentId = tenantName;
+        tenantName = `[Needs Review] ${tenantName}`;
+        console.log(`WARNING: Row ${row.rowIndex + 1}: Name "${t.name}" looks like a Yardi code — marked for review`);
+      }
+
+      // ── Compute derived fields ──
       const leaseExp = t.leaseExpiration ? new Date(t.leaseExpiration) : null;
       const arrearsCategory = getArrearsCategory(t.balance, t.marketRent);
       const arrearsDays = getArrearsDays(t.balance, t.marketRent);
@@ -111,7 +141,7 @@ export async function commitRentRollImport(
       });
 
       const tenantData = {
-        name: t.name,
+        name: tenantName,
         marketRent: t.marketRent,
         chargeCode: t.chargeCode,
         actualRent: t.chargeAmount || t.marketRent,
@@ -127,12 +157,12 @@ export async function commitRentRollImport(
       let rowAction: "CREATED" | "UPDATED" | "SKIPPED";
 
       // Tier 1: Match by yardiResidentId
-      if (t.residentId) {
-        const existing = await prisma.tenant.findUnique({ where: { yardiResidentId: t.residentId } });
+      if (residentId) {
+        const existing = await prisma.tenant.findUnique({ where: { yardiResidentId: residentId } });
         rowAction = existing ? "UPDATED" : "CREATED";
         tenant = await prisma.tenant.upsert({
-          where: { yardiResidentId: t.residentId },
-          create: { unitId: unitRecord.id, yardiResidentId: t.residentId, ...tenantData },
+          where: { yardiResidentId: residentId },
+          create: { unitId: unitRecord.id, yardiResidentId: residentId, ...tenantData },
           update: tenantData,
         });
       } else {
@@ -140,7 +170,7 @@ export async function commitRentRollImport(
         const existing = await prisma.tenant.findFirst({
           where: {
             unit: { buildingId, unitNumber: t.unit },
-            name: { equals: t.name, mode: "insensitive" },
+            name: { equals: tenantName, mode: "insensitive" },
           },
         });
 
@@ -152,11 +182,9 @@ export async function commitRentRollImport(
           });
         } else {
           // NO unitId-only fallback — log a warning instead
-          // Check if a different tenant already occupies this unit
           const occupant = await prisma.tenant.findUnique({ where: { unitId: unitRecord.id } });
           if (occupant) {
-            // Different person in same unit — log warning, skip overwrite
-            const msg = `Row ${row.rowIndex + 1}: "${t.name}" does not match existing tenant "${occupant.name}" in unit ${t.unit}. Skipped to prevent overwrite.`;
+            const msg = `Row ${row.rowIndex + 1}: "${tenantName}" does not match existing tenant "${occupant.name}" in unit ${t.unit}. Skipped to prevent overwrite.`;
             errors.push(msg);
             await prisma.importRow.create({
               data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: "SKIPPED", entityType: "tenant", errors: [msg] },
@@ -165,7 +193,6 @@ export async function commitRentRollImport(
             continue;
           }
 
-          // Unit is empty — create new tenant
           rowAction = "CREATED";
           tenant = await prisma.tenant.create({
             data: { unitId: unitRecord.id, ...tenantData },
@@ -173,7 +200,7 @@ export async function commitRentRollImport(
         }
       }
 
-      // Dual-write: Lease + BalanceSnapshot
+      // ── Dual-write: Lease + BalanceSnapshot ──
       const normalizedLeaseStatus = leaseExp
         ? (leaseExp < new Date() ? "EXPIRED" : "ACTIVE")
         : "MONTH_TO_MONTH";
@@ -218,5 +245,6 @@ export async function commitRentRollImport(
     }
   }
 
+  console.log(`Import complete: ${imported} imported, ${skipped} skipped, ${errors.length} errors`);
   return { imported, skipped, errors };
 }
