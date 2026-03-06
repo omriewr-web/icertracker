@@ -3,6 +3,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 
+/** All query keys that should be invalidated after any import */
+const IMPORT_INVALIDATION_KEYS = [
+  "tenants", "buildings", "units", "metrics",
+  "vacancies", "legalCases", "violations",
+  "workOrders", "collectionCases",
+] as const;
+
+function invalidateImportCaches(qc: ReturnType<typeof useQueryClient>) {
+  for (const key of IMPORT_INVALIDATION_KEYS) {
+    qc.invalidateQueries({ queryKey: [key] });
+  }
+}
+
 export interface ColumnMapping {
   columnIndex: number;
   sourceHeader: string;
@@ -95,9 +108,7 @@ export function useConfirmImport() {
         qc.invalidateQueries({ queryKey: ["staging-batches"] });
         toast.success(`Staged for review: ${data.summary.total} rows (${data.summary.newTenants} new, ${data.summary.updates} updates)`);
       } else if ("imported" in data) {
-        qc.invalidateQueries({ queryKey: ["tenants"] });
-        qc.invalidateQueries({ queryKey: ["buildings"] });
-        qc.invalidateQueries({ queryKey: ["metrics"] });
+        invalidateImportCaches(qc);
         toast.success(`Imported ${data.imported} records`);
       }
     },
@@ -135,9 +146,7 @@ export function useImportExcel() {
       return res.json();
     },
     onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ["tenants"] });
-      qc.invalidateQueries({ queryKey: ["buildings"] });
-      qc.invalidateQueries({ queryKey: ["metrics"] });
+      invalidateImportCaches(qc);
       toast.success(`Imported ${data.imported} records`);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -166,9 +175,7 @@ export function useMappedImport() {
       return res.json();
     },
     onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ["tenants"] });
-      qc.invalidateQueries({ queryKey: ["buildings"] });
-      qc.invalidateQueries({ queryKey: ["metrics"] });
+      invalidateImportCaches(qc);
       toast.success(`Imported ${data.imported} records`);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -248,9 +255,7 @@ export function useApproveStagingBatch() {
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["staging-batches"] });
-      qc.invalidateQueries({ queryKey: ["tenants"] });
-      qc.invalidateQueries({ queryKey: ["buildings"] });
-      qc.invalidateQueries({ queryKey: ["metrics"] });
+      invalidateImportCaches(qc);
       toast.success(`Approved: imported ${data.imported} records`);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -310,7 +315,7 @@ export function useBuildingImportConfirm() {
       return res.json();
     },
     onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ["buildings"] });
+      invalidateImportCaches(qc);
       qc.invalidateQueries({ queryKey: ["compliance"] });
       toast.success(`Imported ${data.created} new, ${data.updated} updated buildings. ${data.complianceCreated} compliance items generated.`);
     },

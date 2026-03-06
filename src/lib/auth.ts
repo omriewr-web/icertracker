@@ -34,6 +34,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           role: user.role,
           assignedProperties: user.assignedProperties.map((p) => p.buildingId),
+          organizationId: "default",
         };
       },
     }),
@@ -45,6 +46,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.role = user.role;
         token.assignedProperties = user.assignedProperties || [];
+        token.organizationId = user.organizationId || "default";
       }
       return token;
     },
@@ -52,6 +54,7 @@ export const authOptions: NextAuthOptions = {
       session.user.id = token.id;
       session.user.role = token.role;
       session.user.assignedProperties = token.assignedProperties;
+      session.user.organizationId = token.organizationId || "default";
       return session;
     },
   },

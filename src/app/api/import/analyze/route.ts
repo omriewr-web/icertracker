@@ -16,7 +16,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   try {
     const result = await analyzeImport(buffer, file.name, {
       importType: importType ?? undefined,
-      organizationId: "default",
+      organizationId: user.organizationId,
     });
 
     // Map to the response shape the UI expects (backward compatible with existing AnalyzeResult)

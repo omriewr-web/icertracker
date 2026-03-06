@@ -9,6 +9,7 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   assignedProperties: string[];
+  organizationId: string;
 }
 
 type ApiHandler = (req: NextRequest, ctx: { user: AuthUser; params?: any }) => Promise<NextResponse>;
@@ -26,6 +27,7 @@ export function withAuth(handler: ApiHandler, perm?: string) {
         email: session.user.email ?? "",
         role: session.user.role as UserRole,
         assignedProperties: session.user.assignedProperties ?? [],
+        organizationId: session.user.organizationId ?? "default",
       };
       if (perm && !hasPermission(user.role, perm)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });

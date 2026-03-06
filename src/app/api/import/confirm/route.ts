@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { parsedTenantRowSchema } from "@/lib/validations";
-import { getArrearsCategory, getArrearsDays, getLeaseStatus, calcCollectionScore } from "@/lib/scoring";
-import { findMatchingBuilding, fetchBuildingsForMatching, generateYardiId, normalizeAddress, extractAddressFromEntity } from "@/lib/building-matching";
+import { fetchBuildingsForMatching, normalizeAddress, extractAddressFromEntity, findMatchingBuilding } from "@/lib/building-matching";
 import { saveImportProfile } from "@/lib/importer/matchImportProfile";
 import { parseImportFile } from "@/lib/importer/parseFile";
 import { analyzeStructure } from "@/lib/importer/analyzeStructure";
 import { buildFingerprint } from "@/lib/importer/buildFingerprint";
+import { commitRentRollImport } from "@/lib/importer/commit";
+import { getImportContract } from "@/lib/importer/importContracts";
 import * as XLSX from "xlsx";
 
 interface ColumnMappingEntry {
@@ -62,7 +63,6 @@ interface ParsedRow {
 
 /**
  * Parse all rows from file+mapping, determine create/update/skip actions.
- * Returns parsed rows with match info for staging or direct import.
  */
 async function parseAndMatchRows(
   buffer: Buffer,
@@ -86,7 +86,7 @@ async function parseAndMatchRows(
 
   // Pre-fetch all tenants with unit info for matching
   const allTenants = await prisma.tenant.findMany({
-    select: { id: true, name: true, unitId: true, unit: { select: { buildingId: true, unitNumber: true } } },
+    select: { id: true, name: true, unitId: true, yardiResidentId: true, unit: { select: { buildingId: true, unitNumber: true } } },
   });
 
   const parsedRows: ParsedRow[] = [];
@@ -113,9 +113,7 @@ async function parseAndMatchRows(
     const propKey = String(get(r, "building_id") ?? "").trim() || "Unknown";
 
     const raw = {
-      property: propKey,
-      unit,
-      unitType: undefined,
+      property: propKey, unit, unitType: undefined,
       residentId: String(get(r, "tenant_code") ?? "").trim() || undefined,
       name: isVacant ? "VACANT" : name,
       marketRent: numVal(get(r, "market_rent") || get(r, "monthly_rent")),
@@ -133,10 +131,7 @@ async function parseAndMatchRows(
     const validated = parsedTenantRowSchema.safeParse(raw);
     if (!validated.success) {
       parsedRows.push({
-        rowIndex: i,
-        raw: raw as any,
-        parsed: raw as any,
-        action: "skip",
+        rowIndex: i, raw: raw as any, parsed: raw as any, action: "skip",
         error: validated.error.issues.map((issue) => issue.message).join(", "),
       });
       errorCount++;
@@ -158,7 +153,6 @@ async function parseAndMatchRows(
       if (match) {
         buildingId = match.id;
       } else {
-        // Will be created on commit — use a placeholder for staging
         buildingId = `new:${cacheKey}`;
       }
       buildingCache.set(cacheKey, buildingId);
@@ -171,19 +165,15 @@ async function parseAndMatchRows(
       continue;
     }
 
-    // Match tenant by: buildingId + unitNumber + normalized name
+    // Match tenant by: residentId → buildingId+unit+name
     const normName = name.toLowerCase().trim();
     let matchedTenantId: string | undefined;
 
-    // First try residentId match
     if (raw.residentId) {
-      const byResident = allTenants.find((t) => t.id === raw.residentId);
-      // yardiResidentId is unique so use prisma
-      const byYardi = await prisma.tenant.findUnique({ where: { yardiResidentId: raw.residentId }, select: { id: true } });
+      const byYardi = allTenants.find((t) => t.yardiResidentId === raw.residentId);
       if (byYardi) matchedTenantId = byYardi.id;
     }
 
-    // Then try buildingId + unit + name composite match
     if (!matchedTenantId && !buildingId.startsWith("new:")) {
       const match = allTenants.find((t) =>
         t.unit.buildingId === buildingId &&
@@ -193,227 +183,22 @@ async function parseAndMatchRows(
       if (match) matchedTenantId = match.id;
     }
 
-    // Fallback: match by unitId only (existing behavior for same-unit different name = update)
-    if (!matchedTenantId && !buildingId.startsWith("new:")) {
-      const match = allTenants.find((t) =>
-        t.unit.buildingId === buildingId &&
-        t.unit.unitNumber === unit
-      );
-      if (match) matchedTenantId = match.id;
-    }
+    // No unitId-only fallback in preview — handled safely in commitRentRollImport
 
     const action = matchedTenantId ? "update" : "create";
     if (action === "update") updates++;
     else newTenants++;
 
     parsedRows.push({
-      rowIndex: i,
-      raw: raw as any,
-      parsed: raw as any,
-      action,
-      matchedTenantId,
-      matchedBuildingId: buildingId,
+      rowIndex: i, raw: raw as any, parsed: raw as any, action,
+      matchedTenantId, matchedBuildingId: buildingId,
     });
   }
 
   return {
     rows: parsedRows,
-    summary: {
-      total: parsedRows.length,
-      newTenants,
-      updates,
-      vacancies,
-      errors: errorCount,
-      buildings: [...buildingNames],
-    },
+    summary: { total: parsedRows.length, newTenants, updates, vacancies, errors: errorCount, buildings: [...buildingNames] },
   };
-}
-
-/**
- * Commit parsed rows to DB (called directly or after staging approval).
- */
-async function commitRows(
-  parsedRows: ParsedRow[],
-  importBatchId: string,
-): Promise<{ imported: number; skipped: number; errors: string[] }> {
-  const existingBuildings = await fetchBuildingsForMatching();
-  const buildingCache = new Map<string, string>();
-  let imported = 0;
-  let skipped = 0;
-  const errors: string[] = [];
-
-  for (const row of parsedRows) {
-    if (row.action === "skip") {
-      errors.push(`Row ${row.rowIndex + 1}: ${row.error}`);
-      skipped++;
-      continue;
-    }
-
-    const t = row.parsed;
-    try {
-      // Resolve building (may need to create for new: placeholders)
-      const propKey = t.property || "Unknown";
-      const yardiMatch = propKey.match(/\(([^)]+)\)\s*$/);
-      const yardiCode = yardiMatch ? yardiMatch[1] : null;
-      const extractedAddr = extractAddressFromEntity(propKey);
-      const cacheKey = normalizeAddress(extractedAddr || propKey);
-      let buildingId = buildingCache.get(cacheKey);
-
-      if (!buildingId) {
-        const match = findMatchingBuilding(
-          { address: extractedAddr || propKey, block: null, lot: null, entity: propKey, yardiId: yardiCode },
-          existingBuildings,
-        );
-        if (match) {
-          buildingId = match.id;
-        } else {
-          const yardiId = generateYardiId(propKey);
-          const building = await prisma.building.create({
-            data: { yardiId, address: propKey },
-          });
-          buildingId = building.id;
-          existingBuildings.push({ id: buildingId, address: propKey, block: null, lot: null, entity: null, yardiId });
-        }
-        buildingCache.set(cacheKey, buildingId);
-      }
-
-      const unitRecord = await prisma.unit.upsert({
-        where: { buildingId_unitNumber: { buildingId, unitNumber: t.unit } },
-        create: { buildingId, unitNumber: t.unit, unitType: t.unitType, isVacant: t.isVacant },
-        update: { unitType: t.unitType, isVacant: t.isVacant },
-      });
-
-      if (t.isVacant) {
-        await prisma.vacancyInfo.upsert({
-          where: { unitId: unitRecord.id },
-          create: { unitId: unitRecord.id, proposedRent: t.marketRent },
-          update: { proposedRent: t.marketRent },
-        });
-        await prisma.importRow.create({
-          data: { importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: "UPDATED", entityType: "vacancy", entityId: unitRecord.id },
-        });
-        imported++;
-        continue;
-      }
-
-      const leaseExp = t.leaseExpiration ? new Date(t.leaseExpiration) : null;
-      const arrearsCategory = getArrearsCategory(t.balance, t.marketRent);
-      const arrearsDays = getArrearsDays(t.balance, t.marketRent);
-      const leaseStatus = getLeaseStatus(leaseExp);
-      const monthsOwed = t.marketRent > 0 ? t.balance / t.marketRent : 0;
-      const collectionScore = calcCollectionScore({
-        balance: t.balance, marketRent: t.marketRent, arrearsDays, leaseStatus,
-        legalFlag: false, legalRecommended: false, isVacant: false,
-      });
-
-      const tenantData = {
-        name: t.name,
-        marketRent: t.marketRent,
-        chargeCode: t.chargeCode,
-        actualRent: t.chargeAmount || t.marketRent,
-        deposit: t.deposit,
-        balance: t.balance,
-        moveInDate: t.moveIn ? new Date(t.moveIn) : null,
-        leaseExpiration: leaseExp,
-        moveOutDate: t.moveOut ? new Date(t.moveOut) : null,
-        arrearsCategory,
-        arrearsDays,
-        monthsOwed,
-        leaseStatus,
-        collectionScore,
-      };
-
-      let tenant;
-      let rowAction: "CREATED" | "UPDATED";
-
-      // Match by: residentId → buildingId+unit+name → unitId fallback
-      if (t.residentId) {
-        const existing = await prisma.tenant.findUnique({ where: { yardiResidentId: t.residentId } });
-        rowAction = existing ? "UPDATED" : "CREATED";
-        tenant = await prisma.tenant.upsert({
-          where: { yardiResidentId: t.residentId },
-          create: { unitId: unitRecord.id, yardiResidentId: t.residentId, ...tenantData },
-          update: tenantData,
-        });
-      } else {
-        // Check buildingId + unit + name match
-        const existing = await prisma.tenant.findFirst({
-          where: {
-            unit: { buildingId, unitNumber: t.unit },
-            name: { equals: t.name, mode: "insensitive" },
-          },
-        });
-
-        if (existing) {
-          rowAction = "UPDATED";
-          tenant = await prisma.tenant.update({
-            where: { id: existing.id },
-            data: tenantData,
-          });
-        } else {
-          // Fallback: match by unitId only (one tenant per unit)
-          const byUnit = await prisma.tenant.findUnique({ where: { unitId: unitRecord.id } });
-          if (byUnit) {
-            rowAction = "UPDATED";
-            tenant = await prisma.tenant.update({
-              where: { id: byUnit.id },
-              data: tenantData,
-            });
-          } else {
-            rowAction = "CREATED";
-            tenant = await prisma.tenant.create({
-              data: { unitId: unitRecord.id, ...tenantData },
-            });
-          }
-        }
-      }
-
-      // Dual-write: Lease + BalanceSnapshot
-      const normalizedLeaseStatus = leaseExp
-        ? (leaseExp < new Date() ? "EXPIRED" : "ACTIVE")
-        : "MONTH_TO_MONTH";
-      const leaseId = `${tenant.id}-lease`;
-
-      await prisma.lease.upsert({
-        where: { id: leaseId },
-        create: {
-          id: leaseId, unitId: unitRecord.id, tenantId: tenant.id,
-          leaseStart: t.moveIn ? new Date(t.moveIn) : null, leaseEnd: leaseExp,
-          monthlyRent: t.marketRent, legalRent: 0, preferentialRent: 0,
-          securityDeposit: t.deposit, status: normalizedLeaseStatus as any, isStabilized: false,
-        },
-        update: {
-          leaseStart: t.moveIn ? new Date(t.moveIn) : null, leaseEnd: leaseExp,
-          monthlyRent: t.marketRent, securityDeposit: t.deposit, status: normalizedLeaseStatus as any,
-        },
-      });
-
-      await prisma.balanceSnapshot.create({
-        data: {
-          tenantId: tenant.id, leaseId, importBatchId,
-          snapshotDate: new Date(),
-          currentCharges: t.chargeAmount || t.marketRent,
-          currentBalance: t.balance,
-          pastDueBalance: t.balance > 0 ? t.balance : 0,
-          arrearsStatus: arrearsCategory,
-        },
-      });
-
-      await prisma.importRow.create({
-        data: { importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: rowAction, entityType: "tenant", entityId: tenant.id },
-      });
-
-      imported++;
-    } catch (e: any) {
-      errors.push(`${t.unit} ${t.name}: ${e.message}`);
-      await prisma.importRow.create({
-        data: { importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: "ERROR", entityType: "tenant", errors: [e.message] },
-      }).catch(() => {});
-      skipped++;
-    }
-  }
-
-  return { imported, skipped, errors };
 }
 
 export const POST = withAuth(async (req: NextRequest, { user }) => {
@@ -434,13 +219,15 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   const mapping: ColumnMappingEntry[] = JSON.parse(columnMappingRaw);
   const dataStartRow = parseInt(dataStartRowRaw, 10);
   const aiUsed = aiUsedRaw === "true";
-  const mode = modeRaw || "stage"; // "stage" (default) or "direct"
+  const mode = modeRaw || "stage";
+
+  const contract = getImportContract(fileType ?? "rent_roll");
 
   // Parse and match all rows
   const { rows, summary } = await parseAndMatchRows(buffer, mapping, dataStartRow);
 
-  // ── STAGING MODE (default) ──────────────────────────────────────
-  if (mode === "stage") {
+  // ── STAGING MODE (default for types that require review) ──
+  if (mode === "stage" || (mode !== "direct" && contract.requiresReview)) {
     const staging = await prisma.importStagingBatch.create({
       data: {
         importType: fileType ?? "tenant_list",
@@ -453,14 +240,10 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       },
     });
 
-    return NextResponse.json({
-      staged: true,
-      stagingId: staging.id,
-      summary,
-    });
+    return NextResponse.json({ staged: true, stagingId: staging.id, summary });
   }
 
-  // ── DIRECT MODE (skip staging) ──────────────────────────────────
+  // ── DIRECT MODE ──
   const importBatch = await prisma.importBatch.create({
     data: { filename: file.name, format: aiUsed ? "ai-mapped" : "rule-mapped", recordCount: 0, status: "processing" },
   });
@@ -469,18 +252,23 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   try {
     const importRun = await prisma.importRun.create({
       data: {
-        organizationId: "default", fileName: file.name,
+        organizationId: user.organizationId, fileName: file.name,
         importType: fileType ?? "tenant_list",
         matchedProfileId: matchedProfileId ?? undefined,
         aiUsed, status: "processing",
         analysisJson: { mapping: mapping as any, dataStartRow, fileType } as any,
         finalMappingJson: mapping as any,
+        createdById: user.id,
       },
     });
     importRunId = importRun.id;
   } catch { /* non-blocking */ }
 
-  const { imported, skipped, errors } = await commitRows(rows, importBatch.id);
+  // Use shared commit handler
+  const { imported, skipped, errors } = await commitRentRollImport(rows, {
+    importBatchId: importBatch.id,
+    userId: user.id,
+  });
 
   await prisma.importBatch.update({
     where: { id: importBatch.id },
@@ -516,7 +304,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
           reason: "Confirmed by user", method: (m.method ?? "alias") as any,
         }));
         await saveImportProfile({
-          organizationId: "default", name: `${file.name} (auto-saved)`,
+          organizationId: user.organizationId, name: `${file.name} (auto-saved)`,
           importType: fileType ?? "tenant_list", sheetNamePattern: sheetData.sheetName,
           headerRowCount: structure.headerRows.length, fingerprint, mapping: profileMapping,
         });
