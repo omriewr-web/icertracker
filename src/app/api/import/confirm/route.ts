@@ -61,6 +61,68 @@ interface ParsedRow {
   error?: string;
 }
 
+const YARDI_CODE_RE = /^t\d{4,}$/i;
+const YARDI_ENTITY_RE = /([^(]+)\(([A-Za-z0-9]{2,20})\)\s*$/;
+
+/**
+ * Scan raw rows for Yardi building entity markers.
+ * Yardi rent rolls embed building info in Total/entity rows like:
+ *   "Icer of 993 Summit Ave LLC(993sum)"
+ *   "Total for Some Entity(code123)"
+ * Returns an array of { rowIndex, entityName, yardiCode } sorted by rowIndex.
+ */
+function detectBuildingSections(rawRows: unknown[][]): { rowIndex: number; entityName: string; yardiCode: string }[] {
+  const sections: { rowIndex: number; entityName: string; yardiCode: string }[] = [];
+  for (let i = 0; i < rawRows.length; i++) {
+    const r = rawRows[i] as unknown[];
+    if (!r) continue;
+    const firstCell = String(r[0] ?? "").trim();
+    if (!firstCell) continue;
+    // Strip "Total for " prefix if present
+    const cleaned = firstCell.replace(/^Total\s+(for\s+)?/i, "");
+    const match = cleaned.match(YARDI_ENTITY_RE);
+    if (match) {
+      sections.push({ rowIndex: i, entityName: firstCell, yardiCode: match[2] });
+    }
+  }
+  return sections;
+}
+
+/**
+ * Assign a building entity to each data row based on detected sections.
+ * Yardi Total/entity rows appear AFTER the data rows they summarize,
+ * so each data row belongs to the next entity row below it.
+ */
+function buildRowToBuildingMap(
+  sections: { rowIndex: number; entityName: string; yardiCode: string }[],
+  dataStartRow: number,
+  totalRows: number,
+): Map<number, { entityName: string; yardiCode: string }> {
+  const map = new Map<number, { entityName: string; yardiCode: string }>();
+  if (sections.length === 0) return map;
+
+  if (sections.length === 1) {
+    // Single building: apply to ALL data rows
+    const entity = sections[0];
+    for (let i = dataStartRow; i < totalRows; i++) {
+      map.set(i, entity);
+    }
+    return map;
+  }
+
+  // Multi-building: each data row belongs to the next entity row below it
+  for (let i = dataStartRow; i < totalRows; i++) {
+    const owningSection = sections.find((s) => s.rowIndex >= i);
+    if (owningSection) {
+      map.set(i, owningSection);
+    } else {
+      // Rows after the last entity row: use the last section
+      map.set(i, sections[sections.length - 1]);
+    }
+  }
+  return map;
+}
+
 /**
  * Parse all rows from file+mapping, determine create/update/skip actions.
  */
@@ -79,6 +141,11 @@ async function parseAndMatchRows(
   }
   const get = (row: unknown[], field: string): unknown =>
     fieldMap[field] !== undefined ? row[fieldMap[field]] : undefined;
+  const mappedColIndices = new Set(Object.values(fieldMap));
+
+  // ── Detect building sections from Yardi Total/entity rows ──
+  const buildingSections = detectBuildingSections(rawRows);
+  const rowToBuilding = buildRowToBuildingMap(buildingSections, dataStartRow - 1, rawRows.length);
 
   const existingBuildings = await fetchBuildingsForMatching();
   const buildingCache = new Map<string, string>();
@@ -100,8 +167,42 @@ async function parseAndMatchRows(
     if (!r || r.every((v) => v === "" || v === null || v === undefined)) continue;
 
     const unit = String(get(r, "unit") ?? "").trim();
-    const name = String(get(r, "full_name") ?? "").trim()
+    let name = String(get(r, "full_name") ?? "").trim()
       || [String(get(r, "first_name") ?? "").trim(), String(get(r, "last_name") ?? "").trim()].filter(Boolean).join(" ");
+    let residentIdOverride: string | undefined;
+
+    // ── Yardi name fix: if name looks like a tenant code (t0011687), swap it ──
+    if (YARDI_CODE_RE.test(name)) {
+      residentIdOverride = name;
+      name = "";
+      // Try to find the actual name from sub-rows (Yardi puts name on continuation rows)
+      const nameColIdx = fieldMap["full_name"];
+      if (nameColIdx !== undefined) {
+        for (let j = i + 1; j < Math.min(i + 5, rawRows.length); j++) {
+          const nextRow = rawRows[j] as unknown[];
+          if (!nextRow) continue;
+          const nextUnit = String(nextRow[fieldMap["unit"] ?? -1] ?? "").trim();
+          if (nextUnit && nextUnit !== unit) break; // hit next unit
+          const candidate = String(nextRow[nameColIdx] ?? "").trim();
+          if (candidate && !YARDI_CODE_RE.test(candidate) && /[a-zA-Z]{2,}/.test(candidate)) {
+            name = candidate;
+            break;
+          }
+        }
+      }
+      // Fallback: scan unmapped columns in current row for a name-like value
+      if (!name) {
+        for (let col = 0; col < r.length; col++) {
+          if (mappedColIndices.has(col)) continue;
+          const val = String(r[col] ?? "").trim();
+          if (val && /^[A-Za-z][A-Za-z\s,.'-]{2,}$/.test(val) && val.length >= 3 && val.length <= 80) {
+            name = val;
+            break;
+          }
+        }
+      }
+    }
+
     if (!unit && !name) continue;
     if (!unit) {
       parsedRows.push({ rowIndex: i, raw: { unit, name }, parsed: {} as any, action: "skip", error: "Missing unit number" });
@@ -109,12 +210,21 @@ async function parseAndMatchRows(
       continue;
     }
 
+    // If we have a residentId but no name, use the code as fallback name (not vacant)
+    if (!name && residentIdOverride) {
+      name = residentIdOverride;
+    }
     const isVacant = !name || name.toLowerCase().includes("vacant");
-    const propKey = String(get(r, "building_id") ?? "").trim() || "Unknown";
+
+    // ── Resolve building: prefer detected Yardi section, then mapped column ──
+    const sectionBuilding = rowToBuilding.get(i);
+    const propKey = sectionBuilding
+      ? sectionBuilding.entityName
+      : (String(get(r, "building_id") ?? "").trim() || "Unknown");
 
     const raw = {
       property: propKey, unit, unitType: undefined,
-      residentId: String(get(r, "tenant_code") ?? "").trim() || undefined,
+      residentId: residentIdOverride || String(get(r, "tenant_code") ?? "").trim() || undefined,
       name: isVacant ? "VACANT" : name,
       marketRent: numVal(get(r, "market_rent") || get(r, "monthly_rent")),
       chargeCode: undefined,
@@ -157,7 +267,9 @@ async function parseAndMatchRows(
       }
       buildingCache.set(cacheKey, buildingId);
     }
-    buildingNames.add(propKey);
+    // Use the extracted address or entity name for display, not the raw entity+code string
+    const displayAddr = extractAddressFromEntity(propKey) || propKey;
+    buildingNames.add(displayAddr);
 
     if (isVacant) {
       parsedRows.push({ rowIndex: i, raw: raw as any, parsed: raw as any, action: "vacancy", matchedBuildingId: buildingId });

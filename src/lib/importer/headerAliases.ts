@@ -9,10 +9,11 @@ export const TENANT_ALIASES: Record<string, string[]> = {
   tenant_code: [
     "tenant code", "tcode", "t code", "resident id", "tenant id",
     "customer id", "account number", "account", "resident code",
+    "res code", "res id", "code",
   ],
   full_name: [
     "name", "tenant name", "resident name", "full name", "resident",
-    "tenant", "lessee", "occupant", "full name",
+    "tenant", "lessee", "occupant", "res name", "tenant resident",
   ],
   first_name: ["first name", "first", "fname"],
   last_name: ["last name", "last", "lname", "surname"],

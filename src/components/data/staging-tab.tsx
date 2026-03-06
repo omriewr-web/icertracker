@@ -75,13 +75,16 @@ function BatchDetail({ batch, onClose }: { batch: StagingBatch; onClose: () => v
 
       {summary.buildings.length > 0 && (
         <div className="text-sm">
-          <span className="text-text-dim">Buildings:</span>
+          <span className="text-text-dim">Buildings detected:</span>
           <div className="flex flex-wrap gap-1 mt-1">
-            {summary.buildings.slice(0, 10).map((b, i) => (
-              <span key={i} className="bg-bg px-2 py-0.5 rounded text-xs text-text-muted border border-border">{b}</span>
+            {summary.buildings.filter((b: string) => b !== "Unknown").slice(0, 10).map((b: string, i: number) => (
+              <span key={i} className="bg-accent/10 px-2 py-0.5 rounded text-xs text-accent border border-accent/30">{b}</span>
             ))}
-            {summary.buildings.length > 10 && (
-              <span className="text-text-dim text-xs">+{summary.buildings.length - 10} more</span>
+            {summary.buildings.filter((b: string) => b !== "Unknown").length === 0 && (
+              <span className="text-yellow-400 text-xs">No building detected — rows will need manual building assignment</span>
+            )}
+            {summary.buildings.filter((b: string) => b !== "Unknown").length > 10 && (
+              <span className="text-text-dim text-xs">+{summary.buildings.filter((b: string) => b !== "Unknown").length - 10} more</span>
             )}
           </div>
         </div>

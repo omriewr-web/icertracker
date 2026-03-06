@@ -112,6 +112,14 @@ export function analyzeStructure(sheet: ParsedSheet): StructureAnalysis {
       }
     }
 
+    // Detect Yardi entity/building rows: "Entity Name(yardiCode)" pattern in first cell
+    if (firstCell && /\([A-Za-z0-9]{2,20}\)\s*$/.test(String(row[0] ?? ""))) {
+      const alreadyIgnored = ignoredRowTypes.some((r) => r.rowIndex === i);
+      if (!alreadyIgnored) {
+        ignoredRowTypes.push({ rowIndex: i, type: "section_header", label: firstCell });
+      }
+    }
+
     // Detect charge-only rows: col 0 is empty, only 1-2 cells have values
     if ((row[0] === null || row[0] === "") && nonNull.length <= 2 && nonNull.length > 0) {
       // Check if the values look like amounts (numbers)
