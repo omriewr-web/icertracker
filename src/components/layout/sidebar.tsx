@@ -15,8 +15,11 @@ import {
   Users,
   Wrench,
   Shield,
+  DollarSign,
   ChevronLeft,
   ChevronRight,
+  Gauge,
+  Radio,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hasPermission, UserRole } from "@/types";
@@ -27,12 +30,15 @@ type Section = "MAIN" | "COLLECTIONS" | "OPERATIONS" | "SETTINGS";
 
 const navItems: { href: string; label: string; icon: typeof LayoutDashboard; perm: string; section: Section }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, perm: "dash", section: "MAIN" },
+  { href: "/coeus", label: "Coeus", icon: Radio, perm: "dash", section: "MAIN" },
   { href: "/daily", label: "Daily Summary", icon: CalendarClock, perm: "dash", section: "MAIN" },
   { href: "/alerts", label: "Arrears Alerts", icon: AlertTriangle, perm: "fin", section: "COLLECTIONS" },
   { href: "/legal", label: "Legal Cases", icon: Scale, perm: "legal", section: "COLLECTIONS" },
+  { href: "/collections", label: "Collections", icon: DollarSign, perm: "collections", section: "COLLECTIONS" },
   { href: "/vacancies", label: "Vacancies", icon: DoorOpen, perm: "vac", section: "OPERATIONS" },
   { href: "/leases", label: "Leases", icon: FileText, perm: "lease", section: "OPERATIONS" },
   { href: "/maintenance", label: "Work Orders", icon: Wrench, perm: "maintenance", section: "OPERATIONS" },
+  { href: "/utilities", label: "Utilities", icon: Gauge, perm: "utilities", section: "OPERATIONS" },
   { href: "/compliance", label: "Compliance", icon: Shield, perm: "compliance", section: "OPERATIONS" },
   { href: "/reports", label: "Reports", icon: BarChart3, perm: "reports", section: "SETTINGS" },
   { href: "/data", label: "Data Management", icon: Database, perm: "upload", section: "SETTINGS" },

@@ -60,7 +60,7 @@ export default function BuildingDetailModal() {
 
             {/* Property Info */}
             <Section title="Property Info">
-              <Field label="Yardi ID" value={building.yardiId} />
+              <Field label="Property ID" value={building.propertyId} />
               <Field label="Address" value={building.address} />
               <Field label="Alt Address" value={building.altAddress} />
               <Field label="Entity" value={building.entity} />

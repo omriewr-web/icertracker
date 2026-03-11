@@ -164,7 +164,12 @@ export async function syncBuildingViolations(
   return results;
 }
 
-export async function syncAllBuildings(sources?: string[]): Promise<SyncResult[]> {
+const BATCH_SIZE = 10;
+
+export async function syncAllBuildings(
+  sources?: string[],
+  onProgress?: (synced: number, total: number, batchResults: SyncResult[]) => void
+): Promise<SyncResult[]> {
   const buildings = await prisma.building.findMany({
     where: {
       block: { not: null },
@@ -173,12 +178,25 @@ export async function syncAllBuildings(sources?: string[]): Promise<SyncResult[]
     select: { id: true },
   });
 
-  console.log(`[Sync] Syncing ${buildings.length} buildings with block/lot data`);
+  const total = buildings.length;
+  console.log(`[Sync] Syncing ${total} buildings with block/lot data (batch size ${BATCH_SIZE})`);
 
   const allResults: SyncResult[] = [];
-  for (const building of buildings) {
-    const results = await syncBuildingViolations(building.id, sources);
-    allResults.push(...results);
+
+  for (let i = 0; i < buildings.length; i += BATCH_SIZE) {
+    const batch = buildings.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.all(
+      batch.map((b) => syncBuildingViolations(b.id, sources).catch((err) => {
+        console.error(`[Sync] Building ${b.id} failed:`, err);
+        return [{ buildingId: b.id, address: "", source: "ALL", newCount: 0, updatedCount: 0, rowsFetched: 0, error: err.message }] as SyncResult[];
+      }))
+    );
+    const flatResults = batchResults.flat();
+    allResults.push(...flatResults);
+    const synced = Math.min(i + BATCH_SIZE, total);
+    console.log(`[Sync] Progress: ${synced}/${total} buildings`);
+    if (onProgress) onProgress(synced, total, flatResults);
   }
+
   return allResults;
 }

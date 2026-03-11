@@ -14,6 +14,7 @@ export const GET = withAuth(async (req, { user }) => {
     const empty: PortfolioMetrics = {
       totalUnits: 0, occupied: 0, vacant: 0, totalMarketRent: 0, totalBalance: 0,
       occupancyRate: 0, lostRent: 0, arrears30: 0, arrears60: 0, arrears90Plus: 0,
+      arrears30$: 0, arrears60$: 0, arrears90Plus$: 0, current$: 0,
       legalCaseCount: 0, noLease: 0, expiredLease: 0, expiringSoon: 0,
     };
     return NextResponse.json(empty);
@@ -33,7 +34,7 @@ export const GET = withAuth(async (req, { user }) => {
       balance: true,
       arrearsCategory: true,
       leaseStatus: true,
-      unit: { select: { isVacant: true } },
+      unit: { select: { isVacant: true, isResidential: true } },
     },
   });
 
@@ -45,8 +46,8 @@ export const GET = withAuth(async (req, { user }) => {
   }
 
   const [totalUnitCount, vacantUnitCount] = await Promise.all([
-    prisma.unit.count({ where: unitWhere }),
-    prisma.unit.count({ where: { ...unitWhere, isVacant: true } }),
+    prisma.unit.count({ where: { ...unitWhere, isResidential: true } }),
+    prisma.unit.count({ where: { ...unitWhere, isResidential: true, isVacant: true } }),
   ]);
   const units = totalUnitCount;
   const occupied = totalUnitCount - vacantUnitCount;
@@ -60,7 +61,7 @@ export const GET = withAuth(async (req, { user }) => {
   const totalMarketRent = tenants.reduce((s, t) => s + Number(t.marketRent), 0);
   const totalBalance = tenants.reduce((s, t) => s + Number(t.balance), 0);
   const lostRent = tenants
-    .filter((t) => t.unit.isVacant)
+    .filter((t) => t.unit.isVacant && t.unit.isResidential)
     .reduce((s, t) => s + Number(t.marketRent), 0);
 
   const metrics: PortfolioMetrics = {
@@ -74,6 +75,10 @@ export const GET = withAuth(async (req, { user }) => {
     arrears30: tenants.filter((t) => t.arrearsCategory === "30").length,
     arrears60: tenants.filter((t) => t.arrearsCategory === "60").length,
     arrears90Plus: tenants.filter((t) => ["90", "120+"].includes(t.arrearsCategory)).length,
+    arrears30$: tenants.filter((t) => t.arrearsCategory === "30").reduce((s, t) => s + Number(t.balance), 0),
+    arrears60$: tenants.filter((t) => t.arrearsCategory === "60").reduce((s, t) => s + Number(t.balance), 0),
+    arrears90Plus$: tenants.filter((t) => ["90", "120+"].includes(t.arrearsCategory)).reduce((s, t) => s + Number(t.balance), 0),
+    current$: tenants.filter((t) => !t.arrearsCategory || t.arrearsCategory === "current").reduce((s, t) => s + Number(t.balance), 0),
     legalCaseCount,
     noLease: tenants.filter((t) => t.leaseStatus === "no-lease").length,
     expiredLease: tenants.filter((t) => t.leaseStatus === "expired").length,

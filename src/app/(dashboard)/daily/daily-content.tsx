@@ -6,6 +6,7 @@ import { PageSkeleton } from "@/components/ui/skeleton";
 import TenantDetailModal from "@/components/tenant/tenant-detail-modal";
 import TenantEditModal from "@/components/tenant/tenant-edit-modal";
 import Button from "@/components/ui/button";
+import ExportButton from "@/components/ui/export-button";
 import { fmt$, formatDate } from "@/lib/utils";
 import { getScoreLabel } from "@/lib/scoring";
 import { useAppStore } from "@/stores/app-store";
@@ -30,9 +31,62 @@ export default function DailyContent() {
           <h1 className="text-2xl font-bold text-text-primary">Daily Summary</h1>
           <span className="text-sm text-text-dim">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span>
         </div>
-        <Button size="sm" onClick={() => setAiPanelOpen(true)} className="bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20">
-          <Brain className="w-3.5 h-3.5" /> AI Briefing
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportButton
+            data={[
+              ...(data?.urgentTenants || []).map((t: any) => ({
+                section: "Urgent Accounts",
+                name: t.name,
+                detail: `#${t.unit} — ${t.building}`,
+                value: fmt$(t.balance),
+                extra: `Score: ${t.collectionScore}`,
+              })),
+              ...(data?.expiringLeases || []).map((t: any) => ({
+                section: "Expiring Leases",
+                name: t.name,
+                detail: `#${t.unit} — ${t.building}`,
+                value: formatDate(t.leaseExpiration),
+                extra: "",
+              })),
+              ...(data?.legalCases || []).map((c: any) => ({
+                section: "Legal Cases",
+                name: c.tenant?.name || "",
+                detail: `#${c.tenant?.unit?.unitNumber} — ${c.tenant?.unit?.building?.address}`,
+                value: fmt$(Number(c.tenant?.balance || 0)),
+                extra: c.stage?.replace(/_/g, " ") || "",
+              })),
+              ...(data?.recentPayments || []).map((p: any) => ({
+                section: "Recent Payments",
+                name: p.tenant?.name || "",
+                detail: `by ${p.recorder?.name || ""}`,
+                value: fmt$(Number(p.amount)),
+                extra: formatDate(p.createdAt),
+              })),
+            ]}
+            filename="daily-briefing"
+            formats={["pdf", "xlsx"]}
+            columns={[
+              { key: "section", label: "Section" },
+              { key: "name", label: "Name" },
+              { key: "detail", label: "Detail" },
+              { key: "value", label: "Value" },
+              { key: "extra", label: "Notes" },
+            ]}
+            pdfConfig={{
+              title: "Daily Briefing",
+              subtitle: new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
+              stats: [
+                { label: "Urgent Accounts", value: String(data?.urgentTenants?.length ?? 0) },
+                { label: "Expiring Leases", value: String(data?.expiringLeases?.length ?? 0) },
+                { label: "Legal Cases", value: String(data?.legalCases?.length ?? 0) },
+                { label: "Recent Payments", value: String(data?.recentPayments?.length ?? 0) },
+              ],
+            }}
+          />
+          <Button size="sm" onClick={() => setAiPanelOpen(true)} className="bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20">
+            <Brain className="w-3.5 h-3.5" /> AI Briefing
+          </Button>
+        </div>
       </div>
 
       {isError && (

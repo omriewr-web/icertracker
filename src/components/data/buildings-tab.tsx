@@ -11,6 +11,7 @@ import ConfirmDialog from "@/components/ui/confirm-dialog";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { formatDate, fmt$ } from "@/lib/utils";
 import toast from "react-hot-toast";
+import ExportButton from "@/components/ui/export-button";
 
 export default function BuildingsTab() {
   const { data: buildings, isLoading } = useBuildings();
@@ -27,6 +28,30 @@ export default function BuildingsTab() {
       <div className="flex items-center justify-between">
         <p className="text-sm text-text-muted">{buildings?.length || 0} buildings</p>
         <div className="flex gap-2">
+          <ExportButton
+            data={(buildings || []).map((b) => ({
+              address: b.address,
+              entity: b.entity || "",
+              portfolio: b.portfolio || "",
+              totalUnits: b.totalUnits,
+              manager: b.manager || "",
+              region: b.region || "",
+              block: b.block || "",
+              lot: b.lot || "",
+            }))}
+            filename="buildings"
+            columns={[
+              { key: "address", label: "Address" },
+              { key: "entity", label: "Entity" },
+              { key: "portfolio", label: "Portfolio" },
+              { key: "totalUnits", label: "Units" },
+              { key: "manager", label: "Manager" },
+              { key: "region", label: "Region" },
+              { key: "block", label: "Block" },
+              { key: "lot", label: "Lot" },
+            ]}
+            pdfConfig={{ title: "Properties Report" }}
+          />
           <Button size="sm" variant="ghost" onClick={() => setDedupOpen(true)}>
             <Merge className="w-3.5 h-3.5" /> Deduplicate
           </Button>
@@ -296,7 +321,7 @@ function BuildingDetailCard({ id, onClose }: { id: string | null; onClose: () =>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                   <Field label="Portfolio" value={building.portfolio} />
                   <Field label="Property Type" value={building.type} />
-                  <Field label="Yardi Code" value={building.yardiId} />
+                  <Field label="Property ID" value={building.propertyId} />
                   <Field label="Entity" value={building.entity} />
                   <Field label="Address" value={building.address} full />
                   <Field label="Region" value={building.region} />

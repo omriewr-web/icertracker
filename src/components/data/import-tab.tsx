@@ -10,11 +10,11 @@ import { cn } from "@/lib/utils";
 export default function ImportTab() {
   return (
     <div className="space-y-6">
-      {/* Rent Roll / Tenant Import */}
+      {/* Smart Tenant Data Import */}
       <div className="bg-card border border-border rounded-xl p-6">
         <h2 className="text-sm font-semibold text-text-primary mb-1">Tenant Data Import</h2>
         <p className="text-xs text-text-dim mb-4">
-          Upload Yardi rent roll, AR aging reports, or generic Excel files to import unit and tenant data.
+          Drop any Yardi export file — rent rolls, AR aging reports, or legal cases. The format will be auto-detected.
         </p>
         <UploadZone />
       </div>
@@ -29,33 +29,6 @@ export default function ImportTab() {
           Upload a building data spreadsheet with property info, construction details, life safety systems, elevator/boiler data, and compliance filing dates. Existing buildings are matched by address or block/lot and updated.
         </p>
         <BuildingDataUpload />
-      </div>
-
-      {/* Supported Formats */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <h2 className="text-sm font-semibold text-text-primary mb-3">Supported Formats</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <FormatCard
-            title="Yardi Rent Roll"
-            description="Standard rent roll export with unit, tenant, and rent details."
-            ext=".xlsx"
-          />
-          <FormatCard
-            title="AR Aging Report"
-            description="Accounts receivable aging with balance breakdowns by period."
-            ext=".xlsx"
-          />
-          <FormatCard
-            title="Building Data"
-            description="Property info, construction, life safety, elevator, boiler, and compliance dates."
-            ext=".xlsx"
-          />
-          <FormatCard
-            title="Generic Import"
-            description="Any spreadsheet with headers matching building/unit/tenant fields."
-            ext=".xlsx, .xls, .csv"
-          />
-        </div>
       </div>
     </div>
   );
@@ -237,6 +210,22 @@ function BuildingDataUpload() {
         </div>
       )}
 
+      {/* Error states */}
+      {previewMutation.isError && (
+        <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-sm text-red-400">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{previewMutation.error?.message || "Preview failed"}</span>
+          <button onClick={handleReset} className="ml-auto text-xs underline">Try again</button>
+        </div>
+      )}
+      {confirmMutation.isError && (
+        <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-sm text-red-400">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{confirmMutation.error?.message || "Import failed"}</span>
+          <button onClick={handleReset} className="ml-auto text-xs underline">Try again</button>
+        </div>
+      )}
+
       {/* Success message */}
       {confirmMutation.data && (
         <div className="bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-3 text-sm text-green-400">
@@ -260,16 +249,6 @@ function BuildingDataUpload() {
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-function FormatCard({ title, description, ext }: { title: string; description: string; ext: string }) {
-  return (
-    <div className="bg-bg border border-border rounded-lg p-4">
-      <h3 className="text-sm font-medium text-text-primary mb-1">{title}</h3>
-      <p className="text-xs text-text-dim mb-2">{description}</p>
-      <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent">{ext}</span>
     </div>
   );
 }

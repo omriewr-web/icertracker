@@ -9,6 +9,7 @@ import { PageSkeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/empty-state";
 import VacancyChart from "@/components/dashboard/vacancy-chart";
 import { fmt$, pct } from "@/lib/utils";
+import ExportButton from "@/components/ui/export-button";
 
 export default function VacanciesContent() {
   const { data: buildings, isLoading } = useBuildings();
@@ -28,7 +29,36 @@ export default function VacanciesContent() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <h1 className="text-2xl font-bold text-text-primary">Vacancy Tracking</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-text-primary">Vacancy Tracking</h1>
+        <ExportButton
+          data={buildingsWithVacancies.map((b) => ({
+            address: b.address,
+            totalUnits: b.totalUnits,
+            occupied: b.occupied,
+            vacant: b.vacant,
+            vacancyRate: b.totalUnits > 0 ? ((b.vacant / b.totalUnits) * 100).toFixed(1) + "%" : "0%",
+            totalMarketRent: b.totalMarketRent,
+          }))}
+          filename="vacancy-report"
+          columns={[
+            { key: "address", label: "Property" },
+            { key: "totalUnits", label: "Total Units" },
+            { key: "occupied", label: "Occupied" },
+            { key: "vacant", label: "Vacant" },
+            { key: "vacancyRate", label: "Vacancy Rate" },
+            { key: "totalMarketRent", label: "Market Rent" },
+          ]}
+          pdfConfig={{
+            title: "Vacancy Report",
+            stats: [
+              { label: "Vacant Units", value: String(metrics?.vacant || 0) },
+              { label: "Vacancy Rate", value: metrics?.totalUnits ? pct(((metrics?.vacant || 0) / metrics.totalUnits) * 100) : "0%" },
+              { label: "Lost Rent/Mo", value: fmt$(totalVacantRent) },
+            ],
+          }}
+        />
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard label="Vacant Units" value={metrics?.vacant || 0} icon={DoorOpen} color="#F59E0B" />

@@ -21,7 +21,9 @@ export const GET = withAuth(async (req, { user }) => {
     include: {
       units: {
         include: {
-          tenant: { select: { id: true, balance: true, marketRent: true } },
+          tenant: {
+            select: { id: true, balance: true, marketRent: true, legalCase: { select: { inLegal: true } } },
+          },
         },
       },
       _count: { select: { units: true } },
@@ -30,10 +32,17 @@ export const GET = withAuth(async (req, { user }) => {
   });
 
   const result = buildings.map((b) => {
-    const occupied = b.units.filter((u) => !u.isVacant).length;
-    const vacant = b.units.filter((u) => u.isVacant).length;
-    const totalMarketRent = b.units.reduce((sum, u) => sum + Number(u.tenant?.marketRent ?? 0), 0);
-    const totalBalance = b.units.reduce((sum, u) => sum + Number(u.tenant?.balance ?? 0), 0);
+    const residentialUnits = b.units.filter((u) => u.isResidential !== false);
+    const occupied = residentialUnits.filter((u) => !u.isVacant).length;
+    const vacant = residentialUnits.filter((u) => u.isVacant).length;
+    const totalMarketRent = residentialUnits.reduce((sum, u) => sum + Number(u.tenant?.marketRent ?? 0), 0);
+    const totalBalance = residentialUnits.reduce((sum, u) => sum + Number(u.tenant?.balance ?? 0), 0);
+    const legalBalance = residentialUnits
+      .filter((u) => u.tenant?.legalCase?.inLegal === true)
+      .reduce((sum, u) => sum + Number(u.tenant?.balance ?? 0), 0);
+    const nonLegalBalance = totalBalance - legalBalance;
+    const arrearsCount = residentialUnits.filter((u) => Number(u.tenant?.balance ?? 0) > 0).length;
+    const legalCount = residentialUnits.filter((u) => u.tenant?.legalCase?.inLegal === true).length;
 
     const displayAddress = getDisplayAddress(b);
 
@@ -74,11 +83,15 @@ export const GET = withAuth(async (req, { user }) => {
       fireAlarmCompany: b.fireAlarmCompany,
       utilityMeters: b.utilityMeters,
       utilityAccounts: b.utilityAccounts,
-      totalUnits: b._count.units,
+      totalUnits: residentialUnits.length,
       occupied,
       vacant,
       totalMarketRent,
       totalBalance,
+      legalBalance,
+      nonLegalBalance,
+      arrearsCount,
+      legalCount,
       legalCaseCount: 0,
     };
   });

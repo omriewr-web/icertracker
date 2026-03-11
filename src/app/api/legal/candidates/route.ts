@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
+import { getTenantScope, EMPTY_SCOPE } from "@/lib/data-scope";
 import { scoreLegalCandidate } from "@/lib/legal-matching";
 
 // GET — Return tenants who are candidates for legal referral
-export const GET = withAuth(async () => {
+export const GET = withAuth(async (req, { user }) => {
+  const scope = getTenantScope(user);
+  if (scope === EMPTY_SCOPE) {
+    return NextResponse.json({ candidates: [], total: 0 });
+  }
+
   const tenants = await prisma.tenant.findMany({
     where: {
+      ...(scope as object),
       balance: { gt: 0 },
       legalCase: null, // not already in legal
     },

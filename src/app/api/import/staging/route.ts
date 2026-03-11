@@ -66,6 +66,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     const result = await commitRentRollImport(rows, {
       importBatchId: importBatch.id,
       userId: user.id,
+      organizationId: user.organizationId,
     });
     imported = result.imported;
     skipped = result.skipped;

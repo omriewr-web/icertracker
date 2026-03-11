@@ -14,15 +14,47 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  let results;
+  // Single building sync — fast, no streaming needed
   if (body.buildingId) {
-    results = await syncBuildingViolations(body.buildingId, body.sources);
-  } else {
-    results = await syncAllBuildings(body.sources);
+    const results = await syncBuildingViolations(body.buildingId, body.sources);
+    const totalNew = results.reduce((sum, r) => sum + r.newCount, 0);
+    const totalUpdated = results.reduce((sum, r) => sum + r.updatedCount, 0);
+    return NextResponse.json({ results, totalNew, totalUpdated });
   }
 
-  const totalNew = results.reduce((sum, r) => sum + r.newCount, 0);
-  const totalUpdated = results.reduce((sum, r) => sum + r.updatedCount, 0);
+  // All buildings — stream progress via SSE
+  const stream = new ReadableStream({
+    async start(controller) {
+      const encoder = new TextEncoder();
+      const send = (data: any) => {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+      };
 
-  return NextResponse.json({ results, totalNew, totalUpdated });
+      try {
+        const allResults = await syncAllBuildings(body.sources, (synced, total, batchResults) => {
+          const batchNew = batchResults.reduce((s, r) => s + r.newCount, 0);
+          const batchUpdated = batchResults.reduce((s, r) => s + r.updatedCount, 0);
+          const batchErrors = batchResults.filter(r => r.error).length;
+          send({ type: "progress", synced, total, batchNew, batchUpdated, batchErrors });
+        });
+
+        const totalNew = allResults.reduce((sum, r) => sum + r.newCount, 0);
+        const totalUpdated = allResults.reduce((sum, r) => sum + r.updatedCount, 0);
+        const totalErrors = allResults.filter(r => r.error).length;
+        send({ type: "done", totalNew, totalUpdated, totalErrors, buildingCount: allResults.length });
+      } catch (err: any) {
+        send({ type: "error", message: err.message });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
 }, "compliance");

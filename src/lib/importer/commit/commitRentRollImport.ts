@@ -49,10 +49,13 @@ export async function commitRentRollImport(
   rows: ParsedTenantRow[],
   ctx: CommitContext,
 ): Promise<CommitResult> {
-  const existingBuildings = await fetchBuildingsForMatching();
+  const existingBuildings = await fetchBuildingsForMatching(ctx.organizationId);
   const buildingCache = new Map<string, string | null>();
   let imported = 0;
   let skipped = 0;
+  let tenantsCreated = 0;
+  const matchedBuildingIds = new Set<string>();
+  const unmatchedCodes: string[] = [];
   const errors: string[] = [];
 
   for (const row of rows) {
@@ -79,11 +82,14 @@ export async function commitRentRollImport(
         );
         if (match) {
           buildingId = match.id;
+          matchedBuildingIds.add(match.id);
           const matchedBuilding = existingBuildings.find((b) => b.id === match.id);
           console.log(`Matched building [${matchedBuilding?.address}] via ${match.matchedBy} [${yardiCode || extractedAddr || propKey}]`);
         } else {
           buildingId = null;
-          console.log(`WARNING: No building match for yardiId [${yardiCode}] entity [${propKey}]`);
+          const code = yardiCode || extractedAddr || propKey;
+          unmatchedCodes.push(code);
+          console.log(`WARNING: No building match for yardiId [${yardiCode}] extractedAddr [${extractedAddr}] entity [${propKey}]`);
         }
         buildingCache.set(cacheKey, buildingId);
       }
@@ -235,6 +241,7 @@ export async function commitRentRollImport(
         data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: rowAction, entityType: "tenant", entityId: tenant.id },
       });
 
+      if (rowAction === "CREATED") tenantsCreated++;
       imported++;
     } catch (e: any) {
       errors.push(`${t.unit} ${t.name}: ${e.message}`);
@@ -245,6 +252,6 @@ export async function commitRentRollImport(
     }
   }
 
-  console.log(`Import complete: ${imported} imported, ${skipped} skipped, ${errors.length} errors`);
-  return { imported, skipped, errors };
+  console.log(`Import complete: ${imported} imported (${tenantsCreated} created), ${skipped} skipped, ${matchedBuildingIds.size} buildings matched, ${unmatchedCodes.length} unmatched codes: [${unmatchedCodes.join(", ")}]`);
+  return { imported, skipped, errors, tenantsCreated, buildingsMatched: matchedBuildingIds.size, unmatchedCodes };
 }

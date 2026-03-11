@@ -28,7 +28,11 @@
       "Bash(npx ts-node:*)",
       "Bash(echo:*)",
       "Bash(\"C:/Users/omrid/Documents/icertracker/README.md\":*)",
-      "Bash(\"C:/Users/omrid/Documents/icertracker/CLAUDE.md\":*)"
+      "Bash(\"C:/Users/omrid/Documents/icertracker/CLAUDE.md\":*)",
+      "Bash(ls -la /c/Users/omrid/Documents/icertracker/src/app/\\\\\\(dashboard\\\\\\)/ | grep -E \"page.tsx|page\" || echo \"Checking directory\")",
+      "Bash(ls /c/Users/omrid/Documents/icertracker/src/app/\\\\\\(dashboard\\\\\\)/)",
+      "Bash(ls /c/Users/omrid/Documents/icertracker/src/app/\\\\\\(dashboard\\\\\\)/collections/)",
+      "Bash(wc -l /c/Users/omrid/AppData/Local/Temp/claude/C--Users-omrid-Documents-icertracker/tasks/*.output 2>/dev/null || echo \"Files not ready yet\")"
     ]
   }
 }

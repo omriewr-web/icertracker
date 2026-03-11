@@ -1,0 +1,78 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/api-helpers";
+import { canAccessBuilding } from "@/lib/data-scope";
+
+export const GET = withAuth(async (req, { user, params }) => {
+  const { id } = await params;
+  const meter = await prisma.utilityMeter.findUnique({
+    where: { id },
+    include: {
+      building: { select: { id: true, address: true } },
+      unit: {
+        select: {
+          id: true, unitNumber: true, isVacant: true,
+          tenant: { select: { id: true, name: true } },
+        },
+      },
+      accounts: {
+        include: {
+          tenant: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      },
+    },
+  });
+
+  if (!meter) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!canAccessBuilding(user, meter.buildingId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  return NextResponse.json(meter);
+}, "maintenance");
+
+export const PATCH = withAuth(async (req, { user, params }) => {
+  const { id } = await params;
+  const existing = await prisma.utilityMeter.findUnique({
+    where: { id },
+    select: { buildingId: true },
+  });
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!canAccessBuilding(user, existing.buildingId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const { utilityType, providerName, meterNumber, serviceAddress, isActive, notes, unitId } = body;
+
+  const meter = await prisma.utilityMeter.update({
+    where: { id },
+    data: {
+      ...(utilityType !== undefined && { utilityType }),
+      ...(providerName !== undefined && { providerName }),
+      ...(meterNumber !== undefined && { meterNumber }),
+      ...(serviceAddress !== undefined && { serviceAddress }),
+      ...(isActive !== undefined && { isActive }),
+      ...(notes !== undefined && { notes }),
+      ...(unitId !== undefined && { unitId: unitId || null }),
+    },
+  });
+
+  return NextResponse.json(meter);
+}, "maintenance");
+
+export const DELETE = withAuth(async (req, { user, params }) => {
+  const { id } = await params;
+  const existing = await prisma.utilityMeter.findUnique({
+    where: { id },
+    select: { buildingId: true },
+  });
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!canAccessBuilding(user, existing.buildingId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  await prisma.utilityMeter.delete({ where: { id } });
+  return NextResponse.json({ success: true });
+}, "maintenance");

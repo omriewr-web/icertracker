@@ -2,58 +2,72 @@
 
 import { useState, useRef, useCallback } from "react";
 import {
-  Upload, FileSpreadsheet, X, Loader2, AlertTriangle, AlertCircle,
-  CheckCircle, ChevronDown, ChevronRight, Eye, Sparkles, Zap,
+  Upload, FileSpreadsheet, X, Loader2, AlertCircle,
+  CheckCircle, Sparkles, Users, DollarSign, Scale, HelpCircle,
 } from "lucide-react";
 import Button from "@/components/ui/button";
-import {
-  useAnalyzeImport, useConfirmImport, useImportExcel,
-  type AiAnalysis, type ColumnMapping, type ConfirmResult, type StageResult, type MatchedProfile,
-} from "@/hooks/use-import";
 import { cn } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
 
-const TENANT_FIELDS = [
-  "", "unit", "tenant_code", "full_name", "first_name", "last_name", "phone", "email",
-  "occupancy_status", "move_in_date", "move_out_date", "lease_start_date",
-  "lease_end_date", "monthly_rent", "market_rent", "current_balance",
-  "security_deposit", "subsidy_amount", "subsidy_type", "arrears_status",
-  "notes", "building_id",
-];
+interface DetectResult {
+  detected: boolean;
+  fileType: "rent_roll" | "ar_aging" | "legal_cases" | "unknown";
+  label: string;
+  description: string;
+  rowCount: number;
+  buildingCount: number;
+  parseErrors: string[];
+}
 
-const BUILDING_FIELDS = [
-  "", "building_id", "address", "zip", "borough", "block", "lot", "bin", "units",
-  "portfolio", "entity", "owner_name", "property_manager", "year_built",
-  "floors", "elevator", "sprinkler_system", "fire_alarm_system", "oil_tank",
-  "boiler_type", "hpd_registration_id",
-];
+interface ImportResult {
+  // Rent roll fields
+  total?: number;
+  matched?: number;
+  unmatched?: number;
+  updated?: number;
+  unmatchedRows?: Array<{ reason: string; tenantName?: string; unit?: string; propertyCode?: string; caseNumber?: string; address?: string }>;
+  propertyCodes?: string[];
+  // AR aging fields
+  created?: number;
+  // Legal cases fields
+  imported?: number;
+  skipped?: number;
+  errors?: string[];
+  // Common
+  parseErrors?: string[];
+}
 
-const METHOD_LABELS: Record<string, { label: string; color: string }> = {
-  alias:   { label: "Alias",   color: "text-green-400 bg-green-400/10" },
-  fuzzy:   { label: "Fuzzy",   color: "text-blue-400 bg-blue-400/10" },
-  profile: { label: "Profile", color: "text-purple-400 bg-purple-400/10" },
-  ai:      { label: "AI",      color: "text-amber-400 bg-amber-400/10" },
-  unmapped:{ label: "None",    color: "text-text-dim bg-transparent" },
+const TYPE_ICON: Record<string, typeof Users> = {
+  rent_roll: Users,
+  ar_aging: DollarSign,
+  legal_cases: Scale,
+  unknown: HelpCircle,
 };
 
-type Step = "idle" | "analyzing" | "mapping" | "preview" | "importing" | "done";
+const TYPE_ENDPOINT: Record<string, string> = {
+  rent_roll: "/api/import/rent-roll",
+  ar_aging: "/api/import/ar-aging",
+  legal_cases: "/api/import/legal-cases",
+};
+
+const IMPORT_INVALIDATION_KEYS = [
+  "tenants", "buildings", "units", "metrics",
+  "vacancies", "legalCases", "violations",
+  "workOrders", "collectionCases",
+] as const;
+
+type Step = "idle" | "detecting" | "detected" | "importing" | "done";
 
 export default function UploadZone() {
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [step, setStep] = useState<Step>("idle");
-  const [analysis, setAnalysis] = useState<AiAnalysis | null>(null);
-  const [sampleRows, setSampleRows] = useState<string[][]>([]);
-  const [rawSampleRows, setRawSampleRows] = useState<Record<string, unknown>[]>([]);
-  const [rowCount, setRowCount] = useState(0);
-  const [mappings, setMappings] = useState<ColumnMapping[]>([]);
-  const [matchedProfile, setMatchedProfile] = useState<MatchedProfile | null>(null);
-  const [aiUsed, setAiUsed] = useState(false);
-  const [confirmResult, setConfirmResult] = useState<ConfirmResult | StageResult | null>(null);
+  const [detection, setDetection] = useState<DetectResult | null>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const analyzeMutation = useAnalyzeImport();
-  const confirmImport = useConfirmImport();
-  const legacyImport = useImportExcel();
+  const qc = useQueryClient();
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -69,122 +83,70 @@ export default function UploadZone() {
     if (f) selectFile(f);
   }
 
-  function selectFile(f: File) {
+  async function selectFile(f: File) {
     setFile(f);
-    setStep("analyzing");
-    setAnalysis(null);
-    setSampleRows([]);
-    setRawSampleRows([]);
-    setMappings([]);
-    setMatchedProfile(null);
-    setAiUsed(false);
-    setConfirmResult(null);
+    setStep("detecting");
+    setDetection(null);
+    setImportResult(null);
+    setError(null);
 
-    analyzeMutation.mutate(f, {
-      onSuccess: (data) => {
-        setAnalysis(data.analysis);
-        setSampleRows(data.sampleRows);
-        setRawSampleRows(data.rawSampleRows ?? []);
-        setRowCount(data.rowCount);
-        setMatchedProfile(data.matchedProfile);
-        setAiUsed(data.aiUsed);
-        const initial: ColumnMapping[] = data.analysis.columns.map((col) => ({
-          columnIndex: col.columnIndex,
-          sourceHeader: col.sourceHeader,
-          mappedField: col.mappedField,
-          confidence: col.confidence,
-          method: col.method ?? "unmapped",
-        }));
-        setMappings(initial);
-        setStep("mapping");
-      },
-      onError: () => {
-        setStep("idle");
-      },
-    });
+    try {
+      const form = new FormData();
+      form.append("file", f);
+      const res = await fetch("/api/import/detect", { method: "POST", body: form });
+      const data: DetectResult = await res.json();
+      if (!res.ok) throw new Error((data as any).error || "Detection failed");
+      setDetection(data);
+      setStep("detected");
+    } catch (err: any) {
+      console.error("[Import] Detection error:", err);
+      setError(err?.message || "Failed to analyze file");
+      setStep("idle");
+    }
   }
 
-  function updateMapping(colIndex: number, field: string) {
-    setMappings((prev) =>
-      prev.map((m) =>
-        m.columnIndex === colIndex
-          ? { ...m, mappedField: field || null, confidence: field ? 1.0 : 0, method: field ? "alias" : "unmapped" }
-          : m,
-      ),
-    );
-  }
+  async function handleImport() {
+    if (!file || !detection || !detection.detected) return;
+    const endpoint = TYPE_ENDPOINT[detection.fileType];
+    if (!endpoint) return;
 
-  function handleConfirmImport() {
-    if (!file || !analysis) return;
     setStep("importing");
-    confirmImport.mutate(
-      {
-        file,
-        columnMapping: mappings.filter((m) => m.mappedField),
-        dataStartRow: analysis.dataStartRow,
-        headerRows: analysis.headerRows,
-        fileType: analysis.fileType,
-        matchedProfileId: matchedProfile?.id,
-        aiUsed,
-      },
-      {
-        onSuccess: (data) => {
-          setConfirmResult(data);
-          setStep("done");
-        },
-        onError: () => setStep("preview"),
-      },
-    );
-  }
+    setError(null);
 
-  function handleLegacyImport() {
-    if (!file) return;
-    setStep("importing");
-    legacyImport.mutate(file, {
-      onSuccess: (data) => {
-        setConfirmResult({ imported: data.imported, skipped: data.skipped, errors: data.errors ?? [], total: data.total ?? data.imported, format: data.format ?? "legacy", batchId: data.batchId ?? "", profileSaved: false });
-        setStep("done");
-      },
-      onError: () => setStep("idle"),
-    });
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(endpoint, { method: "POST", body: form });
+      const data: ImportResult = await res.json();
+      if (!res.ok) throw new Error((data as any).error || "Import failed");
+      setImportResult(data);
+      setStep("done");
+      for (const key of IMPORT_INVALIDATION_KEYS) {
+        qc.invalidateQueries({ queryKey: [key] });
+      }
+      toast.success("Import complete");
+    } catch (err: any) {
+      console.error("[Import] Upload error:", err);
+      setError(err?.message || "Import failed — check your connection and try again.");
+      setStep("detected");
+    }
   }
 
   function handleReset() {
     setFile(null);
     setStep("idle");
-    setAnalysis(null);
-    setSampleRows([]);
-    setRawSampleRows([]);
-    setMappings([]);
-    setMatchedProfile(null);
-    setAiUsed(false);
-    setConfirmResult(null);
-    analyzeMutation.reset();
-    confirmImport.reset();
-    legacyImport.reset();
+    setDetection(null);
+    setImportResult(null);
+    setError(null);
+    if (inputRef.current) inputRef.current.value = "";
   }
 
-  const availableFields =
-    analysis?.fileType === "building_list" ? BUILDING_FIELDS : TENANT_FIELDS;
-
-  const activeMappings = mappings.filter((m) => m.mappedField);
-  const missingRequired = analysis?.requiredFieldsStatus.missingRequiredFields ?? [];
-
-  // ── Step indicator ──
-  const steps = [
-    { key: "analyzing", label: "Analyze" },
-    { key: "mapping", label: "Map Columns" },
-    { key: "preview", label: "Preview" },
-    { key: "importing", label: "Import" },
-    { key: "done", label: "Done" },
-  ] as const;
-
-  const stepIndex = steps.findIndex((s) => s.key === step);
+  const Icon = detection ? TYPE_ICON[detection.fileType] ?? HelpCircle : HelpCircle;
 
   return (
     <div className="space-y-4">
-      {/* ── Drop zone (Step 0) ── */}
-      {(step === "idle" || step === "done") && !confirmResult && (
+      {/* ── Drop zone ── */}
+      {(step === "idle") && (
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
@@ -197,9 +159,11 @@ export default function UploadZone() {
         >
           <Upload className="w-8 h-8 text-text-dim mx-auto mb-3" />
           <p className="text-sm text-text-muted">
-            Drag & drop an Excel file here, or <span className="text-accent">browse</span>
+            Drag & drop any import file here, or <span className="text-accent">browse</span>
           </p>
-          <p className="text-xs text-text-dim mt-1">.xlsx, .xls, or .csv — AI will auto-detect the format</p>
+          <p className="text-xs text-text-dim mt-1">
+            Supports Yardi Rent Roll, AR Aging, and Legal Cases (.xlsx)
+          </p>
           <input
             ref={inputRef}
             type="file"
@@ -210,27 +174,8 @@ export default function UploadZone() {
         </div>
       )}
 
-      {/* ── Step progress bar ── */}
-      {step !== "idle" && (
-        <div className="flex items-center gap-1 px-1">
-          {steps.map((s, i) => (
-            <div key={s.key} className="flex items-center gap-1">
-              {i > 0 && <ChevronRight className="w-3 h-3 text-text-dim/40" />}
-              <span className={cn(
-                "text-xs px-2 py-0.5 rounded-full transition-colors",
-                i < stepIndex ? "text-green-400 bg-green-400/10" :
-                i === stepIndex ? "text-accent bg-accent/10 font-medium" :
-                "text-text-dim bg-transparent",
-              )}>
-                {s.label}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── Step 1: Analyzing spinner ── */}
-      {step === "analyzing" && file && (
+      {/* ── Detecting spinner ── */}
+      {step === "detecting" && file && (
         <div className="bg-card border border-border rounded-xl p-6 text-center">
           <Loader2 className="w-8 h-8 text-accent mx-auto mb-3 animate-spin" />
           <p className="text-sm font-medium text-text-primary">Analyzing file...</p>
@@ -238,311 +183,236 @@ export default function UploadZone() {
         </div>
       )}
 
-      {/* ── Step 2: Detection summary + mapping ── */}
-      {step === "mapping" && analysis && file && (
-        <div className="bg-card border border-border rounded-xl p-4 space-y-4">
-          {/* Detection summary */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
-                {aiUsed ? <Sparkles className="w-3.5 h-3.5 text-amber-400" /> : <Zap className="w-3.5 h-3.5 text-green-400" />}
-                Analysis Complete
-              </h3>
-              <p className="text-xs text-text-dim mt-0.5">
-                Detected: <span className="text-accent font-medium">{analysis.fileType.replace(/_/g, " ")}</span>
-                {" "}({(analysis.confidence * 100).toFixed(0)}% confidence)
-                {" "} — {rowCount > 0 ? `${rowCount} rows` : "rows detected"}, data starts row {analysis.dataStartRow}
-              </p>
-            </div>
-            <button onClick={handleReset} className="text-xs text-text-dim hover:text-text-muted">Cancel</button>
-          </div>
-
-          {/* Matched profile badge */}
-          {matchedProfile && (
-            <div className="bg-purple-500/5 border border-purple-500/20 rounded-lg px-3 py-2">
-              <div className="flex items-center gap-1.5">
-                <FileSpreadsheet className="w-3.5 h-3.5 text-purple-400" />
-                <span className="text-xs font-medium text-purple-400">
-                  Matched profile: &quot;{matchedProfile.name}&quot; ({(matchedProfile.confidence * 100).toFixed(0)}% match)
-                </span>
+      {/* ── Detection result ── */}
+      {step === "detected" && detection && file && (
+        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+          {detection.detected ? (
+            <>
+              {/* Summary card */}
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+                  <Icon className="w-5 h-5 text-accent" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <h3 className="text-sm font-semibold text-text-primary">
+                      Detected: {detection.label}
+                    </h3>
+                  </div>
+                  <p className="text-xs text-text-dim mt-1">
+                    {detection.description}
+                  </p>
+                  <p className="text-xs text-text-dim mt-0.5">
+                    File: {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                  </p>
+                </div>
+                <button onClick={handleReset} className="text-text-dim hover:text-text-muted flex-shrink-0">
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-            </div>
-          )}
 
-          {/* Warnings */}
-          {analysis.warnings.length > 0 && (
-            <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
-              <div className="flex items-center gap-1.5 mb-1">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-xs font-medium text-amber-400">Warnings</span>
+              {/* Stats grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-bg border border-border rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-text-primary font-display">{detection.rowCount.toLocaleString()}</p>
+                  <p className="text-xs text-text-dim">
+                    {detection.fileType === "legal_cases" ? "Legal Cases" : "Tenant Rows"}
+                  </p>
+                </div>
+                <div className="bg-bg border border-border rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-text-primary font-display">{detection.buildingCount}</p>
+                  <p className="text-xs text-text-dim">Buildings</p>
+                </div>
               </div>
-              <ul className="text-xs text-amber-400/80 space-y-0.5">
-                {analysis.warnings.map((w, i) => <li key={i}>- {w}</li>)}
-              </ul>
-            </div>
-          )}
 
-          {/* Missing required fields */}
-          {missingRequired.length > 0 && (
-            <div className="bg-red-500/5 border border-red-500/20 rounded-lg px-3 py-2">
-              <div className="flex items-center gap-1.5 mb-1">
-                <AlertCircle className="w-3.5 h-3.5 text-red-400" />
-                <span className="text-xs font-medium text-red-400">Missing Required Fields</span>
+              {/* Parse warnings */}
+              {detection.parseErrors.length > 0 && (
+                <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-xs font-medium text-amber-400">
+                      {detection.parseErrors.length} warning{detection.parseErrors.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <ul className="text-xs text-amber-400/80 space-y-0.5">
+                    {detection.parseErrors.slice(0, 5).map((e, i) => <li key={i}>- {e}</li>)}
+                    {detection.parseErrors.length > 5 && (
+                      <li>... and {detection.parseErrors.length - 5} more</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={handleReset}>Cancel</Button>
+                <Button onClick={handleImport}>
+                  <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                  Import {detection.rowCount.toLocaleString()} Rows
+                </Button>
               </div>
-              <p className="text-xs text-red-400/80">{missingRequired.join(", ")}</p>
-            </div>
+            </>
+          ) : (
+            /* Unrecognized file */
+            <>
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                  <HelpCircle className="w-5 h-5 text-red-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold text-text-primary">
+                    Unrecognized File Format
+                  </h3>
+                  <p className="text-xs text-text-dim mt-1">
+                    Could not detect the file type for <span className="text-text-muted">{file.name}</span>
+                  </p>
+                </div>
+                <button onClick={handleReset} className="text-text-dim hover:text-text-muted flex-shrink-0">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="bg-bg border border-border rounded-lg px-4 py-3">
+                <p className="text-xs font-medium text-text-muted mb-2">Supported formats:</p>
+                <ul className="text-xs text-text-dim space-y-1">
+                  <li className="flex items-center gap-2">
+                    <Users className="w-3 h-3 text-accent" />
+                    <span><span className="text-text-muted">Yardi Rent Roll</span> — RentRollwithLeaseCharges export with tenant IDs starting with &apos;t&apos;</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <DollarSign className="w-3 h-3 text-accent" />
+                    <span><span className="text-text-muted">Yardi AR Aging</span> — AgingSummary export with &quot;Aged Receivables&quot; title</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Scale className="w-3 h-3 text-accent" />
+                    <span><span className="text-text-muted">Legal Cases</span> — Cases by address with case numbers and amounts</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={handleReset}>Try Another File</Button>
+              </div>
+            </>
           )}
-
-          {/* ── Step 3: Mapping review table ── */}
-          <div className="bg-bg border border-border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-card">
-                <tr className="border-b border-border">
-                  <th className="px-3 py-2 text-left text-xs font-medium text-text-dim">Source Column</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-text-dim">Sample Value</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-text-dim">Mapped To</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-text-dim w-16">Conf.</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-text-dim w-16">Method</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-text-dim">Override</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mappings.map((m) => {
-                  const sampleVal = sampleRows[Math.min(analysis.dataStartRow - 1, sampleRows.length - 1)]?.[m.columnIndex] ?? "";
-                  const conf = m.confidence;
-                  const isLow = conf > 0 && conf < 0.8;
-                  const isMissing = !m.mappedField && m.sourceHeader;
-                  const methodInfo = METHOD_LABELS[m.method ?? "unmapped"] ?? METHOD_LABELS.unmapped;
-
-                  return (
-                    <tr
-                      key={m.columnIndex}
-                      className={cn(
-                        "border-b border-border/30",
-                        isLow && "bg-amber-500/5",
-                        isMissing && "bg-red-500/5",
-                      )}
-                    >
-                      <td className="px-3 py-1.5">
-                        <span className="text-xs text-text-primary font-medium">{m.sourceHeader || `Col ${m.columnIndex + 1}`}</span>
-                      </td>
-                      <td className="px-3 py-1.5 text-xs text-text-dim max-w-[120px] truncate">
-                        {sampleVal}
-                      </td>
-                      <td className="px-3 py-1.5">
-                        {m.mappedField ? (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent">{m.mappedField}</span>
-                        ) : (
-                          <span className="text-xs text-text-dim italic">unmapped</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-1.5">
-                        <span className={cn(
-                          "text-xs font-medium",
-                          conf >= 0.8 ? "text-green-400" : conf >= 0.5 ? "text-amber-400" : "text-red-400",
-                        )}>
-                          {(conf * 100).toFixed(0)}%
-                        </span>
-                      </td>
-                      <td className="px-3 py-1.5">
-                        <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full", methodInfo.color)}>
-                          {methodInfo.label}
-                        </span>
-                      </td>
-                      <td className="px-3 py-1.5">
-                        <div className="relative">
-                          <select
-                            value={m.mappedField || ""}
-                            onChange={(e) => updateMapping(m.columnIndex, e.target.value)}
-                            className="w-full text-xs bg-card border border-border rounded px-2 py-1 text-text-primary appearance-none pr-6 focus:border-accent focus:outline-none"
-                          >
-                            {availableFields.map((f) => (
-                              <option key={f} value={f}>{f || "— skip —"}</option>
-                            ))}
-                          </select>
-                          <ChevronDown className="w-3 h-3 text-text-dim absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Assumptions */}
-          {analysis.assumptions.length > 0 && (
-            <details className="text-xs text-text-dim">
-              <summary className="cursor-pointer hover:text-text-muted">AI Assumptions ({analysis.assumptions.length})</summary>
-              <ul className="mt-1 space-y-0.5 pl-4">
-                {analysis.assumptions.map((a, i) => <li key={i}>- {a}</li>)}
-              </ul>
-            </details>
-          )}
-
-          {/* Actions */}
-          <div className="flex items-center justify-between pt-2">
-            <button onClick={handleLegacyImport} className="text-xs text-text-dim hover:text-text-muted underline">
-              Skip AI — use auto-detect
-            </button>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleReset}>Cancel</Button>
-              <Button onClick={() => setStep("preview")} disabled={activeMappings.length === 0}>
-                <Eye className="w-3.5 h-3.5 mr-1.5" />
-                Preview Data
-              </Button>
-            </div>
-          </div>
         </div>
       )}
 
-      {/* ── Step 4: Preview first 5 rows ── */}
-      {step === "preview" && analysis && file && (
-        <div className="bg-card border border-border rounded-xl p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-text-primary">Preview Import Data</h3>
-              <p className="text-xs text-text-dim mt-0.5">
-                Showing first {Math.min(rawSampleRows.length, 5)} rows with mappings applied
-                {" "} — {activeMappings.length} columns mapped
-              </p>
-            </div>
-            <button onClick={() => setStep("mapping")} className="text-xs text-accent hover:text-accent/80">
-              Back to mapping
-            </button>
-          </div>
-
-          {/* Preview table */}
-          <div className="bg-bg border border-border rounded-lg overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-card">
-                <tr className="border-b border-border">
-                  <th className="px-3 py-2 text-left text-xs font-medium text-text-dim w-8">#</th>
-                  {activeMappings.map((m) => (
-                    <th key={m.columnIndex} className="px-3 py-2 text-left text-xs font-medium text-accent whitespace-nowrap">
-                      {m.mappedField}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rawSampleRows.slice(0, 5).map((row, i) => (
-                  <tr key={i} className="border-b border-border/30">
-                    <td className="px-3 py-1.5 text-xs text-text-dim">{i + 1}</td>
-                    {activeMappings.map((m) => (
-                      <td key={m.columnIndex} className="px-3 py-1.5 text-xs text-text-primary max-w-[150px] truncate">
-                        {String(row[m.mappedField!] ?? "")}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-                {rawSampleRows.length === 0 && (
-                  <tr>
-                    <td colSpan={activeMappings.length + 1} className="px-3 py-4 text-xs text-text-dim text-center">
-                      No preview data available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Missing required fields warning */}
-          {missingRequired.length > 0 && (
-            <div className="bg-red-500/5 border border-red-500/20 rounded-lg px-3 py-2">
-              <div className="flex items-center gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5 text-red-400" />
-                <span className="text-xs font-medium text-red-400">
-                  Missing required fields: {missingRequired.join(", ")}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex items-center justify-between pt-2">
-            <button onClick={handleLegacyImport} className="text-xs text-text-dim hover:text-text-muted underline">
-              Skip AI — use auto-detect
-            </button>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep("mapping")}>Back</Button>
-              <Button onClick={handleConfirmImport}>
-                <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
-                Confirm & Import
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Step 5a: Importing spinner ── */}
+      {/* ── Importing spinner ── */}
       {step === "importing" && (
         <div className="bg-card border border-border rounded-xl p-6 text-center">
           <Loader2 className="w-8 h-8 text-accent mx-auto mb-3 animate-spin" />
           <p className="text-sm font-medium text-text-primary">Importing data...</p>
+          <p className="text-xs text-text-dim mt-1">
+            {detection?.label} — {detection?.rowCount.toLocaleString()} rows
+          </p>
         </div>
       )}
 
-      {/* ── Step 5b: Results ── */}
-      {step === "done" && confirmResult && (
-        <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-          {"staged" in confirmResult && confirmResult.staged ? (
-            <>
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-3 text-sm text-blue-400">
-                <div className="flex items-center gap-2 mb-1">
-                  <CheckCircle className="w-4 h-4" />
-                  <span className="font-medium">Staged for Review</span>
-                </div>
-                <div className="text-xs text-blue-400/80 space-y-0.5">
-                  <p>Total rows: {confirmResult.summary.total}</p>
-                  <p>New tenants: {confirmResult.summary.newTenants} | Updates: {confirmResult.summary.updates}</p>
-                  {confirmResult.summary.vacancies > 0 && <p>Vacancies: {confirmResult.summary.vacancies}</p>}
-                  {confirmResult.summary.errors > 0 && <p className="text-amber-400/80">Errors: {confirmResult.summary.errors}</p>}
-                </div>
-              </div>
-              <p className="text-xs text-text-dim">Go to the Review Queue tab to approve or reject this import.</p>
-            </>
-          ) : "imported" in confirmResult ? (
-            <>
-              <div className="bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-3 text-sm text-green-400">
-                <div className="flex items-center gap-2 mb-1">
-                  <CheckCircle className="w-4 h-4" />
-                  <span className="font-medium">Import Complete</span>
-                </div>
-                <div className="text-xs text-green-400/80 space-y-0.5">
-                  <p>Imported: {confirmResult.imported} rows</p>
-                  {confirmResult.skipped > 0 && <p>Skipped: {confirmResult.skipped} rows</p>}
-                  {confirmResult.profileSaved && (
-                    <p className="text-purple-400/80">Import profile saved for future use</p>
-                  )}
-                </div>
-              </div>
-              {confirmResult.errors.length > 0 && (
-                <details>
-                  <summary className="cursor-pointer text-xs text-amber-400 hover:text-amber-300">
-                    {confirmResult.errors.length} warning{confirmResult.errors.length !== 1 ? "s" : ""}
-                  </summary>
-                  <ul className="mt-1 text-xs text-text-dim list-disc list-inside max-h-32 overflow-y-auto">
-                    {confirmResult.errors.map((e, i) => <li key={i}>{e}</li>)}
-                  </ul>
-                </details>
-              )}
-            </>
-          ) : null}
+      {/* ── Import results ── */}
+      {step === "done" && importResult && detection && (
+        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-green-400" />
+              <h3 className="text-sm font-semibold text-green-400">{detection.label} Import Complete</h3>
+            </div>
+            <button onClick={handleReset} className="text-xs text-accent underline">Import another</button>
+          </div>
 
-          <button onClick={handleReset} className="text-xs text-accent underline">Import another file</button>
+          {/* Result stats — adapt grid based on file type */}
+          {detection.fileType === "rent_roll" && (
+            <div className="grid grid-cols-4 gap-3">
+              <ResultStat value={importResult.total ?? 0} label="Total Rows" />
+              <ResultStat value={importResult.matched ?? 0} label="Matched" color="green" />
+              <ResultStat value={importResult.updated ?? 0} label="Updated" color="blue" />
+              <ResultStat value={importResult.unmatched ?? 0} label="Unmatched" color={importResult.unmatched ? "amber" : undefined} />
+            </div>
+          )}
+          {detection.fileType === "ar_aging" && (
+            <div className="grid grid-cols-4 gap-3">
+              <ResultStat value={importResult.total ?? 0} label="Total Rows" />
+              <ResultStat value={importResult.matched ?? 0} label="Matched" color="green" />
+              <ResultStat value={importResult.created ?? 0} label="Created" color="blue" />
+              <ResultStat value={importResult.updated ?? 0} label="Updated" color="blue" />
+            </div>
+          )}
+          {detection.fileType === "legal_cases" && (
+            <div className="grid grid-cols-3 gap-3">
+              <ResultStat value={importResult.total ?? 0} label="Total Cases" />
+              <ResultStat value={importResult.imported ?? 0} label="Imported" color="green" />
+              <ResultStat value={importResult.skipped ?? 0} label="Skipped" color={importResult.skipped ? "amber" : undefined} />
+            </div>
+          )}
+
+          {/* Unmatched rows detail */}
+          {(importResult.unmatchedRows?.length ?? 0) > 0 && (
+            <details>
+              <summary className="cursor-pointer text-xs text-amber-400 hover:text-amber-300">
+                {importResult.unmatchedRows!.length} unmatched row{importResult.unmatchedRows!.length !== 1 ? "s" : ""} — click to expand
+              </summary>
+              <ul className="mt-2 text-xs text-text-dim list-disc list-inside max-h-40 overflow-y-auto space-y-0.5">
+                {importResult.unmatchedRows!.map((r, i) => (
+                  <li key={i}>
+                    {r.reason}
+                    {r.tenantName && ` (${r.tenantName}`}
+                    {r.unit && `, Unit: ${r.unit}`}
+                    {r.tenantName && ")"}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+
+          {/* Import errors */}
+          {(importResult.errors?.length ?? 0) > 0 && (
+            <details>
+              <summary className="cursor-pointer text-xs text-amber-400 hover:text-amber-300">
+                {importResult.errors!.length} error{importResult.errors!.length !== 1 ? "s" : ""}
+              </summary>
+              <ul className="mt-2 text-xs text-text-dim list-disc list-inside max-h-32 overflow-y-auto">
+                {importResult.errors!.map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+            </details>
+          )}
+
+          {/* Parse warnings */}
+          {(importResult.parseErrors?.length ?? 0) > 0 && (
+            <details>
+              <summary className="cursor-pointer text-xs text-amber-400/70 hover:text-amber-300">
+                {importResult.parseErrors!.length} parse warning{importResult.parseErrors!.length !== 1 ? "s" : ""}
+              </summary>
+              <ul className="mt-2 text-xs text-text-dim list-disc list-inside max-h-32 overflow-y-auto">
+                {importResult.parseErrors!.map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+            </details>
+          )}
         </div>
       )}
 
       {/* ── Error state ── */}
-      {(confirmImport.isError || analyzeMutation.isError) && step !== "analyzing" && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-sm text-red-400">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4" />
-            <span>{confirmImport.error?.message || analyzeMutation.error?.message}</span>
-          </div>
+      {error && (
+        <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-sm text-red-400">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span className="flex-1">{error}</span>
+          <button onClick={handleReset} className="text-xs underline flex-shrink-0">Try again</button>
         </div>
       )}
+    </div>
+  );
+}
+
+function ResultStat({ value, label, color }: { value: number; label: string; color?: "green" | "blue" | "amber" }) {
+  const colorClass = color === "green" ? "text-green-400 border-green-500/30"
+    : color === "blue" ? "text-blue-400 border-blue-500/30"
+    : color === "amber" ? "text-amber-400 border-amber-500/30"
+    : "text-text-primary border-border";
+
+  return (
+    <div className={cn("bg-bg border rounded-lg p-3 text-center", colorClass)}>
+      <p className={cn("text-2xl font-bold font-display", color ? undefined : "text-text-primary")}>{value.toLocaleString()}</p>
+      <p className="text-xs text-text-dim">{label}</p>
     </div>
   );
 }

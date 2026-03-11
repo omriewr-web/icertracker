@@ -153,34 +153,6 @@ export function useImportExcel() {
   });
 }
 
-export function useMappedImport() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ file, columnMapping, dataStartRow, headerRows }: {
-      file: File;
-      columnMapping: ColumnMapping[];
-      dataStartRow: number;
-      headerRows: number[];
-    }) => {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("columnMapping", JSON.stringify(columnMapping));
-      formData.append("dataStartRow", String(dataStartRow));
-      formData.append("headerRows", JSON.stringify(headerRows));
-      const res = await fetch("/api/import", { method: "POST", body: formData });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Import failed");
-      }
-      return res.json();
-    },
-    onSuccess: (data) => {
-      invalidateImportCaches(qc);
-      toast.success(`Imported ${data.imported} records`);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-}
 
 // ── Staging hooks ───────────────────────────────────────────
 

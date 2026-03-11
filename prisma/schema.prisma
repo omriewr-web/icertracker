@@ -20,32 +20,38 @@ enum UserRole {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String
-  username      String    @unique
-  passwordHash  String
-  role          UserRole  @default(COLLECTOR)
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  assignedProperties UserProperty[]
-  notes         TenantNote[]
-  commLogs      CommLog[]
-  payments      Payment[]
-  legalNotes    LegalNote[]
-  tasks         Task[]
-  emails        EmailLog[]
-  assignedWorkOrders    WorkOrder[] @relation("WorkOrderAssignee")
-  createdWorkOrders     WorkOrder[] @relation("WorkOrderCreator")
-  workOrderComments     WorkOrderComment[]
-  assignedViolations    Violation[]
-  assignedCollections   CollectionCase[] @relation("CollectionAssignee")
-  assignedVacancies     Vacancy[]        @relation("VacancyAssignee")
-  assignedLegalCases    LegalCase[]      @relation("LegalCaseAssignee")
-  assignedInspections   Inspection[]     @relation("InspectionAssignee")
-  assignedMoveOuts      MoveOutAssessment[] @relation("MoveOutAssignee")
-  activityEvents        ActivityEvent[]
+  id                  String              @id @default(cuid())
+  email               String              @unique
+  name                String
+  username            String              @unique
+  passwordHash        String
+  role                UserRole            @default(COLLECTOR)
+  active              Boolean             @default(true)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  assignedProperties  UserProperty[]
+  notes               TenantNote[]
+  commLogs            CommLog[]
+  payments            Payment[]
+  legalNotes          LegalNote[]
+  tasks               Task[]
+  emails              EmailLog[]
+  assignedWorkOrders  WorkOrder[]         @relation("WorkOrderAssignee")
+  createdWorkOrders   WorkOrder[]         @relation("WorkOrderCreator")
+  workOrderComments   WorkOrderComment[]
+  assignedViolations  Violation[]
+  assignedCollections CollectionCase[]    @relation("CollectionAssignee")
+  assignedVacancies   Vacancy[]           @relation("VacancyAssignee")
+  assignedLegalCases  LegalCase[]         @relation("LegalCaseAssignee")
+  assignedInspections Inspection[]        @relation("InspectionAssignee")
+  assignedMoveOuts    MoveOutAssessment[] @relation("MoveOutAssignee")
+  activityEvents      ActivityEvent[]
+  collectionNotes     CollectionNote[]
+  assignedSignals     OperationalSignal[] @relation("SignalAssignee")
+  acknowledgedSignals OperationalSignal[] @relation("SignalAcknowledger")
+  resolvedSignals     OperationalSignal[] @relation("SignalResolver")
+  scanLogs            SignalScanLog[]
+
   @@map("users")
 }
 
@@ -55,109 +61,117 @@ model UserProperty {
   buildingId String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
   @@unique([userId, buildingId])
   @@map("user_properties")
 }
 
 model Building {
-  id             String   @id @default(cuid())
-  yardiId        String   @unique
-  buildingName   String?
-  address        String
-  altAddress     String?
-  city           String?  @default("New York")
-  state          String?  @default("NY")
-  borough        String?
-  entity         String?
-  portfolio      String?
-  region         String?
-  zip            String?
-  block          String?
-  lot            String?
-  bbl            String?
-  type           String   @default("Residential")
-  owner          String?
-  ownerEmail     String?
-  manager        String?
+  id                String    @id @default(cuid())
+  yardiId           String    @unique
+  yardiCode         String?   @unique
+  propertyId        String?   @unique
+  buildingName      String?
+  address           String
+  altAddress        String?
+  city              String?   @default("New York")
+  state             String?   @default("NY")
+  borough           String?
+  entity            String?
+  portfolio         String?
+  region            String?
+  zip               String?
+  block             String?
+  lot               String?
+  bbl               String?
+  type              String    @default("Residential")
+  owner             String?
+  ownerEmail        String?
+  manager           String?
   managementCompany String?
-  arTeam         String?
-  apTeam         String?
-  headPortfolio  String?
-  mgmtStartDate  DateTime?
-  einNumber      String?
+  arTeam            String?
+  apTeam            String?
+  headPortfolio     String?
+  mgmtStartDate     DateTime?
+  einNumber         String?
 
   // DOB / Registration IDs
-  bin            String?  // BIN # (DOB)
-  mdrNumber      String?  // MDR Number
-  dhcrRegId      String?  // DHCR Registration ID
-  hpdRegistrationId String?
+  bin                    String? // BIN # (DOB)
+  mdrNumber              String? // MDR Number
+  dhcrRegId              String? // DHCR Registration ID
+  hpdRegistrationId      String?
   certificateOfOccupancy String?
 
   // Construction Details
-  squareFootage  Int?
-  yearBuilt      Int?
-  constructionType String?
-  floors         Int?
+  squareFootage     Int?
+  yearBuilt         Int?
+  constructionType  String?
+  floors            Int?
   floorsBelowGround Int?
-  buildingClass  String?
+  buildingClass     String?
 
   // Building Status & Designations
-  buildingStatus String   @default("active")
-  rentStabilized Boolean  @default(false)
-  landmarkStatus String   @default("none")
-  aepStatus      String   @default("none")
+  buildingStatus String  @default("active")
+  rentStabilized Boolean @default(false)
+  landmarkStatus String  @default("none")
+  aepStatus      String  @default("none")
 
   // Mechanical Systems (scalar)
-  boilerType     String?
+  boilerType        String?
   boilerInstallYear Int?
-  hotWaterType   String?
-  gasType        String?
-  elevator       Boolean  @default(false)
-  elevatorCount  Int      @default(0)
-  sprinklerSystem Boolean @default(false)
-  fireAlarmSystem Boolean @default(false)
-  oilTank        Boolean  @default(false)
+  hotWaterType      String?
+  gasType           String?
+  elevator          Boolean @default(false)
+  elevatorCount     Int     @default(0)
+  sprinklerSystem   Boolean @default(false)
+  fireAlarmSystem   Boolean @default(false)
+  oilTank           Boolean @default(false)
 
   // Life Safety Systems (JSON — legacy, still populated on import)
-  lifeSafety     Json?
+  lifeSafety      Json?
   // Elevator Info (JSON — legacy, still populated on import)
-  elevatorInfo   Json?
+  elevatorInfo    Json?
   // Boiler Info (JSON — legacy, still populated on import)
-  boilerInfo     Json?
+  boilerInfo      Json?
   // Compliance Filing Dates (JSON)
   complianceDates Json?
 
-  superintendent Json?
-  elevatorCompany Json?
-  fireAlarmCompany Json?
-  utilityMeters  Json?
-  utilityAccounts Json?
-  totalUnits     Int      @default(0)
-  commercialUnits Int     @default(0)
-  lastInspectionDate DateTime?
-  notes          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  units          Unit[]
-  assignedUsers  UserProperty[]
-  importBatches  ImportBatch[]
-  workOrders     WorkOrder[]
+  superintendent       Json?
+  elevatorCompany      Json?
+  fireAlarmCompany     Json?
+  utilityMeters        Json?
+  utilityAccounts      Json?
+  totalUnits           Int                   @default(0)
+  commercialUnits      Int                   @default(0)
+  lastInspectionDate   DateTime?
+  notes                String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  units                Unit[]
+  assignedUsers        UserProperty[]
+  importBatches        ImportBatch[]
+  workOrders           WorkOrder[]
   maintenanceSchedules MaintenanceSchedule[]
-  organizationId String?
-  ownerId        String?
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  ownerRecord    Owner?        @relation(fields: [ownerId], references: [id])
-  violations     Violation[]
-  complianceItems ComplianceItem[]
-  violationSyncLogs ViolationSyncLog[]
-  legalCases        LegalCase[]
-  collectionCases   CollectionCase[]
-  vacancies         Vacancy[]
-  inspections       Inspection[]
-  inspectionItems   InspectionItem[]
-  moveOutAssessments MoveOutAssessment[]
-  moveOutCharges    MoveOutCharge[]
-  activityEvents    ActivityEvent[]
+  organizationId       String?
+  ownerId              String?
+  organization         Organization?         @relation(fields: [organizationId], references: [id])
+  ownerRecord          Owner?                @relation(fields: [ownerId], references: [id])
+  violations           Violation[]
+  complianceItems      ComplianceItem[]
+  violationSyncLogs    ViolationSyncLog[]
+  legalCases           LegalCase[]
+  collectionCases      CollectionCase[]
+  vacancies            Vacancy[]
+  inspections          Inspection[]
+  inspectionItems      InspectionItem[]
+  moveOutAssessments   MoveOutAssessment[]
+  moveOutCharges       MoveOutCharge[]
+  activityEvents       ActivityEvent[]
+  complaints           Complaint[]
+  collectionNotes      CollectionNote[]
+  arSnapshots          ARSnapshot[]
+  utilityMeterRecords  UtilityMeter[]
+
   @@index([organizationId])
   @@index([ownerId])
   @@index([portfolio])
@@ -170,71 +184,80 @@ model Building {
 }
 
 model Unit {
-  id          String   @id @default(cuid())
-  buildingId  String
-  unitNumber  String
-  unitType    String?
-  isVacant    Boolean  @default(false)
-  building    Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  tenant      Tenant?
-  vacancyInfo VacancyInfo?
-  workOrders  WorkOrder[]
+  id                   String                @id @default(cuid())
+  buildingId           String
+  unitNumber           String
+  unitType             String?
+  unitCategory         String?               // "residential", "commercial", "parking", "laundry", "super", "other"
+  isVacant             Boolean               @default(false)
+  isResidential        Boolean               @default(true)
+  building             Building              @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  tenant               Tenant?
+  vacancyInfo          VacancyInfo?
+  workOrders           WorkOrder[]
   maintenanceSchedules MaintenanceSchedule[]
-  leases      Lease[]
-  violations    Violation[]
-  legalCases    LegalCase[]
-  collectionCases   CollectionCase[]
-  vacancies         Vacancy[]
-  inspections       Inspection[]
-  inspectionItems   InspectionItem[]
-  moveOutAssessments MoveOutAssessment[]
-  moveOutCharges    MoveOutCharge[]
-  activityEvents    ActivityEvent[]
+  leases               Lease[]
+  violations           Violation[]
+  legalCases           LegalCase[]
+  collectionCases      CollectionCase[]
+  vacancies            Vacancy[]
+  inspections          Inspection[]
+  inspectionItems      InspectionItem[]
+  moveOutAssessments   MoveOutAssessment[]
+  moveOutCharges       MoveOutCharge[]
+  activityEvents       ActivityEvent[]
+  complaints           Complaint[]
+  utilityMeterRecords  UtilityMeter[]
+
   @@unique([buildingId, unitNumber])
   @@map("units")
 }
 
 model Tenant {
-  id              String   @id @default(cuid())
-  unitId          String   @unique
-  yardiResidentId String?  @unique
-  name            String
-  email           String?
-  phone           String?
-  marketRent      Decimal  @default(0) @db.Decimal(10, 2)
-  legalRent       Decimal  @default(0) @db.Decimal(10, 2)
-  dhcrLegalRent   Decimal  @default(0) @db.Decimal(10, 2)
-  prefRent        Decimal  @default(0) @db.Decimal(10, 2)
-  actualRent      Decimal  @default(0) @db.Decimal(10, 2)
-  chargeCode      String?
-  isStabilized    Boolean  @default(false)
-  deposit         Decimal  @default(0) @db.Decimal(10, 2)
-  moveInDate      DateTime?
-  leaseExpiration DateTime?
-  moveOutDate     DateTime?
-  balance         Decimal  @default(0) @db.Decimal(10, 2)
-  arrearsCategory String   @default("current")
-  arrearsDays     Int      @default(0)
-  monthsOwed      Decimal  @default(0) @db.Decimal(5, 1)
-  leaseStatus     String   @default("active")
-  collectionScore Int      @default(0)
-  overrides       Json?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  unit            Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  notes           TenantNote[]
-  commLogs        CommLog[]
-  payments        Payment[]
-  legalCase       LegalCase?
-  tasks           Task[]
-  emails          EmailLog[]
-  workOrders      WorkOrder[]
-  leases          Lease[]
-  balanceSnapshots BalanceSnapshot[]
-  collectionCases   CollectionCase[]
+  id                 String              @id @default(cuid())
+  unitId             String              @unique
+  yardiResidentId    String?             @unique
+  name               String
+  email              String?
+  phone              String?
+  marketRent         Decimal             @default(0) @db.Decimal(10, 2)
+  legalRent          Decimal             @default(0) @db.Decimal(10, 2)
+  dhcrLegalRent      Decimal             @default(0) @db.Decimal(10, 2)
+  prefRent           Decimal             @default(0) @db.Decimal(10, 2)
+  actualRent         Decimal             @default(0) @db.Decimal(10, 2)
+  chargeCode         String?
+  isStabilized       Boolean             @default(false)
+  deposit            Decimal             @default(0) @db.Decimal(10, 2)
+  moveInDate         DateTime?
+  leaseExpiration    DateTime?
+  moveOutDate        DateTime?
+  balance            Decimal             @default(0) @db.Decimal(10, 2)
+  arrearsCategory    String              @default("current")
+  arrearsDays        Int                 @default(0)
+  monthsOwed         Decimal             @default(0) @db.Decimal(5, 1)
+  leaseStatus        String              @default("active")
+  collectionScore    Int                 @default(0)
+  overrides          Json?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  unit               Unit                @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  notes              TenantNote[]
+  commLogs           CommLog[]
+  payments           Payment[]
+  legalCase          LegalCase?
+  tasks              Task[]
+  emails             EmailLog[]
+  workOrders         WorkOrder[]
+  leases             Lease[]
+  balanceSnapshots   BalanceSnapshot[]
+  collectionCases    CollectionCase[]
   moveOutAssessments MoveOutAssessment[]
-  moveOutCharges    MoveOutCharge[]
-  activityEvents    ActivityEvent[]
+  moveOutCharges     MoveOutCharge[]
+  activityEvents     ActivityEvent[]
+  collectionNotes    CollectionNote[]
+  arSnapshots        ARSnapshot[]
+  utilityAccounts    UtilityAccount[]
+
   @@index([balance])
   @@index([arrearsCategory])
   @@index([leaseExpiration])
@@ -260,6 +283,7 @@ model TenantNote {
   createdAt DateTime     @default(now())
   tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   author    User         @relation(fields: [authorId], references: [id])
+
   @@index([tenantId, createdAt(sort: Desc)])
   @@map("tenant_notes")
 }
@@ -284,22 +308,24 @@ model CommLog {
   createdAt DateTime @default(now())
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   author    User     @relation(fields: [authorId], references: [id])
+
   @@index([tenantId, createdAt(sort: Desc)])
   @@map("comm_logs")
 }
 
 model Payment {
-  id          String   @id @default(cuid())
-  tenantId    String
-  recordedBy  String
-  amount      Decimal  @db.Decimal(10, 2)
-  date        DateTime
-  method      String?
-  reference   String?
-  notes       String?
-  createdAt   DateTime @default(now())
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  recorder    User     @relation(fields: [recordedBy], references: [id])
+  id         String   @id @default(cuid())
+  tenantId   String
+  recordedBy String
+  amount     Decimal  @db.Decimal(10, 2)
+  date       DateTime
+  method     String?
+  reference  String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recorder   User     @relation(fields: [recordedBy], references: [id])
+
   @@index([tenantId, date(sort: Desc)])
   @@map("payments")
 }
@@ -317,26 +343,26 @@ enum LegalStage {
 }
 
 model LegalCase {
-  id               String     @id @default(cuid())
-  tenantId         String     @unique
+  id               String          @id @default(cuid())
+  tenantId         String          @unique
   buildingId       String?
   unitId           String?
   collectionCaseId String?
   attorneyId       String?
   assignedUserId   String?
-  inLegal          Boolean    @default(true)
-  stage            LegalStage @default(NOTICE_SENT)
+  inLegal          Boolean         @default(true)
+  stage            LegalStage      @default(NOTICE_SENT)
   caseNumber       String?
   attorney         String?
   filedDate        DateTime?
   courtDate        DateTime?
-  arrearsBalance   Decimal?   @db.Decimal(10, 2)
-  status           String     @default("active")  // active, settled, dismissed, withdrawn
+  arrearsBalance   Decimal?        @db.Decimal(10, 2)
+  status           String          @default("active") // active, settled, dismissed, withdrawn
   importBatchId    String?
-  isActive         Boolean    @default(true)
-  notes_text       String?    @db.Text
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  isActive         Boolean         @default(true)
+  notes_text       String?         @db.Text
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
   tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   building         Building?       @relation(fields: [buildingId], references: [id])
   unit             Unit?           @relation(fields: [unitId], references: [id])
@@ -344,6 +370,7 @@ model LegalCase {
   attorneyContact  Vendor?         @relation("LegalCaseAttorney", fields: [attorneyId], references: [id])
   assignedUser     User?           @relation("LegalCaseAssignee", fields: [assignedUserId], references: [id])
   notes            LegalNote[]
+
   @@index([stage])
   @@index([status])
   @@index([buildingId])
@@ -352,24 +379,25 @@ model LegalCase {
 }
 
 model LegalImportQueue {
-  id              String   @id @default(cuid())
-  importBatchId   String
-  rowIndex        Int
-  rawData         Json
-  matchType       String   // exact, likely, needs_review, no_match
-  matchConfidence Decimal  @db.Decimal(3, 2)
-  candidateTenantId String?
-  candidateTenantName String?
+  id                       String    @id @default(cuid())
+  importBatchId            String
+  rowIndex                 Int
+  rawData                  Json
+  matchType                String // exact, likely, needs_review, no_match
+  matchConfidence          Decimal   @db.Decimal(3, 2)
+  candidateTenantId        String?
+  candidateTenantName      String?
   candidateBuildingAddress String?
-  candidateUnitNumber String?
-  sourceAddress   String?
-  sourceUnit      String?
-  sourceTenantName String?
-  sourceCaseNumber String?
-  status          String   @default("pending")  // pending, approved, rejected, auto_matched
-  resolvedById    String?
-  resolvedAt      DateTime?
-  createdAt       DateTime @default(now())
+  candidateUnitNumber      String?
+  sourceAddress            String?
+  sourceUnit               String?
+  sourceTenantName         String?
+  sourceCaseNumber         String?
+  status                   String    @default("pending") // pending, approved, rejected, auto_matched
+  resolvedById             String?
+  resolvedAt               DateTime?
+  createdAt                DateTime  @default(now())
+
   @@index([importBatchId])
   @@index([status])
   @@map("legal_import_queue")
@@ -384,64 +412,69 @@ model LegalNote {
   createdAt   DateTime   @default(now())
   legalCase   LegalCase  @relation(fields: [legalCaseId], references: [id], onDelete: Cascade)
   author      User       @relation(fields: [authorId], references: [id])
+
   @@index([legalCaseId, createdAt(sort: Desc)])
   @@map("legal_notes")
 }
 
 model Task {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   tenantId    String
   createdById String
   type        String
   description String
   dueDate     DateTime?
-  done        Boolean  @default(false)
+  done        Boolean   @default(false)
   completedAt DateTime?
-  createdAt   DateTime @default(now())
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy   User      @relation(fields: [createdById], references: [id])
+
   @@index([tenantId])
   @@index([dueDate])
   @@map("tasks")
 }
 
 model VacancyInfo {
-  id           String   @id @default(cuid())
-  unitId       String   @unique
-  condition    String?
-  accessType   String?
-  accessNotes  String?
-  proposedRent Decimal? @db.Decimal(10, 2)
-  readyDate    DateTime?
-  internalNotes String?  @db.Text
-  brokerNotes  Json?
-  updatedAt    DateTime @updatedAt
-  unit         Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  id            String    @id @default(cuid())
+  unitId        String    @unique
+  condition     String?
+  accessType    String?
+  accessNotes   String?
+  proposedRent  Decimal?  @db.Decimal(10, 2)
+  readyDate     DateTime?
+  internalNotes String?   @db.Text
+  brokerNotes   Json?
+  updatedAt     DateTime  @updatedAt
+  unit          Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
   @@map("vacancy_info")
 }
 
 model DhcrRent {
-  id           String   @id @default(cuid())
-  buildingId   String
-  unitNumber   String
-  legalRent    Decimal  @db.Decimal(10, 2)
-  regId        String?
-  dhcrAddress  String?
-  importedAt   DateTime @default(now())
+  id          String   @id @default(cuid())
+  buildingId  String
+  unitNumber  String
+  legalRent   Decimal  @db.Decimal(10, 2)
+  regId       String?
+  dhcrAddress String?
+  importedAt  DateTime @default(now())
+
   @@unique([buildingId, unitNumber])
   @@map("dhcr_rents")
 }
 
 model ImportBatch {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   buildingId  String?
   filename    String
   format      String
-  recordCount Int      @default(0)
-  status      String   @default("completed")
+  recordCount Int       @default(0)
+  status      String    @default("completed")
   errors      Json?
-  importedAt  DateTime @default(now())
+  importedAt  DateTime  @default(now())
   building    Building? @relation(fields: [buildingId], references: [id])
+
   @@map("import_batches")
 }
 
@@ -466,6 +499,7 @@ model EmailLog {
   sentAt         DateTime  @default(now())
   tenant         Tenant?   @relation(fields: [tenantId], references: [id])
   sentBy         User      @relation(fields: [sentById], references: [id])
+
   @@index([tenantId, sentAt(sort: Desc)])
   @@map("email_logs")
 }
@@ -503,57 +537,60 @@ enum MaintenanceFrequency {
 }
 
 model Vendor {
-  id          String   @id @default(cuid())
-  name        String
-  company     String?
-  email       String?
-  phone       String?
-  specialty   String?
-  contactType String   @default("vendor")  // vendor | broker | attorney
-  hourlyRate  Decimal? @db.Decimal(10, 2)
-  notes       String?  @db.Text
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  workOrders  WorkOrder[]
-  complianceItems ComplianceItem[]
-  vacanciesBrokered Vacancy[]   @relation("VacancyBroker")
-  legalCasesAsAttorney LegalCase[] @relation("LegalCaseAttorney")
-  violationsAssigned   Violation[] @relation("ViolationVendor")
+  id                   String           @id @default(cuid())
+  name                 String
+  company              String?
+  email                String?
+  phone                String?
+  specialty            String?
+  contactType          String           @default("vendor") // vendor | broker | attorney
+  hourlyRate           Decimal?         @db.Decimal(10, 2)
+  notes                String?          @db.Text
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  workOrders           WorkOrder[]
+  complianceItems      ComplianceItem[]
+  vacanciesBrokered    Vacancy[]        @relation("VacancyBroker")
+  legalCasesAsAttorney LegalCase[]      @relation("LegalCaseAttorney")
+  violationsAssigned   Violation[]      @relation("ViolationVendor")
+
   @@index([contactType])
   @@map("vendors")
 }
 
 model WorkOrder {
-  id             String            @id @default(cuid())
-  title          String
-  description    String            @db.Text
-  status         WorkOrderStatus   @default(OPEN)
-  priority       WorkOrderPriority @default(MEDIUM)
-  category       WorkOrderCategory @default(GENERAL)
-  photos         Json?
-  estimatedCost  Decimal?          @db.Decimal(10, 2)
-  actualCost     Decimal?          @db.Decimal(10, 2)
-  scheduledDate  DateTime?
-  completedDate  DateTime?
-  buildingId     String
-  unitId         String?
-  tenantId       String?
-  vendorId       String?
-  assignedToId   String?
-  createdById    String?
-  sourceType     String?           // manual | inspection | violation | vacancy | move_out
-  sourceId       String?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  building       Building          @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  unit           Unit?             @relation(fields: [unitId], references: [id])
-  tenant         Tenant?           @relation(fields: [tenantId], references: [id])
-  vendor         Vendor?           @relation(fields: [vendorId], references: [id])
-  assignedTo     User?             @relation("WorkOrderAssignee", fields: [assignedToId], references: [id])
-  createdBy      User?             @relation("WorkOrderCreator", fields: [createdById], references: [id])
-  comments       WorkOrderComment[]
-  violations     Violation[]
+  id              String             @id @default(cuid())
+  title           String
+  description     String             @db.Text
+  status          WorkOrderStatus    @default(OPEN)
+  priority        WorkOrderPriority  @default(MEDIUM)
+  category        WorkOrderCategory  @default(GENERAL)
+  photos          Json?
+  estimatedCost   Decimal?           @db.Decimal(10, 2)
+  actualCost      Decimal?           @db.Decimal(10, 2)
+  scheduledDate   DateTime?
+  completedDate   DateTime?
+  buildingId      String
+  unitId          String?
+  tenantId        String?
+  vendorId        String?
+  assignedToId    String?
+  createdById     String?
+  sourceType      String? // manual | inspection | violation | vacancy | move_out
+  sourceId        String?
+  dueDate         DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  building        Building           @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  unit            Unit?              @relation(fields: [unitId], references: [id])
+  tenant          Tenant?            @relation(fields: [tenantId], references: [id])
+  vendor          Vendor?            @relation(fields: [vendorId], references: [id])
+  assignedTo      User?              @relation("WorkOrderAssignee", fields: [assignedToId], references: [id])
+  createdBy       User?              @relation("WorkOrderCreator", fields: [createdById], references: [id])
+  comments        WorkOrderComment[]
+  violations      Violation[]
   inspectionItems InspectionItem[]
+
   @@index([buildingId])
   @@index([status])
   @@index([priority])
@@ -570,23 +607,25 @@ model WorkOrderComment {
   createdAt   DateTime  @default(now())
   workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
   author      User      @relation(fields: [authorId], references: [id])
+
   @@index([workOrderId, createdAt(sort: Desc)])
   @@map("work_order_comments")
 }
 
 model MaintenanceSchedule {
-  id                 String               @id @default(cuid())
-  title              String
-  description        String?              @db.Text
-  frequency          MaintenanceFrequency
-  nextDueDate        DateTime
-  autoCreateWorkOrder Boolean             @default(true)
-  buildingId         String
-  unitId             String?
-  building           Building             @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  unit               Unit?                @relation(fields: [unitId], references: [id])
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  id                  String               @id @default(cuid())
+  title               String
+  description         String?              @db.Text
+  frequency           MaintenanceFrequency
+  nextDueDate         DateTime
+  autoCreateWorkOrder Boolean              @default(true)
+  buildingId          String
+  unitId              String?
+  building            Building             @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  unit                Unit?                @relation(fields: [unitId], references: [id])
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
   @@index([nextDueDate])
   @@map("maintenance_schedules")
 }
@@ -649,40 +688,49 @@ enum ComplianceStatus {
 }
 
 model Violation {
-  id                  String            @id @default(cuid())
-  buildingId          String
-  unitId              String?
-  assignedUserId      String?
-  assignedVendorId    String?
-  source              ViolationSource
-  externalId          String
-  class               ViolationClass?
-  severity            ViolationSeverity?
-  description         String            @db.Text
-  inspectionDate      DateTime?
-  issuedDate          DateTime?
-  currentStatus       String?
-  penaltyAmount       Decimal           @default(0) @db.Decimal(10, 2)
-  respondByDate       DateTime?
+  id                   String             @id @default(cuid())
+  buildingId           String
+  unitId               String?
+  assignedUserId       String?
+  assignedVendorId     String?
+  source               ViolationSource
+  externalId           String
+  class                ViolationClass?
+  severity             ViolationSeverity?
+  description          String             @db.Text
+  inspectionDate       DateTime?
+  issuedDate           DateTime?
+  currentStatus        String?
+  penaltyAmount        Decimal            @default(0) @db.Decimal(10, 2)
+  normalizedCategory   String?
+  reconciliationStatus String             @default("UNMATCHED")
+  sourceType           String?
+  sourceId             String?
+  complaintId          String?
+  needsWorkOrder       Boolean            @default(true)
+  certifyByDate        DateTime?
+  respondByDate        DateTime?
   certifiedDismissDate DateTime?
-  correctionDate      DateTime?
+  correctionDate       DateTime?
   targetCompletionDate DateTime?
-  certificationDate   DateTime?
-  remediationNotes    String?           @db.Text
-  isOpen              Boolean           @default(true)
-  unitNumber          String?
-  novDescription      String?           @db.Text
-  hearingDate         DateTime?
-  hearingStatus       String?
-  linkedWorkOrderId   String?
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
-  building            Building          @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  unit                Unit?             @relation(fields: [unitId], references: [id])
-  assignedUser        User?             @relation(fields: [assignedUserId], references: [id])
-  assignedVendor      Vendor?           @relation("ViolationVendor", fields: [assignedVendorId], references: [id])
-  linkedWorkOrder     WorkOrder?        @relation(fields: [linkedWorkOrderId], references: [id])
-  complianceItems     ComplianceItem[]
+  certificationDate    DateTime?
+  remediationNotes     String?            @db.Text
+  isOpen               Boolean            @default(true)
+  unitNumber           String?
+  novDescription       String?            @db.Text
+  hearingDate          DateTime?
+  hearingStatus        String?
+  linkedWorkOrderId    String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  building             Building           @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  unit                 Unit?              @relation(fields: [unitId], references: [id])
+  assignedUser         User?              @relation(fields: [assignedUserId], references: [id])
+  assignedVendor       Vendor?            @relation("ViolationVendor", fields: [assignedVendorId], references: [id])
+  linkedWorkOrder      WorkOrder?         @relation(fields: [linkedWorkOrderId], references: [id])
+  complaint            Complaint?         @relation(fields: [complaintId], references: [id])
+  complianceItems      ComplianceItem[]
+
   @@unique([source, externalId])
   @@index([buildingId])
   @@index([unitId])
@@ -695,29 +743,30 @@ model Violation {
 }
 
 model ComplianceItem {
-  id                String             @id @default(cuid())
+  id                String              @id @default(cuid())
   buildingId        String
   type              String
   category          ComplianceCategory
   name              String
-  description       String             @db.Text
+  description       String              @db.Text
   dueDate           DateTime?
   frequency         ComplianceFrequency
-  status            ComplianceStatus   @default(PENDING)
+  status            ComplianceStatus    @default(PENDING)
   lastCompletedDate DateTime?
   nextDueDate       DateTime?
   assignedVendorId  String?
-  cost              Decimal            @default(0) @db.Decimal(10, 2)
+  cost              Decimal             @default(0) @db.Decimal(10, 2)
   filedBy           String?
   certificateUrl    String?
-  notes             String?            @db.Text
+  notes             String?             @db.Text
   linkedViolationId String?
-  isCustom          Boolean            @default(false)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  building          Building           @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  assignedVendor    Vendor?            @relation(fields: [assignedVendorId], references: [id])
-  linkedViolation   Violation?         @relation(fields: [linkedViolationId], references: [id])
+  isCustom          Boolean             @default(false)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  building          Building            @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  assignedVendor    Vendor?             @relation(fields: [assignedVendorId], references: [id])
+  linkedViolation   Violation?          @relation(fields: [linkedViolationId], references: [id])
+
   @@index([buildingId])
   @@index([status])
   @@index([nextDueDate])
@@ -726,14 +775,15 @@ model ComplianceItem {
 }
 
 model ViolationSyncLog {
-  id           String   @id @default(cuid())
+  id           String          @id @default(cuid())
   buildingId   String?
   source       ViolationSource
-  syncedAt     DateTime @default(now())
-  newCount     Int      @default(0)
-  updatedCount Int      @default(0)
-  status       String   @default("completed")
-  building     Building? @relation(fields: [buildingId], references: [id])
+  syncedAt     DateTime        @default(now())
+  newCount     Int             @default(0)
+  updatedCount Int             @default(0)
+  status       String          @default("completed")
+  building     Building?       @relation(fields: [buildingId], references: [id])
+
   @@index([buildingId, syncedAt(sort: Desc)])
   @@map("violation_sync_logs")
 }
@@ -794,33 +844,34 @@ enum ImportRowStatus {
 }
 
 model Lease {
-  id                String          @id @default(cuid())
-  unitId            String
-  tenantId          String?
-  leaseStart        DateTime?
-  leaseEnd          DateTime?
-  monthlyRent       Decimal         @default(0) @db.Decimal(10, 2)
-  legalRent         Decimal         @default(0) @db.Decimal(10, 2)
-  preferentialRent  Decimal         @default(0) @db.Decimal(10, 2)
-  subsidyType       String?
-  subsidyAmount     Decimal         @default(0) @db.Decimal(10, 2)
-  tenantPortion     Decimal         @default(0) @db.Decimal(10, 2)
-  renewalStatus     String?
-  leaseType         String?
-  status            LeaseStatus     @default(ACTIVE)
-  paymentFrequency  PaymentFrequency @default(MONTHLY)
-  billingStatus     BillingStatus   @default(ACTIVE)
-  isStabilized      Boolean         @default(false)
-  householdSize     Int?
-  securityDeposit   Decimal         @default(0) @db.Decimal(10, 2)
-  notes             String?         @db.Text
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  unit              Unit            @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  tenant            Tenant?         @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  occupants         LeaseOccupant[]
-  recurringCharges  RecurringCharge[]
-  balanceSnapshots  BalanceSnapshot[]
+  id               String            @id @default(cuid())
+  unitId           String
+  tenantId         String?
+  leaseStart       DateTime?
+  leaseEnd         DateTime?
+  monthlyRent      Decimal           @default(0) @db.Decimal(10, 2)
+  legalRent        Decimal           @default(0) @db.Decimal(10, 2)
+  preferentialRent Decimal           @default(0) @db.Decimal(10, 2)
+  subsidyType      String?
+  subsidyAmount    Decimal           @default(0) @db.Decimal(10, 2)
+  tenantPortion    Decimal           @default(0) @db.Decimal(10, 2)
+  renewalStatus    String?
+  leaseType        String?
+  status           LeaseStatus       @default(ACTIVE)
+  paymentFrequency PaymentFrequency  @default(MONTHLY)
+  billingStatus    BillingStatus     @default(ACTIVE)
+  isStabilized     Boolean           @default(false)
+  householdSize    Int?
+  securityDeposit  Decimal           @default(0) @db.Decimal(10, 2)
+  notes            String?           @db.Text
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  unit             Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenant           Tenant?           @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  occupants        LeaseOccupant[]
+  recurringCharges RecurringCharge[]
+  balanceSnapshots BalanceSnapshot[]
+
   @@index([unitId])
   @@index([tenantId])
   @@index([status])
@@ -838,43 +889,46 @@ model LeaseOccupant {
   email     String?
   createdAt DateTime     @default(now())
   lease     Lease        @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
   @@index([leaseId])
   @@map("lease_occupants")
 }
 
 model RecurringCharge {
-  id          String   @id @default(cuid())
+  id          String           @id @default(cuid())
   leaseId     String
   chargeCode  String
   description String?
-  amount      Decimal  @db.Decimal(10, 2)
+  amount      Decimal          @db.Decimal(10, 2)
   frequency   PaymentFrequency @default(MONTHLY)
   startDate   DateTime?
   endDate     DateTime?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  lease       Lease    @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  active      Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  lease       Lease            @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
   @@index([leaseId])
   @@index([active])
   @@map("recurring_charges")
 }
 
 model BalanceSnapshot {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   tenantId          String?
   leaseId           String?
   importBatchId     String?
-  snapshotDate      DateTime @default(now())
-  currentCharges    Decimal  @default(0) @db.Decimal(10, 2)
-  currentBalance    Decimal  @default(0) @db.Decimal(10, 2)
-  pastDueBalance    Decimal  @default(0) @db.Decimal(10, 2)
+  snapshotDate      DateTime  @default(now())
+  currentCharges    Decimal   @default(0) @db.Decimal(10, 2)
+  currentBalance    Decimal   @default(0) @db.Decimal(10, 2)
+  pastDueBalance    Decimal   @default(0) @db.Decimal(10, 2)
   lastPaymentDate   DateTime?
-  lastPaymentAmount Decimal? @db.Decimal(10, 2)
-  arrearsStatus     String   @default("current")
-  createdAt         DateTime @default(now())
-  tenant            Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  lease             Lease?   @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+  lastPaymentAmount Decimal?  @db.Decimal(10, 2)
+  arrearsStatus     String    @default("current")
+  createdAt         DateTime  @default(now())
+  tenant            Tenant?   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  lease             Lease?    @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+
   @@index([tenantId, snapshotDate(sort: Desc)])
   @@index([leaseId])
   @@index([snapshotDate])
@@ -882,7 +936,7 @@ model BalanceSnapshot {
 }
 
 model ImportRow {
-  id            String         @id @default(cuid())
+  id            String          @id @default(cuid())
   importBatchId String
   rowIndex      Int
   rawData       Json
@@ -890,7 +944,8 @@ model ImportRow {
   entityType    String?
   entityId      String?
   errors        Json?
-  createdAt     DateTime       @default(now())
+  createdAt     DateTime        @default(now())
+
   @@index([importBatchId])
   @@index([status])
   @@map("import_rows")
@@ -899,8 +954,8 @@ model ImportRow {
 // ── Self-Learning Import Profiles ────────────────────────────────
 
 model ImportProfile {
-  id               String   @id @default(cuid())
-  organizationId   String   @default("default")
+  id               String           @id @default(cuid())
+  organizationId   String           @default("default")
   name             String
   importType       String
   sheetNamePattern String?
@@ -908,46 +963,49 @@ model ImportProfile {
   fingerprintJson  Json
   mappingJson      Json
   ignoredRulesJson Json?
-  isActive         Boolean  @default(true)
+  isActive         Boolean          @default(true)
   createdById      String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
   runs             ImportRun[]
   feedback         ImportFeedback[]
+
   @@index([organizationId, importType])
   @@map("import_profiles")
 }
 
 model ImportRun {
-  id               String   @id @default(cuid())
-  organizationId   String   @default("default")
+  id               String           @id @default(cuid())
+  organizationId   String           @default("default")
   fileName         String
   importType       String
   matchedProfileId String?
-  aiUsed           Boolean  @default(false)
-  status           String   @default("pending")
+  aiUsed           Boolean          @default(false)
+  status           String           @default("pending")
   analysisJson     Json
   finalMappingJson Json?
   createdById      String?
-  createdAt        DateTime @default(now())
-  matchedProfile   ImportProfile? @relation(fields: [matchedProfileId], references: [id])
+  createdAt        DateTime         @default(now())
+  matchedProfile   ImportProfile?   @relation(fields: [matchedProfileId], references: [id])
   feedback         ImportFeedback[]
+
   @@index([organizationId, importType])
   @@index([matchedProfileId])
   @@map("import_runs")
 }
 
 model ImportFeedback {
-  id                 String   @id @default(cuid())
+  id                 String         @id @default(cuid())
   importRunId        String
   importProfileId    String?
   fieldName          String
   originalSuggestion String?
   finalUserChoice    String?
-  corrected          Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  importRun          ImportRun     @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  corrected          Boolean        @default(false)
+  createdAt          DateTime       @default(now())
+  importRun          ImportRun      @relation(fields: [importRunId], references: [id], onDelete: Cascade)
   importProfile      ImportProfile? @relation(fields: [importProfileId], references: [id])
+
   @@index([importRunId])
   @@index([importProfileId])
   @@map("import_feedback")
@@ -956,51 +1014,54 @@ model ImportFeedback {
 // ── Core Entity Models ──────────────────────────────────────────
 
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  buildings Building[]
+  id             String          @id @default(cuid())
+  name           String
+  slug           String          @unique
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  buildings      Building[]
   activityEvents ActivityEvent[]
+
   @@map("organizations")
 }
 
 model Owner {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   name      String
   email     String?
   phone     String?
   company   String?
-  notes     String?  @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  notes     String?    @db.Text
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   buildings Building[]
+
   @@map("owners")
 }
 
 // ── Operational Records ─────────────────────────────────────────
 
 model CollectionCase {
-  id              String   @id @default(cuid())
-  buildingId      String
-  unitId          String
-  tenantId        String
-  assignedUserId  String?
-  balanceOwed     Decimal  @default(0) @db.Decimal(10, 2)
-  daysLate        Int      @default(0)
-  status          String   @default("new_arrears") // new_arrears | reminder_sent | payment_plan | notice_served | legal_review | legal_filed
-  lastActionDate  DateTime?
-  nextActionDate  DateTime?
-  notes           String?  @db.Text
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  building        Building @relation(fields: [buildingId], references: [id])
-  unit            Unit     @relation(fields: [unitId], references: [id])
-  tenant          Tenant   @relation(fields: [tenantId], references: [id])
-  assignedUser    User?    @relation("CollectionAssignee", fields: [assignedUserId], references: [id])
-  legalCases      LegalCase[]
+  id             String      @id @default(cuid())
+  buildingId     String
+  unitId         String
+  tenantId       String
+  assignedUserId String?
+  balanceOwed    Decimal     @default(0) @db.Decimal(10, 2)
+  daysLate       Int         @default(0)
+  status         String      @default("new_arrears") // new_arrears | reminder_sent | payment_plan | notice_served | legal_review | legal_filed
+  lastActionDate DateTime?
+  nextActionDate DateTime?
+  notes          String?     @db.Text
+  isActive       Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  building       Building    @relation(fields: [buildingId], references: [id])
+  unit           Unit        @relation(fields: [unitId], references: [id])
+  tenant         Tenant      @relation(fields: [tenantId], references: [id])
+  assignedUser   User?       @relation("CollectionAssignee", fields: [assignedUserId], references: [id])
+  legalCases     LegalCase[]
+
   @@index([buildingId])
   @@index([tenantId])
   @@index([status])
@@ -1009,26 +1070,27 @@ model CollectionCase {
 }
 
 model Vacancy {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   buildingId      String
   unitId          String
   brokerId        String?
   assignedUserId  String?
-  stage           String   @default("vacant") // vacant | renovation | listed | showing | application | lease_signed
-  askingRent      Decimal? @db.Decimal(10, 2)
-  showingsCount   Int      @default(0)
+  stage           String    @default("vacant") // vacant | renovation | listed | showing | application | lease_signed
+  askingRent      Decimal?  @db.Decimal(10, 2)
+  showingsCount   Int       @default(0)
   listedDate      DateTime?
   applicationDate DateTime?
   leaseSignedDate DateTime?
   moveInDate      DateTime?
-  notes           String?  @db.Text
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  building        Building @relation(fields: [buildingId], references: [id])
-  unit            Unit     @relation(fields: [unitId], references: [id])
-  broker          Vendor?  @relation("VacancyBroker", fields: [brokerId], references: [id])
-  assignedUser    User?    @relation("VacancyAssignee", fields: [assignedUserId], references: [id])
+  notes           String?   @db.Text
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  building        Building  @relation(fields: [buildingId], references: [id])
+  unit            Unit      @relation(fields: [unitId], references: [id])
+  broker          Vendor?   @relation("VacancyBroker", fields: [brokerId], references: [id])
+  assignedUser    User?     @relation("VacancyAssignee", fields: [assignedUserId], references: [id])
+
   @@index([buildingId])
   @@index([unitId])
   @@index([isActive])
@@ -1037,23 +1099,24 @@ model Vacancy {
 }
 
 model Inspection {
-  id              String   @id @default(cuid())
-  buildingId      String
-  unitId          String?
-  assignedUserId  String?
-  inspectionType  String
-  frequencyType   String   @default("one_time") // monthly | weekly | move_in | move_out | one_time
-  scheduledFor    DateTime?
-  completedAt     DateTime?
-  overallStatus   String   @default("pending") // pending | in_progress | completed | cancelled
-  notes           String?  @db.Text
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  building        Building   @relation(fields: [buildingId], references: [id])
-  unit            Unit?      @relation(fields: [unitId], references: [id])
-  assignedUser    User?      @relation("InspectionAssignee", fields: [assignedUserId], references: [id])
-  items           InspectionItem[]
+  id                 String              @id @default(cuid())
+  buildingId         String
+  unitId             String?
+  assignedUserId     String?
+  inspectionType     String
+  frequencyType      String              @default("one_time") // monthly | weekly | move_in | move_out | one_time
+  scheduledFor       DateTime?
+  completedAt        DateTime?
+  overallStatus      String              @default("pending") // pending | in_progress | completed | cancelled
+  notes              String?             @db.Text
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  building           Building            @relation(fields: [buildingId], references: [id])
+  unit               Unit?               @relation(fields: [unitId], references: [id])
+  assignedUser       User?               @relation("InspectionAssignee", fields: [assignedUserId], references: [id])
+  items              InspectionItem[]
   moveOutAssessments MoveOutAssessment[]
+
   @@index([buildingId])
   @@index([scheduledFor])
   @@index([overallStatus])
@@ -1061,67 +1124,70 @@ model Inspection {
 }
 
 model InspectionItem {
-  id                    String   @id @default(cuid())
-  inspectionId          String
-  buildingId            String
-  unitId                String?
-  label                 String
-  status                String   @default("pending") // pass | fail | needs_attention | na | pending
-  notes                 String?  @db.Text
-  generatedWorkOrderId  String?
-  createdAt             DateTime @default(now())
-  inspection            Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-  building              Building   @relation(fields: [buildingId], references: [id])
-  unit                  Unit?      @relation(fields: [unitId], references: [id])
-  generatedWorkOrder    WorkOrder? @relation(fields: [generatedWorkOrderId], references: [id])
+  id                   String     @id @default(cuid())
+  inspectionId         String
+  buildingId           String
+  unitId               String?
+  label                String
+  status               String     @default("pending") // pass | fail | needs_attention | na | pending
+  notes                String?    @db.Text
+  generatedWorkOrderId String?
+  createdAt            DateTime   @default(now())
+  inspection           Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  building             Building   @relation(fields: [buildingId], references: [id])
+  unit                 Unit?      @relation(fields: [unitId], references: [id])
+  generatedWorkOrder   WorkOrder? @relation(fields: [generatedWorkOrderId], references: [id])
+
   @@index([inspectionId])
   @@map("inspection_items")
 }
 
 model MoveOutAssessment {
-  id                        String   @id @default(cuid())
-  buildingId                String
-  unitId                    String
-  tenantId                  String
-  inspectionId              String?
-  assignedUserId            String?
-  securityDepositAmount     Decimal  @default(0) @db.Decimal(10, 2)
-  recommendedChargesTotal   Decimal  @default(0) @db.Decimal(10, 2)
-  recommendedDepositReturn  Decimal  @default(0) @db.Decimal(10, 2)
-  recommendationStatus      String   @default("draft") // draft | reviewed | approved | sent
-  draftEmailBody            String?  @db.Text
-  completedAt               DateTime?
-  notes                     String?  @db.Text
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
-  building                  Building    @relation(fields: [buildingId], references: [id])
-  unit                      Unit        @relation(fields: [unitId], references: [id])
-  tenant                    Tenant      @relation(fields: [tenantId], references: [id])
-  inspection                Inspection? @relation(fields: [inspectionId], references: [id])
-  assignedUser              User?       @relation("MoveOutAssignee", fields: [assignedUserId], references: [id])
-  charges                   MoveOutCharge[]
+  id                       String          @id @default(cuid())
+  buildingId               String
+  unitId                   String
+  tenantId                 String
+  inspectionId             String?
+  assignedUserId           String?
+  securityDepositAmount    Decimal         @default(0) @db.Decimal(10, 2)
+  recommendedChargesTotal  Decimal         @default(0) @db.Decimal(10, 2)
+  recommendedDepositReturn Decimal         @default(0) @db.Decimal(10, 2)
+  recommendationStatus     String          @default("draft") // draft | reviewed | approved | sent
+  draftEmailBody           String?         @db.Text
+  completedAt              DateTime?
+  notes                    String?         @db.Text
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+  building                 Building        @relation(fields: [buildingId], references: [id])
+  unit                     Unit            @relation(fields: [unitId], references: [id])
+  tenant                   Tenant          @relation(fields: [tenantId], references: [id])
+  inspection               Inspection?     @relation(fields: [inspectionId], references: [id])
+  assignedUser             User?           @relation("MoveOutAssignee", fields: [assignedUserId], references: [id])
+  charges                  MoveOutCharge[]
+
   @@index([buildingId])
   @@index([tenantId])
   @@map("move_out_assessments")
 }
 
 model MoveOutCharge {
-  id                  String   @id @default(cuid())
+  id                  String            @id @default(cuid())
   moveOutAssessmentId String
   buildingId          String
   unitId              String
   tenantId            String
   chargeCode          String
   chargeLabel         String
-  quantity            Int      @default(1)
-  unitPrice           Decimal  @db.Decimal(10, 2)
-  totalPrice          Decimal  @db.Decimal(10, 2)
-  notes               String?  @db.Text
-  createdAt           DateTime @default(now())
+  quantity            Int               @default(1)
+  unitPrice           Decimal           @db.Decimal(10, 2)
+  totalPrice          Decimal           @db.Decimal(10, 2)
+  notes               String?           @db.Text
+  createdAt           DateTime          @default(now())
   assessment          MoveOutAssessment @relation(fields: [moveOutAssessmentId], references: [id], onDelete: Cascade)
-  building            Building @relation(fields: [buildingId], references: [id])
-  unit                Unit     @relation(fields: [unitId], references: [id])
-  tenant              Tenant   @relation(fields: [tenantId], references: [id])
+  building            Building          @relation(fields: [buildingId], references: [id])
+  unit                Unit              @relation(fields: [unitId], references: [id])
+  tenant              Tenant            @relation(fields: [tenantId], references: [id])
+
   @@index([moveOutAssessmentId])
   @@map("move_out_charges")
 }
@@ -1129,20 +1195,21 @@ model MoveOutCharge {
 // ── Import Staging ─────────────────────────────────────────────
 
 model ImportStagingBatch {
-  id              String   @id @default(cuid())
-  importType      String   @default("tenant_list") // tenant_list | rent_roll | aging | building
-  fileName        String
-  uploadedById    String
-  status          String   @default("pending_review") // pending_review | approved | rejected | expired
-  rowsJson        Json     // Array of parsed row objects
-  mappingJson     Json     // Column mapping used
-  summaryJson     Json     // { total, newTenants, updates, errors, buildings }
-  reviewedById    String?
-  reviewedAt      DateTime?
-  reviewNotes     String?  @db.Text
-  importBatchId   String?  // set after approval creates the real ImportBatch
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String    @id @default(cuid())
+  importType    String    @default("tenant_list") // tenant_list | rent_roll | aging | building
+  fileName      String
+  uploadedById  String
+  status        String    @default("pending_review") // pending_review | approved | rejected | expired
+  rowsJson      Json // Array of parsed row objects
+  mappingJson   Json // Column mapping used
+  summaryJson   Json // { total, newTenants, updates, errors, buildings }
+  reviewedById  String?
+  reviewedAt    DateTime?
+  reviewNotes   String?   @db.Text
+  importBatchId String? // set after approval creates the real ImportBatch
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
   @@index([status])
   @@index([uploadedById])
   @@map("import_staging_batches")
@@ -1151,25 +1218,26 @@ model ImportStagingBatch {
 // ── Shared Activity Timeline ────────────────────────────────────
 
 model ActivityEvent {
-  id                String   @id @default(cuid())
-  eventType         String   // legal_case_created | work_order_completed | payment_received | vacancy_listed | inspection_completed | collection_escalated | ...
+  id                String        @id @default(cuid())
+  eventType         String // legal_case_created | work_order_completed | payment_received | vacancy_listed | inspection_completed | collection_escalated | ...
   title             String
-  description       String?  @db.Text
+  description       String?       @db.Text
   organizationId    String?
   buildingId        String?
   unitId            String?
   tenantId          String?
-  relatedRecordType String?  // LegalCase | WorkOrder | CollectionCase | Vacancy | Inspection | MoveOutAssessment | ...
+  relatedRecordType String? // LegalCase | WorkOrder | CollectionCase | Vacancy | Inspection | MoveOutAssessment | ...
   relatedRecordId   String?
   createdByUserId   String?
-  eventTimestamp    DateTime @default(now())
+  eventTimestamp    DateTime      @default(now())
   metadata          Json?
-  createdAt         DateTime @default(now())
+  createdAt         DateTime      @default(now())
   organization      Organization? @relation(fields: [organizationId], references: [id])
   building          Building?     @relation(fields: [buildingId], references: [id])
   unit              Unit?         @relation(fields: [unitId], references: [id])
   tenant            Tenant?       @relation(fields: [tenantId], references: [id])
   createdByUser     User?         @relation(fields: [createdByUserId], references: [id])
+
   @@index([buildingId, eventTimestamp(sort: Desc)])
   @@index([unitId, eventTimestamp(sort: Desc)])
   @@index([tenantId, eventTimestamp(sort: Desc)])
@@ -1177,4 +1245,233 @@ model ActivityEvent {
   @@index([relatedRecordType, relatedRecordId])
   @@index([eventType])
   @@map("activity_events")
+}
+
+// ── Complaints ────────────────────────────────────────────────
+
+model Complaint {
+  id           String      @id @default(uuid())
+  buildingId   String
+  unitId       String?
+  source       String
+  category     String
+  description  String      @db.Text
+  reportedBy   String?
+  reportedDate DateTime?
+  status       String      @default("OPEN")
+  resolvedDate DateTime?
+  notes        String?     @db.Text
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  building     Building    @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  unit         Unit?       @relation(fields: [unitId], references: [id])
+  violations   Violation[]
+
+  @@index([buildingId])
+  @@index([status])
+  @@index([source])
+  @@map("complaints")
+}
+
+// ── Collections & AR ──────────────────────────────────────────
+
+enum CollectionActionType {
+  CALLED
+  LEFT_VOICEMAIL
+  TEXTED
+  EMAILED
+  NOTICE_SENT
+  PAYMENT_PLAN
+  PARTIAL_PAYMENT
+  PROMISE_TO_PAY
+  SENT_TO_LEGAL
+  OTHER
+}
+
+enum CollectionStatus {
+  CURRENT
+  LATE
+  DELINQUENT
+  CHRONIC
+  PAYMENT_PLAN
+  LEGAL
+  VACATE_PENDING
+}
+
+model CollectionNote {
+  id           String               @id @default(cuid())
+  tenantId     String
+  buildingId   String
+  authorId     String
+  content      String               @db.Text
+  actionType   CollectionActionType
+  followUpDate DateTime?
+  createdAt    DateTime             @default(now())
+  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  building     Building             @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  author       User                 @relation(fields: [authorId], references: [id])
+
+  @@index([tenantId])
+  @@index([buildingId])
+  @@index([authorId])
+  @@index([followUpDate])
+  @@map("collection_notes")
+}
+
+model ARSnapshot {
+  id               String           @id @default(cuid())
+  tenantId         String
+  buildingId       String
+  month            DateTime
+  balance0_30      Decimal          @db.Decimal(10, 2)
+  balance31_60     Decimal          @db.Decimal(10, 2)
+  balance61_90     Decimal          @db.Decimal(10, 2)
+  balance90plus    Decimal          @db.Decimal(10, 2)
+  totalBalance     Decimal          @db.Decimal(10, 2)
+  collectionStatus CollectionStatus
+  snapshotDate     DateTime
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  building         Building         @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, month])
+  @@index([buildingId])
+  @@index([month])
+  @@map("ar_snapshots")
+}
+
+// ── Utility Meter & Account Compliance ───────────────────────────
+
+model UtilityMeter {
+  id              String   @id @default(cuid())
+  buildingId      String
+  unitId          String?
+  utilityType     String   // "electric" | "gas" | "water" | "common_electric" | "common_gas"
+  providerName    String?
+  meterNumber     String?
+  serviceAddress  String?
+  isActive        Boolean  @default(true)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  building        Building          @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  unit            Unit?             @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  accounts        UtilityAccount[]
+
+  @@index([buildingId])
+  @@index([unitId])
+  @@map("utility_meters")
+}
+
+model UtilityAccount {
+  id                String   @id @default(cuid())
+  utilityMeterId    String
+  accountNumber     String?
+  assignedPartyType String   // "tenant" | "owner" | "management" | "unknown"
+  assignedPartyName String?
+  tenantId          String?
+  startDate         DateTime?
+  endDate           DateTime?
+  status            String   @default("active") // "active" | "closed" | "pending"
+  closedWithBalance Boolean?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  meter             UtilityMeter           @relation(fields: [utilityMeterId], references: [id], onDelete: Cascade)
+  tenant            Tenant?                @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  monthlyChecks     UtilityMonthlyCheck[]
+
+  @@index([utilityMeterId])
+  @@index([tenantId])
+  @@index([status])
+  @@map("utility_accounts")
+}
+
+model UtilityMonthlyCheck {
+  id               String    @id @default(cuid())
+  utilityAccountId String
+  month            Int
+  year             Int
+  paymentStatus    String    // "paid" | "unpaid" | "pending_verification" | "unknown" | "no_bill"
+  verifiedBy       String?
+  verifiedAt       DateTime?
+  proofFileUrl     String?
+  notes            String?
+  createdAt        DateTime  @default(now())
+
+  account          UtilityAccount @relation(fields: [utilityAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([utilityAccountId, month, year])
+  @@map("utility_monthly_checks")
+}
+
+// ── Operational Intelligence Engine ──────────────────────────────
+
+model OperationalSignal {
+  id                String    @id @default(cuid())
+  deduplicationKey  String    @unique // e.g. "collections-risk-high-[tenantId]"
+  type              String    // collections_risk | legal_escalation | vacancy_risk | violation_risk | maintenance_failure | lease_expiration | utility_problem
+  severity          String    // low | medium | high | critical
+  title             String
+  description       String    @db.Text
+  entityType        String    // tenant | building | unit | workorder | violation | lease | meter | complaint
+  entityId          String
+  buildingId        String?
+  tenantId          String?
+  status            String    @default("active") // active | acknowledged | resolved
+  lastTriggeredAt   DateTime  @default(now())
+  acknowledgedAt    DateTime?
+  resolvedAt        DateTime?
+  assignedToUserId  String?
+  dueAt             DateTime?
+  snoozedUntil      DateTime?
+  recommendedAction String?   @db.Text
+  resolutionNote    String?   @db.Text
+  acknowledgedById  String?
+  resolvedById      String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  assignedToUser    User?     @relation("SignalAssignee", fields: [assignedToUserId], references: [id])
+  acknowledgedBy    User?     @relation("SignalAcknowledger", fields: [acknowledgedById], references: [id])
+  resolvedBy        User?     @relation("SignalResolver", fields: [resolvedById], references: [id])
+
+  @@index([status])
+  @@index([severity])
+  @@index([type])
+  @@index([buildingId])
+  @@index([tenantId])
+  @@index([assignedToUserId])
+  @@index([dueAt])
+  @@map("operational_signals")
+}
+
+model SignalScanLog {
+  id              String   @id @default(cuid())
+  scanType        String   // manual | scheduled
+  triggeredById   String?
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+  durationMs      Int?
+  success         Boolean  @default(true)
+  errorMessage    String?  @db.Text
+  createdSignals  Int      @default(0)
+  updatedSignals  Int      @default(0)
+  resolvedSignals Int      @default(0)
+  triggeredBy     User?    @relation(fields: [triggeredById], references: [id])
+
+  @@index([startedAt])
+  @@map("signal_scan_logs")
+}
+
+model SnoozedAction {
+  id          String   @id @default(cuid())
+  actionKey   String   // deterministic key e.g. "signal-[signalId]"
+  userId      String
+  snoozedUntil DateTime
+  createdAt   DateTime @default(now())
+
+  @@unique([actionKey, userId])
+  @@index([userId, snoozedUntil])
+  @@map("snoozed_actions")
 }

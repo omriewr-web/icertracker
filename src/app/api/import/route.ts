@@ -1,147 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
-import { parseRentRollExcel, type ParsedTenant } from "@/lib/excel-import";
-import { parsedTenantRowSchema } from "@/lib/validations";
-import { findMatchingBuilding, fetchBuildingsForMatching, generateYardiId, normalizeAddress, extractAddressFromEntity } from "@/lib/building-matching";
+import { analyzeImport } from "@/lib/importer/analyzeImport";
+import { fetchBuildingsForMatching, findMatchingBuilding, normalizeAddress, extractAddressFromEntity } from "@/lib/building-matching";
 import { commitRentRollImport } from "@/lib/importer/commit";
+import { parsedTenantRowSchema } from "@/lib/validations";
 import * as XLSX from "xlsx";
 
-// ── Mapped import: convert AI column mapping → ParsedTenant[] ──
+/**
+ * Legacy auto-detect import endpoint.
+ *
+ * This route runs the full analysis pipeline first (same as /api/import/analyze),
+ * then uses the detected mappings to parse and commit directly.
+ * This ensures consistent behavior with the confirm route:
+ *   - Yardi entity/building section detection
+ *   - Yardi t-code name fix
+ *   - Proper building matching (no "Unknown" fallback)
+ *   - Tenant matching (create vs update)
+ */
 
-interface ColumnMappingEntry {
-  columnIndex: number;
-  sourceHeader: string;
-  mappedField: string | null;
-  confidence: number;
-}
+const YARDI_CODE_RE = /^t\d{4,}$/i;
+const YARDI_ENTITY_RE = /([^(]+)\(([A-Za-z0-9]{2,20})\)\s*$/;
 
-function numVal(v: any): number {
+function numVal(v: unknown): number {
   if (v == null || v === "") return 0;
   const n = typeof v === "string" ? parseFloat(v.replace(/[$,]/g, "")) : Number(v);
   return isNaN(n) ? 0 : n;
 }
 
-function dateVal(v: any): string | undefined {
+function dateVal(v: unknown): string | undefined {
   if (!v) return undefined;
   if (v instanceof Date) return v.toISOString().split("T")[0];
   if (typeof v === "number" && v > 30000 && v < 60000) {
     const d = XLSX.SSF.parse_date_code(v);
     if (d) return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
   }
-  const parsed = new Date(v);
+  const parsed = new Date(v as string);
   return isNaN(parsed.getTime()) ? undefined : parsed.toISOString().split("T")[0];
-}
-
-function parseMappedRows(
-  buffer: Buffer,
-  mapping: ColumnMappingEntry[],
-  dataStartRow: number,
-): { tenants: ParsedTenant[]; propertyName: string; errors: string[]; format: string } {
-  const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  const rawRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-
-  const fieldMap: Record<string, number> = {};
-  for (const m of mapping) {
-    if (m.mappedField) fieldMap[m.mappedField] = m.columnIndex;
-  }
-
-  const get = (row: any[], field: string): any =>
-    fieldMap[field] !== undefined ? row[fieldMap[field]] : undefined;
-
-  const tenants: ParsedTenant[] = [];
-  const errors: string[] = [];
-
-  for (let i = dataStartRow - 1; i < rawRows.length; i++) {
-    const r = rawRows[i];
-    if (!r || r.every((v: any) => v === "" || v === null || v === undefined)) continue;
-
-    const unit = String(get(r, "unit") ?? "").trim();
-    const name = String(get(r, "full_name") ?? get(r, "last_name") ?? "").trim();
-    if (!unit && !name) continue;
-    if (!unit) {
-      errors.push(`Row ${i + 1}: missing unit number`);
-      continue;
-    }
-
-    const fullName = String(get(r, "full_name") ?? "").trim()
-      || [String(get(r, "first_name") ?? "").trim(), String(get(r, "last_name") ?? "").trim()].filter(Boolean).join(" ");
-
-    const isVacant = !fullName || fullName.toLowerCase().includes("vacant");
-
-    tenants.push({
-      property: String(get(r, "building_id") ?? "").trim(),
-      unit,
-      unitType: undefined,
-      residentId: String(get(r, "tenant_code") ?? "").trim() || undefined,
-      name: isVacant ? "VACANT" : fullName,
-      marketRent: numVal(get(r, "market_rent") || get(r, "monthly_rent")),
-      chargeCode: undefined,
-      chargeAmount: numVal(get(r, "monthly_rent") || get(r, "market_rent")),
-      charges: [],
-      deposit: numVal(get(r, "security_deposit")),
-      balance: numVal(get(r, "current_balance")),
-      moveIn: dateVal(get(r, "move_in_date") || get(r, "lease_start_date")),
-      leaseExpiration: dateVal(get(r, "lease_end_date")),
-      moveOut: dateVal(get(r, "move_out_date")),
-      isVacant,
-    });
-  }
-
-  return { tenants, propertyName: "", errors, format: "ai-mapped" };
-}
-
-/**
- * Convert ParsedTenant[] to the ParsedRow format expected by commitRentRollImport.
- */
-function toCommitRows(tenants: ParsedTenant[], parseErrors: string[]) {
-  const rows = tenants.map((t, i) => {
-    const validated = parsedTenantRowSchema.safeParse(t);
-    if (!validated.success) {
-      return {
-        rowIndex: i,
-        raw: t as any,
-        parsed: t as any,
-        action: "skip" as const,
-        error: validated.error.issues.map((issue) => issue.message).join(", "),
-      };
-    }
-    return {
-      rowIndex: i,
-      raw: t as any,
-      parsed: {
-        property: t.property || "Unknown",
-        unit: t.unit,
-        unitType: t.unitType,
-        residentId: t.residentId,
-        name: t.name,
-        marketRent: t.marketRent,
-        chargeCode: t.chargeCode,
-        chargeAmount: t.chargeAmount || t.marketRent,
-        deposit: t.deposit,
-        balance: t.balance,
-        moveIn: t.moveIn,
-        leaseExpiration: t.leaseExpiration,
-        moveOut: t.moveOut,
-        isVacant: t.isVacant,
-      },
-      action: (t.isVacant ? "vacancy" : "create") as "create" | "vacancy" | "skip",
-    };
-  });
-
-  // Prepend parse errors as skip rows
-  for (const err of parseErrors) {
-    rows.push({
-      rowIndex: rows.length,
-      raw: {} as any,
-      parsed: {} as any,
-      action: "skip",
-      error: err,
-    });
-  }
-
-  return rows;
 }
 
 export const POST = withAuth(async (req, { user }) => {
@@ -151,27 +46,174 @@ export const POST = withAuth(async (req, { user }) => {
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  const columnMappingRaw = formData.get("columnMapping") as string | null;
-  const dataStartRowRaw = formData.get("dataStartRow") as string | null;
+  // Run analysis pipeline to get mappings
+  const analysis = await analyzeImport(buffer, file.name, {
+    organizationId: user.organizationId,
+  });
 
-  let result: { tenants: ParsedTenant[]; propertyName: string; errors: string[]; format: string };
-
-  if (columnMappingRaw && dataStartRowRaw) {
-    const mapping: ColumnMappingEntry[] = JSON.parse(columnMappingRaw);
-    const dataStartRow = parseInt(dataStartRowRaw, 10);
-    result = parseMappedRows(buffer, mapping, dataStartRow);
-  } else {
-    result = parseRentRollExcel(buffer);
+  const activeMappings = analysis.suggestedMappings.filter((m) => m.mappedField);
+  if (activeMappings.length === 0) {
+    return NextResponse.json({ error: "Could not detect any column mappings", warnings: analysis.warnings }, { status: 422 });
   }
 
-  const { tenants, errors: parseErrors } = result;
+  // Parse file using detected mappings (same logic as confirm route)
+  const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const rawRows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
 
-  if (tenants.length === 0) {
-    return NextResponse.json({ error: "No tenant records found", errors: parseErrors }, { status: 400 });
+  const fieldMap: Record<string, number> = {};
+  for (const m of activeMappings) {
+    if (m.mappedField) fieldMap[m.mappedField] = m.columnIndex;
+  }
+  const get = (row: unknown[], field: string): unknown =>
+    fieldMap[field] !== undefined ? row[fieldMap[field]] : undefined;
+
+  // Detect building sections
+  const buildingSections: { rowIndex: number; entityName: string; yardiCode: string }[] = [];
+  for (let i = 0; i < rawRows.length; i++) {
+    const r = rawRows[i] as unknown[];
+    if (!r) continue;
+    const firstCell = String(r[0] ?? "").trim();
+    if (!firstCell) continue;
+    const cleaned = firstCell.replace(/^Total\s+(for\s+)?/i, "");
+    const match = cleaned.match(YARDI_ENTITY_RE);
+    if (match) buildingSections.push({ rowIndex: i, entityName: firstCell, yardiCode: match[2] });
   }
 
+  // Build row→building map
+  const rowToBuilding = new Map<number, { entityName: string; yardiCode: string }>();
+  if (buildingSections.length === 1) {
+    for (let i = analysis.dataStartRow; i < rawRows.length; i++) rowToBuilding.set(i, buildingSections[0]);
+  } else if (buildingSections.length > 1) {
+    for (let i = analysis.dataStartRow; i < rawRows.length; i++) {
+      const owner = buildingSections.find((s) => s.rowIndex >= i) ?? buildingSections[buildingSections.length - 1];
+      rowToBuilding.set(i, owner);
+    }
+  }
+
+  const existingBuildings = await fetchBuildingsForMatching(user.organizationId);
+  const buildingCache = new Map<string, string>();
+
+  // Pre-fetch tenants scoped to org buildings
+  const matchedBuildingIds = existingBuildings.map((b) => b.id);
+  const allTenants = await prisma.tenant.findMany({
+    where: { unit: { buildingId: { in: matchedBuildingIds } } },
+    select: { id: true, name: true, unitId: true, yardiResidentId: true, unit: { select: { buildingId: true, unitNumber: true } } },
+  });
+
+  const parsedRows: any[] = [];
+  const dataStart = analysis.dataStartRow;
+  const ignoredSet = new Set(analysis.ignoredRowIndices);
+
+  for (let i = dataStart; i < rawRows.length; i++) {
+    if (ignoredSet.has(i)) continue;
+    const r = rawRows[i] as unknown[];
+    if (!r || r.every((v) => v === "" || v === null || v === undefined)) continue;
+
+    const unit = String(get(r, "unit") ?? "").trim();
+    let name = String(get(r, "full_name") ?? "").trim()
+      || [String(get(r, "first_name") ?? "").trim(), String(get(r, "last_name") ?? "").trim()].filter(Boolean).join(" ");
+    let residentId = String(get(r, "tenant_code") ?? "").trim() || undefined;
+
+    // Yardi name fix
+    if (YARDI_CODE_RE.test(name)) {
+      if (!residentId) residentId = name;
+      name = "";
+      const nameColIdx = fieldMap["full_name"];
+      if (nameColIdx !== undefined) {
+        for (let j = i + 1; j < Math.min(i + 5, rawRows.length); j++) {
+          const nextRow = rawRows[j] as unknown[];
+          if (!nextRow) continue;
+          const nextUnit = String(nextRow[fieldMap["unit"] ?? -1] ?? "").trim();
+          if (nextUnit && nextUnit !== unit) break;
+          const candidate = String(nextRow[nameColIdx] ?? "").trim();
+          if (candidate && !YARDI_CODE_RE.test(candidate) && /[a-zA-Z]{2,}/.test(candidate)) {
+            name = candidate;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!unit && !name) continue;
+    if (!unit) {
+      parsedRows.push({ rowIndex: i, raw: {}, parsed: {} as any, action: "skip", error: "Missing unit number" });
+      continue;
+    }
+
+    if (!name && residentId) name = residentId;
+    const isVacant = !name || name.toLowerCase().includes("vacant");
+
+    // Resolve building
+    const sectionBuilding = rowToBuilding.get(i);
+    const propKey = sectionBuilding?.entityName || String(get(r, "building_id") ?? "").trim() || "";
+
+    const yardiMatch = propKey.match(/\(([^)]+)\)\s*$/);
+    const yardiCode = yardiMatch ? yardiMatch[1] : null;
+    const extractedAddr = extractAddressFromEntity(propKey);
+    const cacheKey = yardiCode || normalizeAddress(extractedAddr || propKey || "unmapped");
+    let buildingId = buildingCache.get(cacheKey);
+
+    if (!buildingId && propKey) {
+      const match = findMatchingBuilding(
+        { address: extractedAddr || propKey, block: null, lot: null, entity: propKey, yardiId: yardiCode },
+        existingBuildings,
+      );
+      if (match) buildingId = match.id;
+      buildingCache.set(cacheKey, buildingId || "");
+    }
+
+    const parsed = {
+      property: propKey || "Unknown",
+      unit,
+      residentId,
+      name: isVacant ? "VACANT" : name,
+      marketRent: numVal(get(r, "market_rent") || get(r, "monthly_rent")),
+      chargeAmount: numVal(get(r, "monthly_rent") || get(r, "market_rent")),
+      deposit: numVal(get(r, "security_deposit")),
+      balance: numVal(get(r, "current_balance")),
+      moveIn: dateVal(get(r, "move_in_date") || get(r, "lease_start_date")),
+      leaseExpiration: dateVal(get(r, "lease_end_date")),
+      moveOut: dateVal(get(r, "move_out_date")),
+      isVacant,
+    };
+
+    const validated = parsedTenantRowSchema.safeParse(parsed);
+    if (!validated.success) {
+      parsedRows.push({ rowIndex: i, raw: parsed, parsed, action: "skip", error: validated.error.issues.map((issue) => issue.message).join(", ") });
+      continue;
+    }
+
+    if (!buildingId) {
+      parsedRows.push({ rowIndex: i, raw: parsed, parsed, action: "skip", error: `No matching building for "${propKey}"` });
+      continue;
+    }
+
+    // Match tenant
+    let matchedTenantId: string | undefined;
+    if (residentId) {
+      const byYardi = allTenants.find((t) => t.yardiResidentId === residentId);
+      if (byYardi) matchedTenantId = byYardi.id;
+    }
+    if (!matchedTenantId) {
+      const normName = (isVacant ? "" : name).toLowerCase().trim();
+      const byUnit = allTenants.find((t) =>
+        t.unit.buildingId === buildingId && t.unit.unitNumber === unit && t.name.toLowerCase().trim() === normName
+      );
+      if (byUnit) matchedTenantId = byUnit.id;
+    }
+
+    const action = isVacant ? "vacancy" : matchedTenantId ? "update" : "create";
+    parsedRows.push({ rowIndex: i, raw: parsed, parsed, action, matchedTenantId, matchedBuildingId: buildingId });
+  }
+
+  if (parsedRows.length === 0) {
+    return NextResponse.json({ error: "No valid rows found after parsing", warnings: analysis.warnings }, { status: 422 });
+  }
+
+  // Commit directly
   const importBatch = await prisma.importBatch.create({
-    data: { filename: file.name, format: result.format, recordCount: 0, status: "processing" },
+    data: { filename: file.name, format: analysis.aiUsed ? "ai-mapped" : "auto-detect", recordCount: 0, status: "processing" },
   });
 
   let imported = 0;
@@ -179,37 +221,27 @@ export const POST = withAuth(async (req, { user }) => {
   let errors: string[] = [];
 
   try {
-    // Convert to commit format and use shared handler
-    const commitRows = toCommitRows(tenants, parseErrors);
-    const commitResult = await commitRentRollImport(commitRows, {
-      importBatchId: importBatch.id,
-      userId: user.id,
-    });
-    imported = commitResult.imported;
-    skipped = commitResult.skipped;
-    errors = commitResult.errors;
+    const result = await commitRentRollImport(parsedRows, { importBatchId: importBatch.id, userId: user.id });
+    imported = result.imported;
+    skipped = result.skipped;
+    errors = result.errors;
 
     await prisma.importBatch.update({
       where: { id: importBatch.id },
-      data: {
-        recordCount: imported,
-        status: errors.length > 0 ? "completed_with_errors" : "completed",
-        errors: errors.length > 0 ? errors : undefined,
-      },
+      data: { recordCount: imported, status: errors.length > 0 ? "completed_with_errors" : "completed", errors: errors.length > 0 ? errors : undefined },
     });
   } catch (err) {
     await prisma.importBatch.update({
       where: { id: importBatch.id },
       data: { status: "failed", errors: [err instanceof Error ? err.message : "Unknown error"] },
     });
-
     return NextResponse.json({ error: "Import failed", detail: err instanceof Error ? err.message : "Unknown error" }, { status: 500 });
   }
 
   return NextResponse.json({
     imported, skipped, errors,
-    total: tenants.length,
-    format: result.format,
+    total: parsedRows.length,
+    format: analysis.aiUsed ? "ai-mapped" : "auto-detect",
     batchId: importBatch.id,
   });
 }, "upload");

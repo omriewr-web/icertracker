@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { RefreshCw, AlertTriangle, DollarSign, Calendar, Bug } from "lucide-react";
-import { useViolations, useViolationStats, useSyncViolations } from "@/hooks/use-violations";
+import { useViolations, useViolationStats, useSyncViolationsStream } from "@/hooks/use-violations";
 import { useAppStore } from "@/stores/app-store";
 import { useBuildings } from "@/hooks/use-buildings";
 import Button from "@/components/ui/button";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { fmt$, formatDate } from "@/lib/utils";
 import type { ViolationView } from "@/types";
+import ExportButton from "@/components/ui/export-button";
 
 const SOURCE_OPTIONS = ["", "HPD", "DOB", "ECB"];
 const CLASS_OPTIONS = ["", "A", "B", "C"];
@@ -55,7 +56,7 @@ export default function ViolationsTab() {
     isComplaint: "false",
   });
   const { data: stats } = useViolationStats();
-  const syncMutation = useSyncViolations();
+  const { mutate: syncMutate, isPending: syncPending, progress: syncProgress } = useSyncViolationsStream();
 
   if (isLoading) return <LoadingSpinner />;
 
@@ -89,6 +90,38 @@ export default function ViolationsTab() {
           className="bg-bg border border-border rounded-lg px-2.5 py-1.5 text-sm text-text-primary placeholder:text-text-dim w-40 focus:outline-none focus:border-accent"
         />
         <div className="flex-1" />
+        <ExportButton
+          data={(violations || []).map((v) => ({
+            source: v.source,
+            externalId: v.externalId,
+            buildingAddress: v.buildingAddress,
+            class: v.class || "",
+            description: v.description,
+            currentStatus: v.currentStatus || "",
+            penaltyAmount: Number(v.penaltyAmount) > 0 ? v.penaltyAmount : "",
+            daysUntilCure: v.daysUntilCure ?? "",
+          }))}
+          filename="violations"
+          columns={[
+            { key: "source", label: "Source" },
+            { key: "externalId", label: "ID" },
+            { key: "buildingAddress", label: "Building" },
+            { key: "class", label: "Class" },
+            { key: "description", label: "Description" },
+            { key: "currentStatus", label: "Status" },
+            { key: "penaltyAmount", label: "Penalty" },
+            { key: "daysUntilCure", label: "Cure Days" },
+          ]}
+          pdfConfig={{
+            title: "Violations Report",
+            stats: stats ? [
+              { label: "Total Open", value: String(stats.totalOpen) },
+              { label: "Class C", value: String(stats.classCCount) },
+              { label: "Class B", value: String(stats.classBCount) },
+              { label: "Pending Fines", value: fmt$(stats.totalPenalties) },
+            ] : undefined,
+          }}
+        />
         <Button
           size="sm"
           variant="outline"
@@ -99,11 +132,15 @@ export default function ViolationsTab() {
         </Button>
         <Button
           size="sm"
-          onClick={() => syncMutation.mutate(selectedBuildingId ? { buildingId: selectedBuildingId } : {})}
-          disabled={syncMutation.isPending}
+          onClick={() => syncMutate(selectedBuildingId ? { buildingId: selectedBuildingId } : {})}
+          disabled={syncPending}
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${syncMutation.isPending ? "animate-spin" : ""}`} />
-          {syncMutation.isPending ? "Syncing..." : "Sync Now"}
+          <RefreshCw className={`w-3.5 h-3.5 ${syncPending ? "animate-spin" : ""}`} />
+          {syncPending && syncProgress && syncProgress.total > 0
+            ? `Syncing ${syncProgress.synced}/${syncProgress.total}...`
+            : syncPending
+              ? "Syncing..."
+              : "Sync Now"}
         </Button>
       </div>
 

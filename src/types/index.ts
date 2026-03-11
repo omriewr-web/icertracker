@@ -152,6 +152,10 @@ export interface BuildingView {
   vacant: number;
   totalMarketRent: number;
   totalBalance: number;
+  legalBalance: number;
+  nonLegalBalance: number;
+  arrearsCount: number;
+  legalCount: number;
   legalCaseCount: number;
 }
 
@@ -166,6 +170,10 @@ export interface PortfolioMetrics {
   arrears30: number;
   arrears60: number;
   arrears90Plus: number;
+  arrears30$: number;
+  arrears60$: number;
+  arrears90Plus$: number;
+  current$: number;
   legalCaseCount: number;
   noLease: number;
   expiredLease: number;
@@ -173,11 +181,11 @@ export interface PortfolioMetrics {
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, Record<string, boolean>> = {
-  ADMIN:     { allProps: true, dash: true, notes: true, pay: true, legal: true, upload: true, users: true, vac: true, lease: true, fin: true, reports: true, edit: true, email: true, maintenance: true, compliance: true },
-  PM:        { allProps: false, dash: true, notes: true, pay: true, legal: true, upload: true, users: false, vac: true, lease: true, fin: true, reports: true, edit: true, email: true, maintenance: true, compliance: true },
-  COLLECTOR: { allProps: false, dash: true, notes: true, pay: true, legal: false, upload: false, users: false, vac: false, lease: false, fin: true, reports: true, edit: true, email: true, maintenance: true, compliance: true },
-  OWNER:     { allProps: false, dash: true, notes: false, pay: false, legal: false, upload: false, users: false, vac: true, lease: true, fin: true, reports: true, edit: false, email: false, maintenance: false, compliance: false },
-  BROKER:    { allProps: false, dash: true, notes: false, pay: false, legal: false, upload: false, users: false, vac: true, lease: true, fin: false, reports: false, edit: false, email: false, maintenance: false, compliance: false },
+  ADMIN:     { allProps: true, dash: true, notes: true, pay: true, legal: true, upload: true, users: true, vac: true, lease: true, fin: true, reports: true, edit: true, email: true, maintenance: true, compliance: true, collections: true, utilities: true },
+  PM:        { allProps: false, dash: true, notes: true, pay: true, legal: true, upload: true, users: false, vac: true, lease: true, fin: true, reports: true, edit: true, email: true, maintenance: true, compliance: true, collections: true, utilities: true },
+  COLLECTOR: { allProps: false, dash: true, notes: true, pay: true, legal: false, upload: false, users: false, vac: false, lease: false, fin: true, reports: true, edit: true, email: true, maintenance: true, compliance: true, collections: true, utilities: true },
+  OWNER:     { allProps: false, dash: true, notes: false, pay: false, legal: false, upload: false, users: false, vac: true, lease: true, fin: true, reports: true, edit: false, email: false, maintenance: false, compliance: false, collections: false, utilities: false },
+  BROKER:    { allProps: false, dash: true, notes: false, pay: false, legal: false, upload: false, users: false, vac: true, lease: true, fin: false, reports: false, edit: false, email: false, maintenance: false, compliance: false, collections: false, utilities: false },
 };
 
 export function hasPermission(role: UserRole, perm: string): boolean {

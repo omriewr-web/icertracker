@@ -13,6 +13,7 @@ import LegalModal from "@/components/legal/legal-modal";
 import LegalImportWizard from "@/components/legal/legal-import-wizard";
 import LegalReviewQueue from "@/components/legal/legal-review-queue";
 import LegalCandidates from "@/components/legal/legal-candidates";
+import ExportButton from "@/components/ui/export-button";
 import { fmt$, formatDate } from "@/lib/utils";
 import { TenantView } from "@/types";
 import { cn } from "@/lib/utils";
@@ -65,6 +66,33 @@ export default function LegalContent() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-text-primary">Legal Cases</h1>
+        {tab === "cases" && (
+          <ExportButton
+            data={legalTenants.map((t) => ({
+              name: t.name,
+              unitNumber: t.unitNumber,
+              buildingAddress: t.buildingAddress,
+              balance: t.balance,
+              legalStage: t.legalStage?.toUpperCase().replace(/-/g, "_") || "NOTICE_SENT",
+            }))}
+            filename="legal-cases"
+            columns={[
+              { key: "name", label: "Tenant" },
+              { key: "unitNumber", label: "Unit" },
+              { key: "buildingAddress", label: "Building" },
+              { key: "balance", label: "Balance" },
+              { key: "legalStage", label: "Stage" },
+            ]}
+            pdfConfig={{
+              title: "Legal Pipeline Report",
+              stats: [
+                { label: "Active Cases", value: String(legalTenants.length) },
+                { label: "Total Legal Balance", value: fmt$(legalTenants.reduce((s, t) => s + t.balance, 0)) },
+                { label: "In Court+", value: String(stageCounts.COURT_DATE + stageCounts.STIPULATION + stageCounts.JUDGMENT + stageCounts.WARRANT + stageCounts.EVICTION) },
+              ],
+            }}
+          />
+        )}
       </div>
 
       {/* Tabs */}

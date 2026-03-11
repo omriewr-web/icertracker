@@ -130,6 +130,7 @@ async function parseAndMatchRows(
   buffer: Buffer,
   mapping: ColumnMappingEntry[],
   dataStartRow: number,
+  organizationId?: string,
 ): Promise<{ rows: ParsedRow[]; summary: { total: number; newTenants: number; updates: number; vacancies: number; errors: number; buildings: string[] } }> {
   const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
   const sheet = wb.Sheets[wb.SheetNames[0]];
@@ -147,12 +148,14 @@ async function parseAndMatchRows(
   const buildingSections = detectBuildingSections(rawRows);
   const rowToBuilding = buildRowToBuildingMap(buildingSections, dataStartRow - 1, rawRows.length);
 
-  const existingBuildings = await fetchBuildingsForMatching();
+  const existingBuildings = await fetchBuildingsForMatching(organizationId);
   const buildingCache = new Map<string, string>();
   const buildingNames = new Set<string>();
 
-  // Pre-fetch all tenants with unit info for matching
+  // Pre-fetch tenants scoped to matched buildings for matching
+  const matchedBuildingIds = existingBuildings.map((b) => b.id);
   const allTenants = await prisma.tenant.findMany({
+    where: { unit: { buildingId: { in: matchedBuildingIds } } },
     select: { id: true, name: true, unitId: true, yardiResidentId: true, unit: { select: { buildingId: true, unitNumber: true } } },
   });
 
@@ -336,7 +339,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   const contract = getImportContract(fileType ?? "rent_roll");
 
   // Parse and match all rows
-  const { rows, summary } = await parseAndMatchRows(buffer, mapping, dataStartRow);
+  const { rows, summary } = await parseAndMatchRows(buffer, mapping, dataStartRow, user.organizationId);
 
   // ── STAGING MODE (default for types that require review) ──
   if (mode === "stage" || (mode !== "direct" && contract.requiresReview)) {
@@ -352,7 +355,20 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       },
     });
 
-    return NextResponse.json({ staged: true, stagingId: staging.id, summary });
+    return NextResponse.json({
+      staged: true, stagingId: staging.id, summary,
+      diagnostics: {
+        analyzedRows: summary.total,
+        newTenants: summary.newTenants,
+        updates: summary.updates,
+        vacancies: summary.vacancies,
+        parseErrors: summary.errors,
+        buildingsDetected: summary.buildings,
+        aiUsed,
+        profileUsed: !!matchedProfileId,
+        mode: "stage",
+      },
+    });
   }
 
   // ── DIRECT MODE ──
@@ -386,6 +402,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     const result = await commitRentRollImport(rows, {
       importBatchId: importBatch.id,
       userId: user.id,
+      organizationId: user.organizationId,
     });
     imported = result.imported;
     skipped = result.skipped;
@@ -454,5 +471,16 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     imported, skipped, errors, total: imported + skipped,
     format: aiUsed ? "ai-mapped" : "rule-mapped",
     batchId: importBatch.id, profileSaved,
+    diagnostics: {
+      analyzedRows: summary.total,
+      newTenants: summary.newTenants,
+      updates: summary.updates,
+      vacancies: summary.vacancies,
+      parseErrors: summary.errors,
+      buildingsDetected: summary.buildings,
+      aiUsed,
+      profileUsed: !!matchedProfileId,
+      mode: "direct",
+    },
   });
 }, "upload");

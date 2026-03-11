@@ -31,6 +31,7 @@ interface StatCardProps {
   label: string;
   value: string | number;
   subtext?: string;
+  subtextColor?: string;
   icon?: LucideIcon;
   color?: string;
   className?: string;
@@ -40,7 +41,7 @@ interface StatCardProps {
 }
 
 export default function StatCard({
-  label, value, subtext, icon: Icon, color, className, href, onClick, trend,
+  label, value, subtext, subtextColor, icon: Icon, color, className, href, onClick, trend,
 }: StatCardProps) {
   const isNumeric = typeof value === "number";
   const countUpValue = useCountUp(isNumeric ? value : 0);
@@ -49,7 +50,7 @@ export default function StatCard({
   const content = (
     <div
       className={cn(
-        "bg-card-gradient border border-border rounded-xl p-4 group",
+        "bg-card-gradient border border-border rounded-xl p-4 group flex flex-col justify-between h-full",
         clickable && "card-hover-lift cursor-pointer",
         className
       )}
@@ -66,7 +67,7 @@ export default function StatCard({
               <span>{Math.abs(trend.value)}%{trend.label ? ` ${trend.label}` : ""}</span>
             </div>
           )}
-          {subtext && <p className="text-xs text-text-muted mt-1">{subtext}</p>}
+          {subtext && <p className="text-xs mt-1" style={subtextColor ? { color: subtextColor } : undefined}>{subtext}</p>}
         </div>
         {Icon && (
           <div className="p-2 rounded-lg" style={{ backgroundColor: color ? `${color}15` : "rgba(201,168,76,0.1)" }}>
@@ -84,12 +85,12 @@ export default function StatCard({
   );
 
   if (href) {
-    return <Link href={href} className="block">{content}</Link>;
+    return <Link href={href} className="block h-full">{content}</Link>;
   }
 
   if (onClick) {
     return (
-      <button onClick={onClick} className="block w-full text-left">
+      <button onClick={onClick} className="block w-full h-full text-left">
         {content}
       </button>
     );

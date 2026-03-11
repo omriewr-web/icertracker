@@ -12,11 +12,26 @@ export interface AuthUser {
   organizationId: string;
 }
 
-type ApiHandler = (req: NextRequest, ctx: { user: AuthUser; params?: any }) => Promise<NextResponse>;
+type ApiHandler = (req: NextRequest, ctx: { user: AuthUser; params?: any }) => Promise<NextResponse | Response>;
 
 export function withAuth(handler: ApiHandler, perm?: string) {
   return async (req: NextRequest, context?: { params?: any }) => {
     try {
+      // Allow cron/script access via CRON_SECRET header
+      const cronSecret = process.env.CRON_SECRET;
+      const authHeader = req.headers.get("authorization");
+      if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
+        const cronUser: AuthUser = {
+          id: "system-cron",
+          name: "System Cron",
+          email: "cron@system",
+          role: "ADMIN" as UserRole,
+          assignedProperties: [],
+          organizationId: "default",
+        };
+        return await handler(req, { user: cronUser, params: context?.params });
+      }
+
       const session = await getServerSession(authOptions);
       if (!session?.user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

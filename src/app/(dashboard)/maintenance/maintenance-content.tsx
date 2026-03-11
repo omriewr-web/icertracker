@@ -16,6 +16,7 @@ import ScheduleManagement from "@/components/maintenance/schedule-management";
 import { WorkOrderView } from "@/types";
 import { formatDate, fmt$ } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import ExportButton from "@/components/ui/export-button";
 
 export default function MaintenanceContent() {
   const { data: workOrders, isLoading } = useWorkOrders();
@@ -64,6 +65,38 @@ export default function MaintenanceContent() {
               <Button onClick={() => setShowCreate(true)}>
                 <Plus className="w-4 h-4" /> New Work Order
               </Button>
+              <ExportButton
+                data={filtered.map((wo) => ({
+                  title: wo.title,
+                  buildingAddress: wo.buildingAddress,
+                  unitNumber: wo.unitNumber || "",
+                  priority: wo.priority,
+                  category: wo.category,
+                  status: wo.status.replace(/_/g, " "),
+                  assignedToName: wo.assignedToName || "",
+                  createdAt: wo.createdAt,
+                }))}
+                filename="work-orders"
+                columns={[
+                  { key: "title", label: "Title" },
+                  { key: "buildingAddress", label: "Building" },
+                  { key: "unitNumber", label: "Unit" },
+                  { key: "priority", label: "Priority" },
+                  { key: "category", label: "Category" },
+                  { key: "status", label: "Status" },
+                  { key: "assignedToName", label: "Assigned To" },
+                  { key: "createdAt", label: "Created" },
+                ]}
+                pdfConfig={{
+                  title: "Work Orders Report",
+                  stats: [
+                    { label: "Total", value: String(stats.total) },
+                    { label: "Open", value: String(stats.open) },
+                    { label: "In Progress", value: String(stats.inProgress) },
+                    { label: "Urgent", value: String(stats.urgent) },
+                  ],
+                }}
+              />
             </>
           )}
         </div>

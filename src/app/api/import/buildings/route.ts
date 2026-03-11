@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { parseBuildingDataExcel, buildingRowToPrismaData } from "@/lib/parsers/buildingParser";
-import { matchBuildingByRow, generateYardiId } from "@/lib/building-matching";
+import { matchBuildingByRow, generateYardiId, generatePropertyId } from "@/lib/building-matching";
 
 // POST /api/import/buildings
 // ?mode=preview  → parse file, return preview of what will be created/updated
@@ -97,10 +97,12 @@ export const POST = withAuth(async (req: NextRequest) => {
       } else {
         // Use building_id from template as yardiId, or generate one
         const yardiId = row.buildingId || generateYardiId(row.address);
+        const propertyId = generatePropertyId(row.address);
         await prisma.building.create({
           data: {
             ...prismaData,
             yardiId,
+            propertyId,
             address: row.address,
           } as any,
         });

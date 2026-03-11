@@ -17,6 +17,7 @@ const BOROUGH_CODES: Record<string, string> = {
 const COLUMN_MAP: Record<string, string> = {
   building_id: "buildingId",
   building_name: "buildingName",
+  entity: "entity",
   address: "address",
   city: "city",
   state: "state",
@@ -62,8 +63,8 @@ const HEADER_ALIASES: Record<string, string> = {
   // Yardi Code → building_id
   yardi_code: "building_id",
   yardi_id: "building_id",
-  // Entity → building_name
-  entity: "building_name",
+  // Entity → entity (legal entity name)
+  entity: "entity",
   // Region → borough
   region: "borough",
   // Unit Count → units
@@ -96,6 +97,7 @@ export interface ParsedBuildingRow {
   // Identity
   buildingId: string;
   buildingName?: string;
+  entity?: string;
 
   // Location
   address: string;
@@ -309,6 +311,7 @@ export function parseBuildingDataExcel(buffer: Buffer): BuildingImportResult {
       rowIndex: rowNum,
       buildingId: buildingId!,
       buildingName: cellToString(m.buildingName),
+      entity: cellToString(m.entity),
       address: address!,
       city: cellToString(m.city) || "New York",
       state: cellToString(m.state) || "NY",
@@ -364,6 +367,7 @@ export function buildingRowToPrismaData(row: ParsedBuildingRow) {
 
   // Identity & Location
   if (row.buildingName) data.buildingName = row.buildingName;
+  if (row.entity) data.entity = row.entity;
   if (row.city) data.city = row.city;
   if (row.state) data.state = row.state;
   if (row.zip) data.zip = row.zip;
