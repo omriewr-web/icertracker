@@ -47,3 +47,38 @@ export function useCreateMaintenanceSchedule() {
     onError: () => toast.error("Failed to create schedule"),
   });
 }
+
+export function useUpdateMaintenanceSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const res = await fetch(`/api/maintenance-schedules/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update schedule");
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["maintenance-schedules"] });
+      toast.success("Schedule updated");
+    },
+    onError: () => toast.error("Failed to update schedule"),
+  });
+}
+
+export function useDeleteMaintenanceSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/maintenance-schedules/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete schedule");
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["maintenance-schedules"] });
+      toast.success("Schedule deleted");
+    },
+    onError: () => toast.error("Failed to delete schedule"),
+  });
+}

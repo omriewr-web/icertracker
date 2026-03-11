@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Pencil, Trash2, Plus, XCircle } from "lucide-react";
-import { useUtilityMeter, useUpdateMeter, useDeleteMeter, useCreateAccount, useUpdateAccount } from "@/hooks/use-utilities";
+import { useState, useMemo } from "react";
+import { Pencil, Trash2, Plus, XCircle, CheckCircle2, MinusCircle, ArrowRightLeft, AlertTriangle } from "lucide-react";
+import { useUtilityMeter, useUpdateMeter, useDeleteMeter, useCreateAccount, useUpdateAccount, useMonthlyChecks, useCreateOrUpdateCheck } from "@/hooks/use-utilities";
+import type { MonthlyCheck } from "@/hooks/use-utilities";
 import Modal from "@/components/ui/modal";
 import Button from "@/components/ui/button";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
@@ -30,12 +31,15 @@ function utTypeLabel(t: string): string {
   return map[t] || t;
 }
 
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 export default function MeterDetailModal({ meterId, onClose }: { meterId: string | null; onClose: () => void }) {
   const { data: meter, isLoading } = useUtilityMeter(meterId);
   const updateMeter = useUpdateMeter();
   const deleteMeter = useDeleteMeter();
   const createAccount = useCreateAccount();
   const updateAccount = useUpdateAccount();
+  const markCheck = useCreateOrUpdateCheck();
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showNewAccount, setShowNewAccount] = useState(false);
@@ -44,6 +48,7 @@ export default function MeterDetailModal({ meterId, onClose }: { meterId: string
   const [closeNotes, setCloseNotes] = useState("");
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<any>(null);
+  const [checksAccountId, setChecksAccountId] = useState<string | null>(null);
 
   const [accountForm, setAccountForm] = useState({
     accountNumber: "",
@@ -109,6 +114,17 @@ export default function MeterDetailModal({ meterId, onClose }: { meterId: string
         },
       }
     );
+  }
+
+  function handleTransferToOwner(accountId: string, tenantName: string) {
+    const timestamp = new Date().toLocaleString();
+    updateAccount.mutate({
+      id: accountId,
+      assignedPartyType: "owner",
+      assignedPartyName: "Owner (transferred)",
+      tenantId: null,
+      notes: `Transferred from tenant "${tenantName}" to owner on ${timestamp}.`,
+    });
   }
 
   function handleCloseAccount() {
@@ -209,19 +225,82 @@ export default function MeterDetailModal({ meterId, onClose }: { meterId: string
               </div>
               {activeAccounts.length > 0 ? (
                 <div className="space-y-2">
-                  {activeAccounts.map((acc: any) => (
-                    <div key={acc.id} className="bg-bg border border-border rounded-lg p-3 flex items-center justify-between">
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-sm flex-1">
-                        <div><span className="text-text-dim text-xs">Account #</span><p className="text-text-primary font-mono text-xs">{acc.accountNumber || "—"}</p></div>
-                        <div><span className="text-text-dim text-xs">Assigned To</span><p className="text-text-primary">{acc.assignedPartyName || acc.assignedPartyType}</p></div>
-                        <div><span className="text-text-dim text-xs">Start Date</span><p className="text-text-primary">{formatDate(acc.startDate)}</p></div>
-                        <div><span className="text-text-dim text-xs">Tenant</span><p className="text-text-primary">{acc.tenant?.name || "—"}</p></div>
+                  {activeAccounts.map((acc: any) => {
+                    const tenant = acc.tenant || meter.unit?.tenant;
+                    const leaseExpired = tenant?.leaseExpiration && new Date(tenant.leaseExpiration) < new Date();
+                    const movedOut = tenant?.moveOutDate && new Date(tenant.moveOutDate) < new Date();
+                    const moveOutSoon = tenant?.moveOutDate && !movedOut && new Date(tenant.moveOutDate).getTime() - Date.now() < 7 * 86400000;
+                    const needsTransfer = acc.assignedPartyType === "tenant" && (leaseExpired || movedOut || moveOutSoon);
+
+                    return (
+                      <div key={acc.id} className="space-y-2">
+                        <div className={`bg-bg border rounded-lg p-3 ${needsTransfer ? "border-amber-500/50" : "border-border"}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-sm flex-1">
+                              <div><span className="text-text-dim text-xs">Account #</span><p className="text-text-primary font-mono text-xs">{acc.accountNumber || "—"}</p></div>
+                              <div><span className="text-text-dim text-xs">Assigned To</span><p className="text-text-primary">{acc.assignedPartyName || acc.assignedPartyType}</p></div>
+                              <div><span className="text-text-dim text-xs">Start Date</span><p className="text-text-primary">{formatDate(acc.startDate)}</p></div>
+                              <div><span className="text-text-dim text-xs">Tenant</span><p className="text-text-primary">{tenant?.name || "—"}</p></div>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="sm" onClick={() => setChecksAccountId(checksAccountId === acc.id ? null : acc.id)}>
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Checks
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => setCloseAccountId(acc.id)}>
+                                <XCircle className="w-3.5 h-3.5" /> Close
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Tenant Lifecycle Info */}
+                          {tenant && acc.assignedPartyType === "tenant" && (
+                            <div className="mt-2 pt-2 border-t border-border/50">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4 text-xs">
+                                  <div>
+                                    <span className="text-text-dim">Lease Status</span>
+                                    <p className={leaseExpired ? "text-red-400 font-medium" : "text-text-muted"}>{tenant.leaseStatus || "—"}{leaseExpired ? " (expired)" : ""}</p>
+                                  </div>
+                                  <div>
+                                    <span className="text-text-dim">Lease Expires</span>
+                                    <p className={leaseExpired ? "text-red-400" : "text-text-muted"}>{formatDate(tenant.leaseExpiration)}</p>
+                                  </div>
+                                  {tenant.moveOutDate && (
+                                    <div>
+                                      <span className="text-text-dim">Move-Out</span>
+                                      <p className={movedOut ? "text-red-400" : moveOutSoon ? "text-amber-400" : "text-text-muted"}>{formatDate(tenant.moveOutDate)}</p>
+                                    </div>
+                                  )}
+                                </div>
+                                {needsTransfer && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleTransferToOwner(acc.id, tenant.name)}
+                                    disabled={updateAccount.isPending}
+                                    className="text-amber-400 hover:text-amber-300"
+                                  >
+                                    <ArrowRightLeft className="w-3.5 h-3.5" /> Transfer to Owner
+                                  </Button>
+                                )}
+                              </div>
+                              {needsTransfer && (
+                                <div className="flex items-center gap-1.5 mt-1.5 text-xs text-amber-400">
+                                  <AlertTriangle className="w-3 h-3" />
+                                  {movedOut ? "Tenant moved out. Transfer utility account to owner." : leaseExpired ? "Lease expired. Transfer utility account to owner." : "Tenant moving out soon. Schedule utility transfer."}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Monthly Checks Section */}
+                        {checksAccountId === acc.id && (
+                          <MonthlyChecksSection accountId={acc.id} />
+                        )}
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => setCloseAccountId(acc.id)}>
-                        <XCircle className="w-3.5 h-3.5" /> Close
-                      </Button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="bg-bg border border-border rounded-lg p-4 text-center text-sm text-text-dim">
@@ -337,5 +416,80 @@ export default function MeterDetailModal({ meterId, onClose }: { meterId: string
         loading={deleteMeter.isPending}
       />
     </>
+  );
+}
+
+// ── Monthly Checks Section ──────────────────────────────────────
+
+function MonthlyChecksSection({ accountId }: { accountId: string }) {
+  const { data: checks, isLoading } = useMonthlyChecks(accountId);
+  const markCheck = useCreateOrUpdateCheck();
+
+  // Generate last 6 months (current month + previous 5), newest first
+  const monthSlots = useMemo(() => {
+    const now = new Date();
+    const slots: { month: number; year: number; label: string }[] = [];
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      slots.push({
+        month: d.getMonth() + 1,
+        year: d.getFullYear(),
+        label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`,
+      });
+    }
+    return slots;
+  }, []);
+
+  const checkMap = useMemo(() => {
+    const map = new Map<string, MonthlyCheck>();
+    for (const c of checks || []) {
+      map.set(`${c.year}-${c.month}`, c);
+    }
+    return map;
+  }, [checks]);
+
+  function handleMarkPaid(month: number, year: number) {
+    markCheck.mutate({ accountId, month, year, isPaid: true });
+  }
+
+  if (isLoading) return <div className="p-3 text-center text-sm text-text-dim">Loading checks...</div>;
+
+  return (
+    <div className="bg-bg border border-border rounded-lg p-3">
+      <h4 className="text-xs font-semibold text-text-dim uppercase tracking-wider mb-2">Monthly Checks</h4>
+      <div className="space-y-1">
+        {monthSlots.map((slot) => {
+          const check = checkMap.get(`${slot.year}-${slot.month}`);
+          const status = check?.paymentStatus || "not_recorded";
+
+          return (
+            <div key={`${slot.year}-${slot.month}`} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-card-hover transition-colors">
+              <span className="text-sm text-text-muted w-24">{slot.label}</span>
+              <div className="flex items-center gap-3">
+                {status === "paid" ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-green-400"><CheckCircle2 className="w-3 h-3" /> Paid</span>
+                ) : status === "unpaid" ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-red-400"><XCircle className="w-3 h-3" /> Unpaid</span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-xs text-text-dim"><MinusCircle className="w-3 h-3" /> Not recorded</span>
+                )}
+                {status !== "paid" && (
+                  <button
+                    onClick={() => handleMarkPaid(slot.month, slot.year)}
+                    disabled={markCheck.isPending}
+                    className="text-xs text-accent hover:text-accent-light transition-colors disabled:opacity-50"
+                  >
+                    Mark Paid
+                  </button>
+                )}
+                {check?.notes && (
+                  <span className="text-xs text-text-dim" title={check.notes}>*</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

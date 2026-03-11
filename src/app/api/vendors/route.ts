@@ -3,8 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { vendorCreateSchema } from "@/lib/validations";
 
-export const GET = withAuth(async () => {
-  const vendors = await prisma.vendor.findMany({ orderBy: { name: "asc" } });
+export const GET = withAuth(async (req) => {
+  const { searchParams } = new URL(req.url);
+  const buildingId = searchParams.get("buildingId");
+
+  // Vendor model has no buildingId — filter by vendors with work orders in that building
+  const where = buildingId
+    ? { workOrders: { some: { buildingId } } }
+    : {};
+  const vendors = await prisma.vendor.findMany({ where, orderBy: { name: "asc" } });
   return NextResponse.json(
     vendors.map((v) => ({
       ...v,

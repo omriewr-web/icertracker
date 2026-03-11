@@ -35,4 +35,4 @@ export const POST = withAuth(async (req, { user }) => {
   });
 
   return NextResponse.json(account, { status: 201 });
-}, "maintenance");
+}, "utilities");

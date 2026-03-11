@@ -34,6 +34,9 @@ function mapWorkOrder(wo: any): WorkOrderView {
     commentCount: wo._count?.comments ?? 0,
     createdAt: wo.createdAt?.toISOString(),
     updatedAt: wo.updatedAt?.toISOString(),
+    dueDate: wo.dueDate?.toISOString() ?? null,
+    sourceType: wo.sourceType ?? null,
+    sourceId: wo.sourceId ?? null,
   };
 }
 
@@ -95,6 +98,9 @@ export const POST = withAuth(async (req, { user }) => {
       vendorId: data.vendorId || null,
       assignedToId: data.assignedToId || null,
       createdById: user.id,
+      dueDate: data.dueDate ? new Date(data.dueDate) : null,
+      sourceType: data.sourceType || null,
+      sourceId: data.sourceId || null,
     },
     include,
   });

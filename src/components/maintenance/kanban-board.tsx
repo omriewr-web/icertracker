@@ -5,6 +5,8 @@ import { WorkOrderView, WorkOrderStatus } from "@/types";
 import { useUpdateWorkOrder } from "@/hooks/use-work-orders";
 import PriorityBadge from "./priority-badge";
 import CategoryBadge from "./category-badge";
+import DueDateBadge from "./due-date-badge";
+import SourceBadge from "./source-badge";
 import { formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { MessageSquare } from "lucide-react";
@@ -72,6 +74,8 @@ export default function KanbanBoard({ workOrders, onSelect }: Props) {
                 <div className="flex flex-wrap gap-1 mb-2">
                   <PriorityBadge priority={wo.priority} />
                   <CategoryBadge category={wo.category} />
+                  <DueDateBadge dueDate={wo.dueDate} status={wo.status} />
+                  <SourceBadge sourceType={wo.sourceType} />
                 </div>
                 <div className="flex items-center justify-between text-xs text-text-dim">
                   <span>{wo.buildingAddress}</span>

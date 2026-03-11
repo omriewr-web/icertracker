@@ -225,6 +225,9 @@ export interface WorkOrderView {
   commentCount: number;
   createdAt: string;
   updatedAt: string;
+  dueDate: string | null;
+  sourceType: string | null;
+  sourceId: string | null;
 }
 
 export interface VendorView {

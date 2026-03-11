@@ -12,12 +12,12 @@ export const GET = withAuth(async (req, { user, params }) => {
       unit: {
         select: {
           id: true, unitNumber: true, isVacant: true,
-          tenant: { select: { id: true, name: true } },
+          tenant: { select: { id: true, name: true, leaseExpiration: true, moveOutDate: true, leaseStatus: true } },
         },
       },
       accounts: {
         include: {
-          tenant: { select: { id: true, name: true } },
+          tenant: { select: { id: true, name: true, leaseExpiration: true, moveOutDate: true, leaseStatus: true } },
         },
         orderBy: { createdAt: "desc" },
       },
@@ -30,7 +30,7 @@ export const GET = withAuth(async (req, { user, params }) => {
   }
 
   return NextResponse.json(meter);
-}, "maintenance");
+}, "utilities");
 
 export const PATCH = withAuth(async (req, { user, params }) => {
   const { id } = await params;
@@ -60,7 +60,7 @@ export const PATCH = withAuth(async (req, { user, params }) => {
   });
 
   return NextResponse.json(meter);
-}, "maintenance");
+}, "utilities");
 
 export const DELETE = withAuth(async (req, { user, params }) => {
   const { id } = await params;
@@ -75,4 +75,4 @@ export const DELETE = withAuth(async (req, { user, params }) => {
 
   await prisma.utilityMeter.delete({ where: { id } });
   return NextResponse.json({ success: true });
-}, "maintenance");
+}, "utilities");

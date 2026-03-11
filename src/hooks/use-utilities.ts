@@ -25,6 +25,10 @@ export interface UtilityMeterView {
   accountCount: number;
   riskFlags: string[];
   riskFlag: string;
+  currentMonthCheckStatus: "paid" | "unpaid" | "not_recorded";
+  lastCheckDate: string | null;
+  transferNeeded: boolean;
+  transferReason: "moved_out" | "lease_expired" | null;
 }
 
 export interface UtilitySummary {
@@ -36,9 +40,43 @@ export interface UtilitySummary {
   missingAccountNumber: number;
   closedWithBalance: number;
   missingMeterNumber: number;
+  totalAccounts: number;
+  activeAccounts: number;
+  paidThisMonth: number;
+  unpaidThisMonth: number;
+  noCheckThisMonth: number;
+  withRiskSignals: number;
+  transferNeeded: number;
+  movedOutActive: number;
+  leaseExpiredActive: number;
+  vacantOwnerResponsibility: number;
+  buildingRollup: BuildingRollup[];
 }
 
-export function useUtilityMeters(filters?: { utilityType?: string; risk?: string; party?: string }) {
+export interface BuildingRollup {
+  id: string;
+  address: string;
+  totalAccounts: number;
+  unpaidThisMonth: number;
+  noCheckThisMonth: number;
+  riskCount: number;
+  transferNeeded: number;
+}
+
+export interface MonthlyCheck {
+  id: string;
+  utilityAccountId: string;
+  month: number;
+  year: number;
+  paymentStatus: string;
+  verifiedBy: string | null;
+  verifiedAt: string | null;
+  proofFileUrl: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export function useUtilityMeters(filters?: { utilityType?: string; risk?: string; party?: string; checkStatus?: string }) {
   const { selectedBuildingId } = useAppStore();
   return useQuery<UtilityMeterView[]>({
     queryKey: ["utility-meters", selectedBuildingId, filters],
@@ -48,6 +86,7 @@ export function useUtilityMeters(filters?: { utilityType?: string; risk?: string
       if (filters?.utilityType) params.set("utilityType", filters.utilityType);
       if (filters?.risk) params.set("risk", filters.risk);
       if (filters?.party) params.set("party", filters.party);
+      if (filters?.checkStatus) params.set("checkStatus", filters.checkStatus);
       const res = await fetch(`/api/utilities/meters?${params}`);
       if (!res.ok) throw new Error("Failed to fetch meters");
       return res.json();
@@ -188,5 +227,69 @@ export function useUpdateAccount() {
       toast.success("Account updated");
     },
     onError: () => toast.error("Failed to update account"),
+  });
+}
+
+// ── Monthly Check Hooks ─────────────────────────────────────────
+
+export function useMonthlyChecks(accountId: string | null) {
+  return useQuery<MonthlyCheck[]>({
+    queryKey: ["utility-checks", accountId],
+    queryFn: async () => {
+      const res = await fetch(`/api/utilities/accounts/${accountId}/checks`);
+      if (!res.ok) throw new Error("Failed to fetch checks");
+      return res.json();
+    },
+    enabled: !!accountId,
+  });
+}
+
+export function useCreateOrUpdateCheck() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: {
+      accountId: string; month: number; year: number;
+      isPaid: boolean; paidDate?: string; amount?: number; notes?: string;
+    }) => {
+      const { accountId, ...rest } = data;
+      const res = await fetch(`/api/utilities/accounts/${accountId}/checks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(rest),
+      });
+      if (!res.ok) throw new Error("Failed to save check");
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["utility-checks"] });
+      qc.invalidateQueries({ queryKey: ["utility-meters"] });
+      qc.invalidateQueries({ queryKey: ["utility-meter"] });
+      qc.invalidateQueries({ queryKey: ["utility-summary"] });
+      toast.success("Check saved");
+    },
+    onError: () => toast.error("Failed to save check"),
+  });
+}
+
+export function useUpdateCheck() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ accountId, checkId, ...data }: { accountId: string; checkId: string; isPaid?: boolean; paidDate?: string; notes?: string }) => {
+      const res = await fetch(`/api/utilities/accounts/${accountId}/checks/${checkId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update check");
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["utility-checks"] });
+      qc.invalidateQueries({ queryKey: ["utility-meters"] });
+      qc.invalidateQueries({ queryKey: ["utility-meter"] });
+      qc.invalidateQueries({ queryKey: ["utility-summary"] });
+      toast.success("Check updated");
+    },
+    onError: () => toast.error("Failed to update check"),
   });
 }

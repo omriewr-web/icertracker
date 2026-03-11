@@ -1,56 +1,87 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Phone, Mail } from "lucide-react";
-import { useVendors, useCreateVendor, useDeleteVendor } from "@/hooks/use-vendors";
+import { Plus, Trash2, Phone, Mail, Pencil } from "lucide-react";
+import { useVendors, useCreateVendor, useUpdateVendor, useDeleteVendor } from "@/hooks/use-vendors";
 import Button from "@/components/ui/button";
 import Modal from "@/components/ui/modal";
 import EmptyState from "@/components/ui/empty-state";
 
+interface VendorFormData {
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
+  specialty: string;
+  hourlyRate: string;
+  notes: string;
+}
+
+const EMPTY_FORM: VendorFormData = { name: "", company: "", email: "", phone: "", specialty: "", hourlyRate: "", notes: "" };
+
 export default function VendorManagement() {
   const { data: vendors, isLoading } = useVendors();
   const createVendor = useCreateVendor();
+  const updateVendor = useUpdateVendor();
   const deleteVendor = useDeleteVendor();
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<VendorFormData>(EMPTY_FORM);
 
-  const [form, setForm] = useState({
-    name: "",
-    company: "",
-    email: "",
-    phone: "",
-    specialty: "",
-    hourlyRate: "",
-    notes: "",
-  });
+  function openCreate() {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setShowForm(true);
+  }
+
+  function openEdit(v: any) {
+    setEditingId(v.id);
+    setForm({
+      name: v.name || "",
+      company: v.company || "",
+      email: v.email || "",
+      phone: v.phone || "",
+      specialty: v.specialty || "",
+      hourlyRate: v.hourlyRate != null ? String(v.hourlyRate) : "",
+      notes: v.notes || "",
+    });
+    setShowForm(true);
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    createVendor.mutate(
-      {
-        name: form.name,
-        company: form.company || undefined,
-        email: form.email || undefined,
-        phone: form.phone || undefined,
-        specialty: form.specialty || undefined,
-        hourlyRate: form.hourlyRate ? Number(form.hourlyRate) : undefined,
-        notes: form.notes || undefined,
-      },
-      {
-        onSuccess: () => {
-          setShowForm(false);
-          setForm({ name: "", company: "", email: "", phone: "", specialty: "", hourlyRate: "", notes: "" });
-        },
-      }
-    );
+    const payload = {
+      name: form.name,
+      company: form.company || undefined,
+      email: form.email || undefined,
+      phone: form.phone || undefined,
+      specialty: form.specialty || undefined,
+      hourlyRate: form.hourlyRate ? Number(form.hourlyRate) : undefined,
+      notes: form.notes || undefined,
+    };
+
+    const onSuccess = () => {
+      setShowForm(false);
+      setEditingId(null);
+      setForm(EMPTY_FORM);
+    };
+
+    if (editingId) {
+      updateVendor.mutate({ id: editingId, data: payload }, { onSuccess });
+    } else {
+      createVendor.mutate(payload, { onSuccess });
+    }
   }
 
-  if (isLoading) return <p className="text-text-dim text-sm py-4">Loading vendors…</p>;
+  const isPending = editingId ? updateVendor.isPending : createVendor.isPending;
+
+  if (isLoading) return <p className="text-text-dim text-sm py-4">Loading vendors...</p>;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-text-muted">Vendors</h2>
-        <Button onClick={() => setShowForm(true)}>
+        <Button onClick={openCreate}>
           <Plus className="w-4 h-4" /> Add Vendor
         </Button>
       </div>
@@ -64,12 +95,20 @@ export default function VendorManagement() {
                   <p className="text-sm font-medium text-text-primary">{v.name}</p>
                   {v.company && <p className="text-xs text-text-dim">{v.company}</p>}
                 </div>
-                <button
-                  onClick={() => deleteVendor.mutate(v.id)}
-                  className="text-text-dim hover:text-red-400 transition-colors"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => openEdit(v)}
+                    className="text-text-dim hover:text-accent transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => deleteVendor.mutate(v.id)}
+                    className="text-text-dim hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
               {v.specialty && (
                 <span className="inline-block text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full mb-2">
@@ -99,7 +138,7 @@ export default function VendorManagement() {
         <EmptyState title="No vendors" description="Add vendors to assign to work orders" />
       )}
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="Add Vendor">
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditingId(null); }} title={editingId ? "Edit Vendor" : "Add Vendor"}>
         <form onSubmit={handleSubmit} className="space-y-3">
           <Input label="Name *" value={form.name} onChange={(v) => setForm({ ...form, name: v })} required />
           <Input label="Company" value={form.company} onChange={(v) => setForm({ ...form, company: v })} />
@@ -121,9 +160,9 @@ export default function VendorManagement() {
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-            <Button type="submit" disabled={createVendor.isPending || !form.name}>
-              {createVendor.isPending ? "Adding…" : "Add Vendor"}
+            <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingId(null); }}>Cancel</Button>
+            <Button type="submit" disabled={isPending || !form.name}>
+              {isPending ? (editingId ? "Saving..." : "Adding...") : (editingId ? "Save Changes" : "Add Vendor")}
             </Button>
           </div>
         </form>

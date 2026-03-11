@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Wrench, Plus, List, LayoutGrid } from "lucide-react";
-import { useWorkOrders } from "@/hooks/use-work-orders";
+import { Wrench, Plus, List, LayoutGrid, X } from "lucide-react";
+import { useWorkOrders, useBulkUpdateWorkOrders } from "@/hooks/use-work-orders";
+import { useVendors } from "@/hooks/use-vendors";
 import StatCard from "@/components/ui/stat-card";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import Button from "@/components/ui/button";
@@ -11,6 +12,8 @@ import WorkOrderDetailModal from "@/components/maintenance/work-order-detail-mod
 import CreateWorkOrderModal from "@/components/maintenance/create-work-order-modal";
 import PriorityBadge from "@/components/maintenance/priority-badge";
 import CategoryBadge from "@/components/maintenance/category-badge";
+import DueDateBadge from "@/components/maintenance/due-date-badge";
+import SourceBadge from "@/components/maintenance/source-badge";
 import VendorManagement from "@/components/maintenance/vendor-management";
 import ScheduleManagement from "@/components/maintenance/schedule-management";
 import { WorkOrderView } from "@/types";
@@ -20,12 +23,17 @@ import ExportButton from "@/components/ui/export-button";
 
 export default function MaintenanceContent() {
   const { data: workOrders, isLoading } = useWorkOrders();
+  const { data: vendors } = useVendors();
+  const bulkUpdate = useBulkUpdateWorkOrders();
   const [selectedWO, setSelectedWO] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [view, setView] = useState<"kanban" | "list">("kanban");
   const [tab, setTab] = useState<"orders" | "vendors" | "schedules">("orders");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState("");
+  const [bulkValue, setBulkValue] = useState("");
 
   const stats = useMemo(() => {
     const wos = workOrders || [];
@@ -40,10 +48,51 @@ export default function MaintenanceContent() {
 
   const filtered = useMemo(() => {
     let wos = workOrders || [];
-    if (filterStatus !== "all") wos = wos.filter((w) => w.status === filterStatus);
+    if (filterStatus === "OVERDUE") {
+      const now = new Date();
+      wos = wos.filter((w) => w.dueDate && new Date(w.dueDate) < now && w.status !== "COMPLETED");
+    } else if (filterStatus !== "all") {
+      wos = wos.filter((w) => w.status === filterStatus);
+    }
     if (filterPriority !== "all") wos = wos.filter((w) => w.priority === filterPriority);
     return wos;
   }, [workOrders, filterStatus, filterPriority]);
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((w) => w.id)));
+    }
+  }
+
+  function handleBulkApply() {
+    if (!bulkAction || !bulkValue || selectedIds.size === 0) return;
+    bulkUpdate.mutate(
+      { ids: Array.from(selectedIds), action: bulkAction, value: bulkValue },
+      {
+        onSuccess: () => {
+          setSelectedIds(new Set());
+          setBulkAction("");
+          setBulkValue("");
+        },
+      }
+    );
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+    setBulkAction("");
+    setBulkValue("");
+  }
 
   if (isLoading) return <PageSkeleton />;
 
@@ -138,6 +187,7 @@ export default function MaintenanceContent() {
                 <option value="IN_PROGRESS">In Progress</option>
                 <option value="ON_HOLD">On Hold</option>
                 <option value="COMPLETED">Completed</option>
+                <option value="OVERDUE">Overdue</option>
               </select>
               <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="bg-bg border border-border rounded-lg px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent">
                 <option value="all">All Priority</option>
@@ -149,36 +199,103 @@ export default function MaintenanceContent() {
             </div>
           )}
 
+          {/* Bulk action toolbar */}
+          {view === "list" && selectedIds.size > 0 && (
+            <div className="flex items-center gap-3 bg-accent/10 border border-accent/30 rounded-lg px-4 py-2">
+              <span className="text-sm text-text-primary font-medium">{selectedIds.size} selected</span>
+              <select
+                value={bulkAction}
+                onChange={(e) => { setBulkAction(e.target.value); setBulkValue(""); }}
+                className="bg-bg border border-border rounded-lg px-2 py-1 text-sm text-text-primary focus:outline-none focus:border-accent"
+              >
+                <option value="">Select action…</option>
+                <option value="change_status">Change Status</option>
+                <option value="change_priority">Change Priority</option>
+                <option value="assign_vendor">Assign Vendor</option>
+              </select>
+              {bulkAction === "change_status" && (
+                <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="bg-bg border border-border rounded-lg px-2 py-1 text-sm text-text-primary focus:outline-none focus:border-accent">
+                  <option value="">Select status…</option>
+                  <option value="OPEN">Open</option>
+                  <option value="IN_PROGRESS">In Progress</option>
+                  <option value="ON_HOLD">On Hold</option>
+                  <option value="COMPLETED">Completed</option>
+                </select>
+              )}
+              {bulkAction === "change_priority" && (
+                <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="bg-bg border border-border rounded-lg px-2 py-1 text-sm text-text-primary focus:outline-none focus:border-accent">
+                  <option value="">Select priority…</option>
+                  <option value="LOW">Low</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="HIGH">High</option>
+                  <option value="URGENT">Urgent</option>
+                </select>
+              )}
+              {bulkAction === "assign_vendor" && (
+                <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="bg-bg border border-border rounded-lg px-2 py-1 text-sm text-text-primary focus:outline-none focus:border-accent">
+                  <option value="">Select vendor…</option>
+                  {vendors?.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                </select>
+              )}
+              <Button onClick={handleBulkApply} disabled={!bulkAction || !bulkValue || bulkUpdate.isPending}>
+                {bulkUpdate.isPending ? "Applying…" : "Apply"}
+              </Button>
+              <button onClick={clearSelection} className="text-text-dim hover:text-text-muted transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {view === "kanban" ? (
             <KanbanBoard workOrders={workOrders || []} onSelect={(wo) => setSelectedWO(wo.id)} />
           ) : (
             <div className="bg-card-gradient border border-border rounded-xl overflow-x-auto">
-              <table className="w-full text-sm min-w-[800px]">
+              <table className="w-full text-sm min-w-[900px]">
                 <thead>
                   <tr className="border-b border-border">
+                    <th className="px-2 py-2 w-8">
+                      <input
+                        type="checkbox"
+                        checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                        onChange={toggleSelectAll}
+                        className="rounded"
+                      />
+                    </th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Title</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Building</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Priority</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Category</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Status</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Due</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Source</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Assigned</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Created</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((wo) => (
-                    <tr key={wo.id} className="border-b border-border/50 hover:bg-card-hover cursor-pointer transition-colors" onClick={() => setSelectedWO(wo.id)}>
-                      <td className="px-3 py-2 text-text-primary">{wo.title}</td>
-                      <td className="px-3 py-2 text-text-muted text-xs">{wo.buildingAddress}{wo.unitNumber ? ` #${wo.unitNumber}` : ""}</td>
-                      <td className="px-3 py-2"><PriorityBadge priority={wo.priority} /></td>
-                      <td className="px-3 py-2"><CategoryBadge category={wo.category} /></td>
-                      <td className="px-3 py-2 text-xs text-text-muted">{wo.status.replace(/_/g, " ")}</td>
-                      <td className="px-3 py-2 text-xs text-text-muted">{wo.assignedToName || "—"}</td>
-                      <td className="px-3 py-2 text-xs text-text-dim">{formatDate(wo.createdAt)}</td>
+                    <tr key={wo.id} className="border-b border-border/50 hover:bg-card-hover cursor-pointer transition-colors">
+                      <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(wo.id)}
+                          onChange={() => toggleSelect(wo.id)}
+                          className="rounded"
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-text-primary" onClick={() => setSelectedWO(wo.id)}>{wo.title}</td>
+                      <td className="px-3 py-2 text-text-muted text-xs" onClick={() => setSelectedWO(wo.id)}>{wo.buildingAddress}{wo.unitNumber ? ` #${wo.unitNumber}` : ""}</td>
+                      <td className="px-3 py-2" onClick={() => setSelectedWO(wo.id)}><PriorityBadge priority={wo.priority} /></td>
+                      <td className="px-3 py-2" onClick={() => setSelectedWO(wo.id)}><CategoryBadge category={wo.category} /></td>
+                      <td className="px-3 py-2 text-xs text-text-muted" onClick={() => setSelectedWO(wo.id)}>{wo.status.replace(/_/g, " ")}</td>
+                      <td className="px-3 py-2" onClick={() => setSelectedWO(wo.id)}><DueDateBadge dueDate={wo.dueDate} status={wo.status} /></td>
+                      <td className="px-3 py-2" onClick={() => setSelectedWO(wo.id)}><SourceBadge sourceType={wo.sourceType} /></td>
+                      <td className="px-3 py-2 text-xs text-text-muted" onClick={() => setSelectedWO(wo.id)}>{wo.assignedToName || "—"}</td>
+                      <td className="px-3 py-2 text-xs text-text-dim" onClick={() => setSelectedWO(wo.id)}>{formatDate(wo.createdAt)}</td>
                     </tr>
                   ))}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={7} className="px-3 py-8 text-center text-text-dim">No work orders found</td></tr>
+                    <tr><td colSpan={10} className="px-3 py-8 text-center text-text-dim">No work orders found</td></tr>
                   )}
                 </tbody>
               </table>

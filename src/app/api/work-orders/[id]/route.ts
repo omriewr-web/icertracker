@@ -34,6 +34,13 @@ export const PATCH = withAuth(async (req, { user, params }) => {
   if (denied) return denied;
   const data = await parseBody(req, workOrderUpdateSchema);
 
+  // Fetch current state for activity logging
+  const current = await prisma.workOrder.findUnique({
+    where: { id },
+    select: { status: true, priority: true, vendorId: true, assignedToId: true, dueDate: true },
+  });
+  if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const updateData: any = { ...data };
   if (data.scheduledDate !== undefined) {
     updateData.scheduledDate = data.scheduledDate ? new Date(data.scheduledDate) : null;
@@ -41,11 +48,48 @@ export const PATCH = withAuth(async (req, { user, params }) => {
   if (data.completedDate !== undefined) {
     updateData.completedDate = data.completedDate ? new Date(data.completedDate) : null;
   }
+  if (data.dueDate !== undefined) {
+    updateData.dueDate = data.dueDate ? new Date(data.dueDate) : null;
+  }
   if (data.status === "COMPLETED" && !data.completedDate) {
     updateData.completedDate = new Date();
   }
 
-  const wo = await prisma.workOrder.update({ where: { id }, data: updateData, include });
+  // Build activity log entries
+  const activities: { workOrderId: string; userId: string; action: string; fromValue: string | null; toValue: string | null }[] = [];
+
+  if (data.status !== undefined && data.status !== current.status) {
+    activities.push({ workOrderId: id, userId: user.id, action: "status_changed", fromValue: current.status, toValue: data.status });
+  }
+  if (data.priority !== undefined && data.priority !== current.priority) {
+    activities.push({ workOrderId: id, userId: user.id, action: "priority_changed", fromValue: current.priority, toValue: data.priority });
+  }
+  if (data.vendorId !== undefined && data.vendorId !== current.vendorId) {
+    activities.push({ workOrderId: id, userId: user.id, action: "vendor_assigned", fromValue: current.vendorId, toValue: data.vendorId || null });
+  }
+  if (data.assignedToId !== undefined && data.assignedToId !== current.assignedToId) {
+    activities.push({ workOrderId: id, userId: user.id, action: "user_assigned", fromValue: current.assignedToId, toValue: data.assignedToId || null });
+  }
+  if (data.dueDate !== undefined) {
+    const oldDue = current.dueDate?.toISOString().split("T")[0] ?? null;
+    const newDue = data.dueDate ? data.dueDate.split("T")[0] : null;
+    if (oldDue !== newDue) {
+      activities.push({ workOrderId: id, userId: user.id, action: "due_date_set", fromValue: oldDue, toValue: newDue });
+    }
+  }
+  if (data.status === "COMPLETED" && current.status !== "COMPLETED") {
+    activities.push({ workOrderId: id, userId: user.id, action: "completed", fromValue: null, toValue: new Date().toISOString() });
+  }
+
+  // Use transaction to update work order and log activities
+  const wo = await prisma.$transaction(async (tx) => {
+    const updated = await tx.workOrder.update({ where: { id }, data: updateData, include });
+    if (activities.length > 0) {
+      await tx.workOrderActivity.createMany({ data: activities });
+    }
+    return updated;
+  });
+
   return NextResponse.json(wo);
 }, "maintenance");
 

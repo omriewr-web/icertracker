@@ -52,6 +52,7 @@ model User {
   resolvedSignals     OperationalSignal[] @relation("SignalResolver")
   scanLogs            SignalScanLog[]
   assignedTurnovers   TurnoverWorkflow[] @relation("TurnoverAssignee")
+  workOrderActivities WorkOrderActivity[] @relation("WorkOrderActivityUser")
 
   @@map("users")
 }
@@ -592,6 +593,7 @@ model WorkOrder {
   assignedTo      User?              @relation("WorkOrderAssignee", fields: [assignedToId], references: [id])
   createdBy       User?              @relation("WorkOrderCreator", fields: [createdById], references: [id])
   comments        WorkOrderComment[]
+  activities      WorkOrderActivity[]
   violations      Violation[]
   inspectionItems InspectionItem[]
 
@@ -616,6 +618,21 @@ model WorkOrderComment {
   @@map("work_order_comments")
 }
 
+model WorkOrderActivity {
+  id          String    @id @default(cuid())
+  workOrderId String
+  userId      String?
+  action      String    // status_changed, priority_changed, vendor_assigned, user_assigned, due_date_set, completed
+  fromValue   String?
+  toValue     String?
+  createdAt   DateTime  @default(now())
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  user        User?     @relation("WorkOrderActivityUser", fields: [userId], references: [id])
+
+  @@index([workOrderId, createdAt(sort: Desc)])
+  @@map("work_order_activities")
+}
+
 model MaintenanceSchedule {
   id                  String               @id @default(cuid())
   title               String
@@ -623,6 +640,7 @@ model MaintenanceSchedule {
   frequency           MaintenanceFrequency
   nextDueDate         DateTime
   autoCreateWorkOrder Boolean              @default(true)
+  lastRunDate         DateTime?
   buildingId          String
   unitId              String?
   building            Building             @relation(fields: [buildingId], references: [id], onDelete: Cascade)

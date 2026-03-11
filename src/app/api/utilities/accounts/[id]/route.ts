@@ -19,7 +19,7 @@ export const GET = withAuth(async (req, { user, params }) => {
   }
 
   return NextResponse.json(account);
-}, "maintenance");
+}, "utilities");
 
 export const PATCH = withAuth(async (req, { user, params }) => {
   const { id } = await params;
@@ -51,4 +51,4 @@ export const PATCH = withAuth(async (req, { user, params }) => {
   });
 
   return NextResponse.json(account);
-}, "maintenance");
+}, "utilities");

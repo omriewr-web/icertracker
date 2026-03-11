@@ -124,6 +124,9 @@ export const workOrderCreateSchema = z.object({
   tenantId: z.string().nullable().optional(),
   vendorId: z.string().nullable().optional(),
   assignedToId: z.string().nullable().optional(),
+  dueDate: z.string().nullable().optional(),
+  sourceType: z.string().nullable().optional(),
+  sourceId: z.string().nullable().optional(),
 });
 
 export const workOrderUpdateSchema = workOrderCreateSchema.partial();

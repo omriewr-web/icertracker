@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, CalendarClock, RotateCcw } from "lucide-react";
-import { useMaintenanceSchedules, useCreateMaintenanceSchedule } from "@/hooks/use-maintenance-schedules";
+import { Plus, CalendarClock, RotateCcw, Pencil, Trash2 } from "lucide-react";
+import { useMaintenanceSchedules, useCreateMaintenanceSchedule, useUpdateMaintenanceSchedule, useDeleteMaintenanceSchedule } from "@/hooks/use-maintenance-schedules";
 import { useBuildings } from "@/hooks/use-buildings";
 import Button from "@/components/ui/button";
 import Modal from "@/components/ui/modal";
@@ -23,40 +23,69 @@ const FREQ_COLORS: Record<string, string> = {
   ANNUALLY: "bg-purple-500/10 text-purple-400",
 };
 
+const EMPTY_FORM = {
+  title: "",
+  description: "",
+  frequency: "MONTHLY",
+  nextDueDate: "",
+  autoCreateWorkOrder: true,
+  buildingId: "",
+};
+
 export default function ScheduleManagement() {
   const { data: schedules, isLoading } = useMaintenanceSchedules();
   const createSchedule = useCreateMaintenanceSchedule();
+  const updateSchedule = useUpdateMaintenanceSchedule();
+  const deleteSchedule = useDeleteMaintenanceSchedule();
   const { data: buildings } = useBuildings();
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(EMPTY_FORM);
 
-  const [form, setForm] = useState({
-    title: "",
-    description: "",
-    frequency: "MONTHLY",
-    nextDueDate: "",
-    autoCreateWorkOrder: true,
-    buildingId: "",
-  });
+  function openCreate() {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setShowForm(true);
+  }
+
+  function openEdit(s: any) {
+    setEditingId(s.id);
+    setForm({
+      title: s.title || "",
+      description: s.description || "",
+      frequency: s.frequency || "MONTHLY",
+      nextDueDate: s.nextDueDate ? s.nextDueDate.slice(0, 10) : "",
+      autoCreateWorkOrder: s.autoCreateWorkOrder ?? true,
+      buildingId: s.buildingId || "",
+    });
+    setShowForm(true);
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    createSchedule.mutate(
-      {
-        title: form.title,
-        description: form.description || undefined,
-        frequency: form.frequency,
-        nextDueDate: form.nextDueDate,
-        autoCreateWorkOrder: form.autoCreateWorkOrder,
-        buildingId: form.buildingId,
-      },
-      {
-        onSuccess: () => {
-          setShowForm(false);
-          setForm({ title: "", description: "", frequency: "MONTHLY", nextDueDate: "", autoCreateWorkOrder: true, buildingId: "" });
-        },
-      }
-    );
+    const payload = {
+      title: form.title,
+      description: form.description || undefined,
+      frequency: form.frequency,
+      nextDueDate: form.nextDueDate,
+      autoCreateWorkOrder: form.autoCreateWorkOrder,
+      buildingId: form.buildingId,
+    };
+
+    const onSuccess = () => {
+      setShowForm(false);
+      setEditingId(null);
+      setForm(EMPTY_FORM);
+    };
+
+    if (editingId) {
+      updateSchedule.mutate({ id: editingId, data: payload }, { onSuccess });
+    } else {
+      createSchedule.mutate(payload, { onSuccess });
+    }
   }
+
+  const isPending = editingId ? updateSchedule.isPending : createSchedule.isPending;
 
   if (isLoading) return <p className="text-text-dim text-sm py-4">Loading schedules…</p>;
 
@@ -64,7 +93,7 @@ export default function ScheduleManagement() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-text-muted">Maintenance Schedules</h2>
-        <Button onClick={() => setShowForm(true)}>
+        <Button onClick={openCreate}>
           <Plus className="w-4 h-4" /> Add Schedule
         </Button>
       </div>
@@ -79,6 +108,7 @@ export default function ScheduleManagement() {
                 <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Frequency</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Next Due</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Auto-Create</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -107,6 +137,22 @@ export default function ScheduleManagement() {
                     <td className="px-3 py-2 text-xs text-text-muted">
                       {s.autoCreateWorkOrder ? "Yes" : "No"}
                     </td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => openEdit(s)}
+                          className="text-text-dim hover:text-accent transition-colors p-1"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => deleteSchedule.mutate(s.id)}
+                          className="text-text-dim hover:text-red-400 transition-colors p-1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -117,7 +163,7 @@ export default function ScheduleManagement() {
         <EmptyState title="No schedules" description="Create recurring maintenance schedules" icon={CalendarClock} />
       )}
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="Add Maintenance Schedule">
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditingId(null); }} title={editingId ? "Edit Schedule" : "Add Maintenance Schedule"}>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label className="block text-xs text-text-dim mb-1">Title *</label>
@@ -188,9 +234,9 @@ export default function ScheduleManagement() {
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-            <Button type="submit" disabled={createSchedule.isPending || !form.title || !form.buildingId || !form.nextDueDate}>
-              {createSchedule.isPending ? "Creating…" : "Create Schedule"}
+            <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingId(null); }}>Cancel</Button>
+            <Button type="submit" disabled={isPending || !form.title || !form.buildingId || !form.nextDueDate}>
+              {isPending ? (editingId ? "Saving…" : "Creating…") : (editingId ? "Save Changes" : "Create Schedule")}
             </Button>
           </div>
         </form>

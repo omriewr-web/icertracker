@@ -6,7 +6,8 @@ import ConfirmDialog from "@/components/ui/confirm-dialog";
 import { useAppStore } from "@/stores/app-store";
 import { useBuilding, useDeleteBuilding } from "@/hooks/use-buildings";
 import LoadingSpinner from "@/components/ui/loading-spinner";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Gauge } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { formatDate } from "@/lib/utils";
 
@@ -38,8 +39,8 @@ export default function BuildingDetailModal() {
   const sup = building?.superintendent as any;
   const elev = building?.elevatorCompany as any;
   const fire = building?.fireAlarmCompany as any;
-  const meters = building?.utilityMeters as any;
-  const accounts = building?.utilityAccounts as any;
+  const _legacyMeters = building?.utilityMeters;
+  const _legacyAccounts = building?.utilityAccounts;
 
   return (
     <>
@@ -111,23 +112,18 @@ export default function BuildingDetailModal() {
               </Section>
             )}
 
-            {/* Utility Meters */}
-            {meters && (meters.gas || meters.electric || meters.water) && (
-              <Section title="Utility Meters">
-                <Field label="Gas" value={meters.gas} />
-                <Field label="Electric" value={meters.electric} />
-                <Field label="Water" value={meters.water} />
-              </Section>
-            )}
-
-            {/* Utility Accounts */}
-            {accounts && (accounts.gas || accounts.electric || accounts.water) && (
-              <Section title="Utility Account Numbers">
-                <Field label="Gas" value={accounts.gas} />
-                <Field label="Electric" value={accounts.electric} />
-                <Field label="Water" value={accounts.water} />
-              </Section>
-            )}
+            {/* Utilities */}
+            <Section title="Utilities">
+              <div className="col-span-full">
+                <Link
+                  href={`/utilities?buildingId=${building.id}`}
+                  className="inline-flex items-center gap-1.5 text-sm text-accent hover:text-accent-light transition-colors"
+                >
+                  <Gauge className="w-4 h-4" />
+                  View Utility Meters & Accounts
+                </Link>
+              </div>
+            </Section>
           </div>
         ) : null}
       </Modal>

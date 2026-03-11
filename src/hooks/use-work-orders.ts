@@ -109,3 +109,73 @@ export function useCreateWorkOrderComment(workOrderId: string) {
     onError: () => toast.error("Failed to add comment"),
   });
 }
+
+// ── Activity Log ────────────────────────────────────────────────
+
+export interface WorkOrderActivityEntry {
+  id: string;
+  workOrderId: string;
+  userId: string | null;
+  action: string;
+  fromValue: string | null;
+  toValue: string | null;
+  createdAt: string;
+  user: { name: string } | null;
+}
+
+export function useWorkOrderActivity(workOrderId: string | null) {
+  return useQuery<WorkOrderActivityEntry[]>({
+    queryKey: ["work-order-activity", workOrderId],
+    queryFn: async () => {
+      const res = await fetch(`/api/work-orders/${workOrderId}/activity`);
+      if (!res.ok) throw new Error("Failed to fetch activity");
+      return res.json();
+    },
+    enabled: !!workOrderId,
+  });
+}
+
+// ── Bulk Operations ─────────────────────────────────────────────
+
+export function useBulkUpdateWorkOrders() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { ids: string[]; action: string; value: string }) => {
+      const res = await fetch("/api/work-orders/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update work orders");
+      return res.json();
+    },
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ["work-orders"] });
+      toast.success(`Updated ${result.updated} work order${result.updated !== 1 ? "s" : ""}`);
+    },
+    onError: () => toast.error("Failed to bulk update"),
+  });
+}
+
+// ── Photo Upload ────────────────────────────────────────────────
+
+export function useUploadWorkOrderPhotos(workOrderId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (files: File[]) => {
+      const formData = new FormData();
+      files.forEach((f) => formData.append("files", f));
+      const res = await fetch(`/api/work-orders/${workOrderId}/photos`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Failed to upload photos");
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["work-orders", workOrderId] });
+      toast.success("Photos uploaded");
+    },
+    onError: () => toast.error("Failed to upload photos"),
+  });
+}

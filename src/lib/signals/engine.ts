@@ -52,6 +52,7 @@ export async function runSignalScan(
       detectLegalCaseStale(),
       detectVacantUnitWithoutTurnover(),
       detectTurnoverStalled(),
+      detectOverdueWorkOrders(),
     ]);
 
     // Collect all detected signals
@@ -714,6 +715,394 @@ async function detectUtilityRisks(): Promise<DetectedSignal[]> {
     }
   }
 
+  // Vacant unit with tenant-assigned active account
+  const vacantTenantAccounts = await prisma.utilityAccount.findMany({
+    where: {
+      status: "active",
+      assignedPartyType: "tenant",
+      meter: {
+        isActive: true,
+        unit: { isVacant: true },
+      },
+    },
+    select: {
+      id: true,
+      meter: {
+        select: {
+          id: true,
+          utilityType: true,
+          buildingId: true,
+          unit: {
+            select: {
+              unitNumber: true,
+              building: { select: { address: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  for (const acc of vacantTenantAccounts) {
+    if (acc.meter.unit) {
+      signals.push({
+        deduplicationKey: `utility-vacant-tenant-${acc.id}`,
+        type: "utility_problem",
+        severity: "medium",
+        title: `${acc.meter.utilityType} — tenant account on vacant unit`,
+        description: `${acc.meter.unit.building.address} #${acc.meter.unit.unitNumber}. Unit is vacant but still has an active tenant utility account.`,
+        entityType: "meter",
+        entityId: acc.meter.id,
+        buildingId: acc.meter.buildingId,
+        recommendedAction: "Unit vacant. Transfer or close tenant utility account.",
+      });
+    }
+  }
+
+  // Occupied unit where owner/management pays
+  const ownerPaidOccupied = await prisma.utilityAccount.findMany({
+    where: {
+      status: "active",
+      assignedPartyType: { in: ["owner", "management"] },
+      meter: {
+        isActive: true,
+        unit: {
+          isVacant: false,
+          tenant: { isNot: null },
+        },
+      },
+    },
+    select: {
+      id: true,
+      assignedPartyType: true,
+      meter: {
+        select: {
+          id: true,
+          utilityType: true,
+          buildingId: true,
+          unit: {
+            select: {
+              unitNumber: true,
+              building: { select: { address: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  for (const acc of ownerPaidOccupied) {
+    if (acc.meter.unit) {
+      signals.push({
+        deduplicationKey: `utility-owner-paid-${acc.id}`,
+        type: "utility_problem",
+        severity: "low",
+        title: `${acc.meter.utilityType} — ${acc.assignedPartyType} paying on occupied unit`,
+        description: `${acc.meter.unit.building.address} #${acc.meter.unit.unitNumber}. Occupied unit has utility paid by ${acc.assignedPartyType}.`,
+        entityType: "meter",
+        entityId: acc.meter.id,
+        buildingId: acc.meter.buildingId,
+        recommendedAction: "Owner paying utility on occupied unit. Verify this is intentional.",
+      });
+    }
+  }
+
+  // Active accounts with no check for current month
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
+  const accountsMissingCheck = await prisma.utilityAccount.findMany({
+    where: {
+      status: "active",
+      meter: { isActive: true },
+      monthlyChecks: {
+        none: {
+          month: currentMonth,
+          year: currentYear,
+        },
+      },
+    },
+    select: {
+      id: true,
+      accountNumber: true,
+      meter: {
+        select: {
+          id: true,
+          utilityType: true,
+          buildingId: true,
+          unit: {
+            select: {
+              unitNumber: true,
+              building: { select: { address: true } },
+            },
+          },
+          building: { select: { address: true } },
+        },
+      },
+    },
+  });
+
+  for (const acc of accountsMissingCheck) {
+    const unitLabel = acc.meter.unit ? ` #${acc.meter.unit.unitNumber}` : " (common)";
+    const addr = acc.meter.unit?.building.address || acc.meter.building.address;
+    signals.push({
+      deduplicationKey: `utility-no-check-${acc.id}-${currentYear}-${currentMonth}`,
+      type: "utility_problem",
+      severity: "medium",
+      title: `${acc.meter.utilityType} — no check recorded this month`,
+      description: `${addr}${unitLabel}. Active account has no utility check recorded for ${currentMonth}/${currentYear}.`,
+      entityType: "meter",
+      entityId: acc.meter.id,
+      buildingId: acc.meter.buildingId,
+      recommendedAction: "No utility check recorded for this month.",
+    });
+  }
+
+  // Transfer needed — tenant moved out but still on utility account
+  const movedOutTenantAccounts = await prisma.utilityAccount.findMany({
+    where: {
+      status: "active",
+      assignedPartyType: "tenant",
+      meter: {
+        isActive: true,
+        unit: {
+          tenant: {
+            moveOutDate: { lt: now },
+          },
+        },
+      },
+    },
+    select: {
+      id: true,
+      meter: {
+        select: {
+          id: true,
+          utilityType: true,
+          buildingId: true,
+          unit: {
+            select: {
+              unitNumber: true,
+              building: { select: { address: true } },
+              tenant: { select: { name: true, moveOutDate: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  for (const acc of movedOutTenantAccounts) {
+    if (acc.meter.unit?.tenant) {
+      const t = acc.meter.unit.tenant;
+      const addr = acc.meter.unit.building.address;
+      const unit = acc.meter.unit.unitNumber;
+      signals.push({
+        deduplicationKey: `utility-transfer-moved-out-${acc.id}`,
+        type: "utility_problem",
+        severity: "high",
+        title: `${acc.meter.utilityType} — tenant moved out, transfer needed`,
+        description: `${addr} #${unit}. Tenant "${t.name}" moved out but still has an active ${acc.meter.utilityType} utility account.`,
+        entityType: "meter",
+        entityId: acc.meter.id,
+        buildingId: acc.meter.buildingId,
+        recommendedAction: `Tenant ${t.name} moved out from unit #${unit}. Transfer utility account to owner immediately.`,
+      });
+    }
+  }
+
+  // Transfer needed — lease expired but tenant still on utility account (not yet moved out)
+  const leaseExpiredTenantAccounts = await prisma.utilityAccount.findMany({
+    where: {
+      status: "active",
+      assignedPartyType: "tenant",
+      meter: {
+        isActive: true,
+        unit: {
+          tenant: {
+            leaseExpiration: { lt: now },
+            OR: [
+              { moveOutDate: null },
+              { moveOutDate: { gte: now } },
+            ],
+          },
+        },
+      },
+    },
+    select: {
+      id: true,
+      meter: {
+        select: {
+          id: true,
+          utilityType: true,
+          buildingId: true,
+          unit: {
+            select: {
+              unitNumber: true,
+              building: { select: { address: true } },
+              tenant: { select: { name: true, leaseExpiration: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  for (const acc of leaseExpiredTenantAccounts) {
+    if (acc.meter.unit?.tenant) {
+      const t = acc.meter.unit.tenant;
+      const addr = acc.meter.unit.building.address;
+      const unit = acc.meter.unit.unitNumber;
+      signals.push({
+        deduplicationKey: `utility-transfer-lease-expired-${acc.id}`,
+        type: "utility_problem",
+        severity: "high",
+        title: `${acc.meter.utilityType} — lease expired, review transfer`,
+        description: `${addr} #${unit}. Tenant "${t.name}" lease expired but still has an active ${acc.meter.utilityType} utility account.`,
+        entityType: "meter",
+        entityId: acc.meter.id,
+        buildingId: acc.meter.buildingId,
+        recommendedAction: `Lease expired for ${t.name} in unit #${unit}. Review and transfer utility account to owner.`,
+      });
+    }
+  }
+
+  // Tenant moving out within 7 days, still has active tenant utility account
+  const sevenDaysFromNow = new Date(now.getTime() + 7 * 86400000);
+  const moveoutPendingAccounts = await prisma.utilityAccount.findMany({
+    where: {
+      status: "active",
+      assignedPartyType: "tenant",
+      meter: {
+        isActive: true,
+        unit: {
+          tenant: {
+            moveOutDate: {
+              gte: now,
+              lte: sevenDaysFromNow,
+            },
+          },
+        },
+      },
+    },
+    select: {
+      id: true,
+      meter: {
+        select: {
+          id: true,
+          utilityType: true,
+          buildingId: true,
+          unit: {
+            select: {
+              unitNumber: true,
+              building: { select: { address: true } },
+              tenant: { select: { name: true, moveOutDate: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  for (const acc of moveoutPendingAccounts) {
+    if (acc.meter.unit?.tenant?.moveOutDate) {
+      const t = acc.meter.unit.tenant;
+      const addr = acc.meter.unit.building.address;
+      const unit = acc.meter.unit.unitNumber;
+      const daysLeft = Math.ceil((new Date(t.moveOutDate!).getTime() - now.getTime()) / 86400000);
+      signals.push({
+        deduplicationKey: `utility-moveout-pending-${acc.id}`,
+        type: "utility_problem",
+        severity: "medium",
+        title: `${acc.meter.utilityType} — tenant moving out in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`,
+        description: `${addr} #${unit}. Tenant "${t.name}" moving out in ${daysLeft} day${daysLeft !== 1 ? "s" : ""} but still has an active ${acc.meter.utilityType} utility account.`,
+        entityType: "meter",
+        entityId: acc.meter.id,
+        buildingId: acc.meter.buildingId,
+        recommendedAction: `Tenant ${t.name} moving out in ${daysLeft} day${daysLeft !== 1 ? "s" : ""} from unit #${unit}. Schedule utility account transfer.`,
+      });
+    }
+  }
+
+  // Meter missing unit link — unit-specific types (electric/gas/water) without unitId
+  const metersWithoutUnit = await prisma.utilityMeter.findMany({
+    where: {
+      isActive: true,
+      unitId: null,
+      utilityType: { in: ["electric", "gas", "water"] },
+    },
+    select: {
+      id: true,
+      utilityType: true,
+      buildingId: true,
+      building: { select: { address: true } },
+    },
+  });
+
+  for (const m of metersWithoutUnit) {
+    signals.push({
+      deduplicationKey: `utility-missing-unit-${m.id}`,
+      type: "utility_problem",
+      severity: "low",
+      title: `${m.utilityType} meter — no unit linked`,
+      description: `${m.building.address}. ${m.utilityType} meter has no unit assigned. This meter type typically serves a specific unit.`,
+      entityType: "meter",
+      entityId: m.id,
+      buildingId: m.buildingId,
+      recommendedAction: "Link this meter to the correct unit for accurate tracking.",
+    });
+  }
+
+  // Vacant unit with active utility not held by owner/management
+  const vacantNonOwnerAccounts = await prisma.utilityAccount.findMany({
+    where: {
+      status: "active",
+      assignedPartyType: { notIn: ["owner", "management"] },
+      meter: {
+        isActive: true,
+        unit: {
+          isVacant: true,
+        },
+      },
+    },
+    select: {
+      id: true,
+      assignedPartyType: true,
+      meter: {
+        select: {
+          id: true,
+          utilityType: true,
+          buildingId: true,
+          unit: {
+            select: {
+              unitNumber: true,
+              building: { select: { address: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  for (const acc of vacantNonOwnerAccounts) {
+    if (acc.meter.unit) {
+      // Only add if not already flagged by vacant_tenant_account (avoid duplication for tenant accounts)
+      if (acc.assignedPartyType !== "tenant") {
+        signals.push({
+          deduplicationKey: `utility-vacant-owner-hold-${acc.id}`,
+          type: "utility_problem",
+          severity: "medium",
+          title: `${acc.meter.utilityType} — vacant unit, owner should hold account`,
+          description: `${acc.meter.unit.building.address} #${acc.meter.unit.unitNumber}. Vacant unit has utility account assigned to "${acc.assignedPartyType}". Owner/management should hold account during vacancy.`,
+          entityType: "meter",
+          entityId: acc.meter.id,
+          buildingId: acc.meter.buildingId,
+          recommendedAction: "Transfer utility account to owner/management during vacancy.",
+        });
+      }
+    }
+  }
+
   return signals;
 }
 
@@ -819,7 +1208,7 @@ async function detectCompletedWorkNotCertified(): Promise<DetectedSignal[]> {
   for (const v of violations) {
     signals.push({
       deduplicationKey: `wo-done-violation-open-${v.id}`,
-      type: "violation_risk",
+      type: "maintenance_failure",
       severity: "high",
       title: `Work complete but violation still open — ${v.building.address}${v.unitNumber ? ` #${v.unitNumber}` : ""}`,
       description: `Work order completed but Class ${v.class || "?"} violation remains open. Certification may be needed.`,
@@ -827,6 +1216,47 @@ async function detectCompletedWorkNotCertified(): Promise<DetectedSignal[]> {
       entityId: v.id,
       buildingId: v.buildingId,
       recommendedAction: "File certification of correction with issuing agency.",
+    });
+  }
+
+  return signals;
+}
+
+// ── Detection: Overdue Work Orders ──────────────────────────────
+
+async function detectOverdueWorkOrders(): Promise<DetectedSignal[]> {
+  const signals: DetectedSignal[] = [];
+  const now = new Date();
+
+  const overdueOrders = await prisma.workOrder.findMany({
+    where: {
+      dueDate: { lt: now },
+      status: { notIn: ["COMPLETED"] },
+    },
+    select: {
+      id: true,
+      title: true,
+      priority: true,
+      dueDate: true,
+      buildingId: true,
+      building: { select: { address: true } },
+      unit: { select: { unitNumber: true } },
+    },
+  });
+
+  for (const wo of overdueOrders) {
+    const severity = wo.priority === "URGENT" || wo.priority === "HIGH" ? "high" : "medium";
+    const unitLabel = wo.unit?.unitNumber ? ` #${wo.unit.unitNumber}` : "";
+    signals.push({
+      deduplicationKey: `wo-overdue-${wo.id}`,
+      type: "maintenance_failure",
+      severity,
+      title: `Work order overdue — ${wo.building.address}${unitLabel}`,
+      description: `"${wo.title}" was due ${wo.dueDate!.toISOString().split("T")[0]} and is not yet completed.`,
+      entityType: "work_order",
+      entityId: wo.id,
+      buildingId: wo.buildingId,
+      recommendedAction: "Work order overdue. Reassign or escalate immediately.",
     });
   }
 
