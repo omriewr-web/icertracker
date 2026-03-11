@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { RefreshCw, AlertTriangle, DollarSign, Calendar, Bug } from "lucide-react";
 import { useViolations, useViolationStats, useSyncViolationsStream } from "@/hooks/use-violations";
+import EmptyState from "@/components/ui/empty-state";
 import { useAppStore } from "@/stores/app-store";
 import { useBuildings } from "@/hooks/use-buildings";
 import Button from "@/components/ui/button";
@@ -231,7 +232,7 @@ export default function ViolationsTab() {
           </tbody>
         </table>
         {(!violations || violations.length === 0) && (
-          <div className="text-center py-12 text-text-dim text-sm">No violations found</div>
+          <EmptyState icon={AlertTriangle} title="No violations found" description="Violations from HPD, DOB, and ECB will appear here once synced." />
         )}
       </div>
 

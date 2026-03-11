@@ -14,7 +14,7 @@ export const GET = withAuth(async (req, { user, params }) => {
     where: { id },
     include: {
       unit: { include: { building: true } },
-      legalCase: true,
+      legalCases: { where: { isActive: true }, take: 1 },
       notes: { orderBy: { createdAt: "desc" }, include: { author: { select: { name: true } } } },
       payments: { orderBy: { date: "desc" }, include: { recorder: { select: { name: true } } } },
       leases: {
@@ -39,7 +39,7 @@ export const PATCH = withAuth(async (req, { user, params }) => {
 
   const data = await parseBody(req, tenantUpdateSchema);
 
-  const current = await prisma.tenant.findUnique({ where: { id }, include: { legalCase: true } });
+  const current = await prisma.tenant.findUnique({ where: { id }, include: { legalCases: { where: { isActive: true }, take: 1 } } });
   if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const balance = data.balance ?? Number(current.balance);
@@ -58,7 +58,7 @@ export const PATCH = withAuth(async (req, { user, params }) => {
     marketRent,
     arrearsDays,
     leaseStatus,
-    legalFlag: current.legalCase?.inLegal ?? false,
+    legalFlag: current.legalCases?.[0]?.inLegal ?? false,
     legalRecommended: false,
     isVacant: false,
   });

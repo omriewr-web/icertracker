@@ -53,7 +53,7 @@ export const GET = withAuth(async (req, { user }) => {
   const occupied = totalUnitCount - vacantUnitCount;
   const vacant = vacantUnitCount;
 
-  const legalWhere: any = { inLegal: true };
+  const legalWhere: any = { isActive: true, inLegal: true };
   if (Object.keys(tenantScope as object).length > 0) {
     legalWhere.tenant = tenantScope;
   }

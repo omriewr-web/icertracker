@@ -39,6 +39,8 @@ export async function runSignalScan(
     const results = await Promise.allSettled([
       detectCollectionRisks(),
       detectLegalEscalations(),
+      detectCourtDatePassedNoUpdate(),
+      detectWarrantNoMarshal(),
       detectVacancyRisks(),
       detectViolationRisks(),
       detectMaintenanceFailures(),
@@ -53,6 +55,11 @@ export async function runSignalScan(
       detectVacantUnitWithoutTurnover(),
       detectTurnoverStalled(),
       detectOverdueWorkOrders(),
+      detectAdvancedCaseMissingAttorney(),
+      detectLegalCaseUnassigned(),
+      detectCollectionsNoRecentNote(),
+      detectCollectionsLegalCandidateNoCase(),
+      detectCollectionsPaymentPlanOverdue(),
     ]);
 
     // Collect all detected signals
@@ -186,7 +193,7 @@ async function detectCollectionRisks(): Promise<DetectedSignal[]> {
         select: { id: true },
         take: 1,
       },
-      legalCase: { select: { id: true, inLegal: true } },
+      legalCases: { where: { isActive: true }, select: { inLegal: true }, take: 1 },
     },
   });
 
@@ -195,7 +202,7 @@ async function detectCollectionRisks(): Promise<DetectedSignal[]> {
     const rent = Number(t.marketRent);
     const monthsOwed = Number(t.monthsOwed);
     const hasRecentNote = t.notes.length > 0;
-    const hasLegalCase = t.legalCase?.inLegal === true;
+    const hasLegalCase = t.legalCases[0]?.inLegal === true;
 
     // CRITICAL: balance > 4 months rent AND no legal case
     if (monthsOwed > 4 && !hasLegalCase) {
@@ -243,11 +250,11 @@ async function detectLegalEscalations(): Promise<DetectedSignal[]> {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  // CRITICAL: Tenant balance > $10k AND no legal case
+  // CRITICAL: Tenant balance > $10k AND no active legal case
   const highBalanceTenants = await prisma.tenant.findMany({
     where: {
       balance: { gte: 10000 },
-      legalCase: null,
+      legalCases: { none: { isActive: true } },
     },
     select: {
       id: true,
@@ -281,6 +288,7 @@ async function detectLegalEscalations(): Promise<DetectedSignal[]> {
   // HIGH: Court date within 7 days
   const upcomingCourt = await prisma.legalCase.findMany({
     where: {
+      isActive: true,
       inLegal: true,
       courtDate: { gte: now, lte: sevenDaysFromNow },
     },
@@ -306,8 +314,9 @@ async function detectLegalEscalations(): Promise<DetectedSignal[]> {
 
   for (const c of upcomingCourt) {
     const daysUntil = Math.ceil((c.courtDate!.getTime() - now.getTime()) / 86400000);
+    const courtDateStr = c.courtDate!.toISOString().split("T")[0];
     signals.push({
-      deduplicationKey: `legal-court-soon-${c.id}`,
+      deduplicationKey: `court-date-${c.id}-${courtDateStr}`,
       type: "legal_escalation",
       severity: "high",
       title: `Court date in ${daysUntil} day${daysUntil !== 1 ? "s" : ""} — ${c.tenant.name}`,
@@ -316,14 +325,16 @@ async function detectLegalEscalations(): Promise<DetectedSignal[]> {
       entityId: c.tenant.id,
       buildingId: c.tenant.unit.buildingId,
       tenantId: c.tenant.id,
-      recommendedAction: "Prepare court documents. Confirm attorney attendance.",
+      recommendedAction: `Court date in ${daysUntil} days. Confirm attorney attendance and prepare documents.`,
     });
   }
 
-  // MEDIUM: Legal case with no activity in 30 days
+  // MEDIUM: Legal case with no activity in 30 days (not SETTLED)
   const staleCases = await prisma.legalCase.findMany({
     where: {
+      isActive: true,
       inLegal: true,
+      stage: { not: "SETTLED" },
       updatedAt: { lt: thirtyDaysAgo },
     },
     select: {
@@ -1376,11 +1387,211 @@ async function detectRecurringIssuePattern(): Promise<DetectedSignal[]> {
 // ── Detection: Legal Case Stale (Extended) ──────────────────────
 
 async function detectLegalCaseStale(): Promise<DetectedSignal[]> {
-  // NOTE: This detector extends the existing stale case detection in detectLegalEscalations.
-  // detectLegalEscalations already handles stale cases (30+ days, medium severity).
-  // This function intentionally returns empty to avoid duplicate signals.
-  // The stale case logic lives in detectLegalEscalations with dedup key "legal-stale-{caseId}".
+  // Stale case logic lives in detectLegalEscalations with dedup key "legal-stale-{caseId}".
   return [];
+}
+
+// ── Detection: Court Date Passed Without Stage Update ────────────
+
+async function detectCourtDatePassedNoUpdate(): Promise<DetectedSignal[]> {
+  const signals: DetectedSignal[] = [];
+  const now = new Date();
+
+  const cases = await prisma.legalCase.findMany({
+    where: {
+      isActive: true,
+      inLegal: true,
+      courtDate: { lt: now },
+      stage: "COURT_DATE",
+    },
+    select: {
+      id: true,
+      courtDate: true,
+      tenant: {
+        select: {
+          id: true,
+          name: true,
+          unit: {
+            select: {
+              buildingId: true,
+              unitNumber: true,
+              building: { select: { address: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  for (const c of cases) {
+    signals.push({
+      deduplicationKey: `court-passed-${c.id}`,
+      type: "legal_escalation",
+      severity: "high",
+      title: `Court date passed, no stage update — ${c.tenant.name}`,
+      description: `Court date was ${c.courtDate!.toISOString().split("T")[0]} at ${c.tenant.unit.building.address} #${c.tenant.unit.unitNumber}. Stage is still COURT_DATE.`,
+      entityType: "tenant",
+      entityId: c.tenant.id,
+      buildingId: c.tenant.unit.buildingId,
+      tenantId: c.tenant.id,
+      recommendedAction: "Court date has passed with no stage update. Record outcome and advance stage.",
+    });
+  }
+
+  return signals;
+}
+
+// ── Detection: Warrant Stage Without Marshal Assigned ────────────
+
+async function detectWarrantNoMarshal(): Promise<DetectedSignal[]> {
+  const signals: DetectedSignal[] = [];
+  const now = new Date();
+  const threeDaysAgo = new Date();
+  threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+  const cases = await prisma.legalCase.findMany({
+    where: {
+      isActive: true,
+      inLegal: true,
+      stage: "WARRANT",
+      marshalId: null,
+      updatedAt: { lt: threeDaysAgo },
+    },
+    select: {
+      id: true,
+      updatedAt: true,
+      tenant: {
+        select: {
+          id: true,
+          name: true,
+          unit: {
+            select: {
+              buildingId: true,
+              unitNumber: true,
+              building: { select: { address: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  for (const c of cases) {
+    const daysAtStage = Math.ceil((now.getTime() - c.updatedAt.getTime()) / 86400000);
+    signals.push({
+      deduplicationKey: `warrant-marshal-${c.id}`,
+      type: "legal_escalation",
+      severity: "medium",
+      title: `Warrant stage ${daysAtStage} days, no marshal — ${c.tenant.name}`,
+      description: `Case at ${c.tenant.unit.building.address} #${c.tenant.unit.unitNumber} has been at WARRANT stage for ${daysAtStage} days with no marshal assigned.`,
+      entityType: "tenant",
+      entityId: c.tenant.id,
+      buildingId: c.tenant.unit.buildingId,
+      tenantId: c.tenant.id,
+      recommendedAction: "Case at warrant stage. Assign marshal to schedule execution.",
+    });
+  }
+
+  return signals;
+}
+
+// ── Detection: Advanced Case Without Attorney ───────────────
+
+async function detectAdvancedCaseMissingAttorney(): Promise<DetectedSignal[]> {
+  const signals: DetectedSignal[] = [];
+  const advancedStages: string[] = ["COURT_DATE", "STIPULATION", "JUDGMENT", "WARRANT", "EVICTION"];
+
+  const cases = await prisma.legalCase.findMany({
+    where: {
+      isActive: true,
+      inLegal: true,
+      stage: { in: advancedStages as any },
+      attorneyId: null,
+      attorney: null,
+    },
+    select: {
+      id: true,
+      stage: true,
+      tenant: {
+        select: {
+          id: true,
+          name: true,
+          unit: {
+            select: {
+              buildingId: true,
+              unitNumber: true,
+              building: { select: { address: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  for (const c of cases) {
+    signals.push({
+      deduplicationKey: `legal-no-attorney-${c.id}`,
+      type: "legal_escalation",
+      severity: "high",
+      title: `No attorney on ${c.stage.replace(/_/g, " ")} case — ${c.tenant.name}`,
+      description: `Legal case at ${c.tenant.unit.building.address} #${c.tenant.unit.unitNumber} is at ${c.stage.replace(/_/g, " ")} stage with no attorney assigned.`,
+      entityType: "tenant",
+      entityId: c.tenant.id,
+      buildingId: c.tenant.unit.buildingId,
+      tenantId: c.tenant.id,
+      recommendedAction: "Advanced legal case has no attorney assigned. Assign counsel immediately.",
+    });
+  }
+
+  return signals;
+}
+
+// ── Detection: Legal Case Without Assigned User ─────────────
+
+async function detectLegalCaseUnassigned(): Promise<DetectedSignal[]> {
+  const signals: DetectedSignal[] = [];
+
+  const cases = await prisma.legalCase.findMany({
+    where: {
+      isActive: true,
+      inLegal: true,
+      assignedUserId: null,
+    },
+    select: {
+      id: true,
+      stage: true,
+      tenant: {
+        select: {
+          id: true,
+          name: true,
+          unit: {
+            select: {
+              buildingId: true,
+              unitNumber: true,
+              building: { select: { address: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  for (const c of cases) {
+    signals.push({
+      deduplicationKey: `legal-unassigned-${c.id}`,
+      type: "legal_escalation",
+      severity: "medium",
+      title: `Legal case unassigned — ${c.tenant.name}`,
+      description: `${c.stage.replace(/_/g, " ")} case at ${c.tenant.unit.building.address} #${c.tenant.unit.unitNumber} has no internal owner.`,
+      entityType: "tenant",
+      entityId: c.tenant.id,
+      buildingId: c.tenant.unit.buildingId,
+      tenantId: c.tenant.id,
+      recommendedAction: "Legal case has no internal owner. Assign a responsible user.",
+    });
+  }
+
+  return signals;
 }
 
 // ── Detection: Vacant Unit Without Turnover ──────────────────
@@ -1479,6 +1690,186 @@ async function detectTurnoverStalled(): Promise<DetectedSignal[]> {
       buildingId: t.unit.buildingId,
       recommendedAction: `Turnover stalled at ${statusLabel} for ${daysSinceUpdate} days. Review and advance.`,
     });
+  }
+
+  return signals;
+}
+
+// ── Detection: Collections — No Recent Note ─────────────────────
+
+async function detectCollectionsNoRecentNote(): Promise<DetectedSignal[]> {
+  const signals: DetectedSignal[] = [];
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const cases = await prisma.collectionCase.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      tenantId: true,
+      buildingId: true,
+      tenant: {
+        select: {
+          name: true,
+          balance: true,
+          unit: {
+            select: {
+              unitNumber: true,
+              building: { select: { address: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const tenantIds = cases.map((c) => c.tenantId);
+  const recentNotes = tenantIds.length > 0
+    ? await prisma.collectionNote.findMany({
+        where: { tenantId: { in: tenantIds }, createdAt: { gte: thirtyDaysAgo } },
+        distinct: ["tenantId"],
+        select: { tenantId: true },
+      })
+    : [];
+  const notedSet = new Set(recentNotes.map((n) => n.tenantId));
+
+  for (const c of cases) {
+    if (Number(c.tenant.balance) <= 0) continue;
+    if (notedSet.has(c.tenantId)) continue;
+
+    signals.push({
+      deduplicationKey: `coll-stale-${c.tenantId}`,
+      type: "collections_risk",
+      severity: "medium",
+      title: `${c.tenant.name} — no collection activity in 30+ days`,
+      description: `Balance: $${Number(c.tenant.balance).toLocaleString()} at ${c.tenant.unit.building.address} #${c.tenant.unit.unitNumber}. No collection note in 30+ days.`,
+      entityType: "tenant",
+      entityId: c.tenantId,
+      buildingId: c.buildingId,
+      tenantId: c.tenantId,
+      recommendedAction: "No collection activity in 30+ days. Add a note or escalate status.",
+    });
+  }
+
+  return signals;
+}
+
+// ── Detection: Collections — Legal Candidate No Case ────────────
+
+async function detectCollectionsLegalCandidateNoCase(): Promise<DetectedSignal[]> {
+  const signals: DetectedSignal[] = [];
+
+  const tenants = await prisma.tenant.findMany({
+    where: {
+      collectionScore: { gte: 40 },
+      balance: { gt: 0 },
+    },
+    select: {
+      id: true,
+      name: true,
+      balance: true,
+      collectionScore: true,
+      collectionCases: {
+        where: { isActive: true },
+        take: 1,
+        select: { status: true },
+      },
+      legalCases: {
+        where: { isActive: true },
+        select: { isActive: true },
+        take: 1,
+      },
+      unit: {
+        select: {
+          buildingId: true,
+          unitNumber: true,
+          building: { select: { address: true } },
+        },
+      },
+    },
+  });
+
+  for (const t of tenants) {
+    if (t.legalCases[0]?.isActive === true) continue;
+    const caseStatus = t.collectionCases[0]?.status;
+    if (caseStatus === "legal_referred") continue;
+
+    signals.push({
+      deduplicationKey: `coll-legal-${t.id}`,
+      type: "collections_risk",
+      severity: "high",
+      title: `${t.name} — meets legal referral threshold (score: ${t.collectionScore})`,
+      description: `Balance: $${Number(t.balance).toLocaleString()} at ${t.unit.building.address} #${t.unit.unitNumber}. Collection score: ${t.collectionScore}.`,
+      entityType: "tenant",
+      entityId: t.id,
+      buildingId: t.unit.buildingId,
+      tenantId: t.id,
+      recommendedAction: "Tenant meets legal referral threshold. Review and refer to legal if appropriate.",
+    });
+  }
+
+  return signals;
+}
+
+// ── Detection: Collections — Payment Plan Overdue ───────────────
+
+async function detectCollectionsPaymentPlanOverdue(): Promise<DetectedSignal[]> {
+  const signals: DetectedSignal[] = [];
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const cases = await prisma.collectionCase.findMany({
+    where: { isActive: true, status: "payment_plan" },
+    select: {
+      tenantId: true,
+      buildingId: true,
+      tenant: {
+        select: {
+          name: true,
+          balance: true,
+          unit: {
+            select: {
+              unitNumber: true,
+              building: { select: { address: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (cases.length === 0) return signals;
+
+  const tenantIds = cases.map((c) => c.tenantId);
+  const oldSnapshots = await prisma.aRSnapshot.findMany({
+    where: {
+      tenantId: { in: tenantIds },
+      snapshotDate: { lte: thirtyDaysAgo },
+    },
+    orderBy: { snapshotDate: "desc" },
+    distinct: ["tenantId"],
+    select: { tenantId: true, totalBalance: true },
+  });
+  const snapshotMap = new Map(oldSnapshots.map((s) => [s.tenantId, Number(s.totalBalance)]));
+
+  for (const c of cases) {
+    const currentBalance = Number(c.tenant.balance);
+    const oldBalance = snapshotMap.get(c.tenantId);
+    if (oldBalance == null) continue;
+    if (currentBalance >= oldBalance) {
+      signals.push({
+        deduplicationKey: `coll-plan-${c.tenantId}`,
+        type: "collections_risk",
+        severity: "high",
+        title: `${c.tenant.name} — payment plan shows no balance reduction`,
+        description: `Balance: $${currentBalance.toLocaleString()} (was $${oldBalance.toLocaleString()} 30 days ago) at ${c.tenant.unit.building.address} #${c.tenant.unit.unitNumber}.`,
+        entityType: "tenant",
+        entityId: c.tenantId,
+        buildingId: c.buildingId,
+        tenantId: c.tenantId,
+        recommendedAction: "Payment plan tenant shows no balance reduction in 30 days. Review plan status.",
+      });
+    }
   }
 
   return signals;

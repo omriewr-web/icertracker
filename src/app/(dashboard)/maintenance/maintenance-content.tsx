@@ -16,6 +16,7 @@ import DueDateBadge from "@/components/maintenance/due-date-badge";
 import SourceBadge from "@/components/maintenance/source-badge";
 import VendorManagement from "@/components/maintenance/vendor-management";
 import ScheduleManagement from "@/components/maintenance/schedule-management";
+import EmptyState from "@/components/ui/empty-state";
 import { WorkOrderView } from "@/types";
 import { formatDate, fmt$ } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -295,7 +296,7 @@ export default function MaintenanceContent() {
                     </tr>
                   ))}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={10} className="px-3 py-8 text-center text-text-dim">No work orders found</td></tr>
+                    <tr><td colSpan={10}><EmptyState icon={Wrench} title="No work orders found" description="Create a work order to start tracking maintenance tasks." /></td></tr>
                   )}
                 </tbody>
               </table>

@@ -1,7 +1,9 @@
 "use client";
 
+import { MessageSquare } from "lucide-react";
 import { useViolations } from "@/hooks/use-violations";
 import LoadingSpinner from "@/components/ui/loading-spinner";
+import EmptyState from "@/components/ui/empty-state";
 import { formatDate } from "@/lib/utils";
 
 export default function ComplaintsTab() {
@@ -41,7 +43,7 @@ export default function ComplaintsTab() {
           </tbody>
         </table>
         {(!complaints || complaints.length === 0) && (
-          <div className="text-center py-12 text-text-dim text-sm">No complaints found</div>
+          <EmptyState icon={MessageSquare} title="No complaints found" description="HPD complaints will appear here once synced." />
         )}
       </div>
     </div>

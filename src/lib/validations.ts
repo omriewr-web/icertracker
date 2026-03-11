@@ -35,7 +35,15 @@ export const legalCaseSchema = z.object({
   ]).optional(),
   caseNumber: z.string().nullable().optional(),
   attorney: z.string().nullable().optional(),
+  attorneyId: z.string().nullable().optional(),
   filedDate: z.string().nullable().optional(),
+  courtDate: z.string().nullable().optional(),
+  arrearsBalance: z.number().min(0).nullable().optional(),
+  status: z.enum(["active", "settled", "dismissed", "withdrawn"]).optional(),
+  assignedUserId: z.string().nullable().optional(),
+  marshalId: z.string().nullable().optional(),
+  marshalScheduledDate: z.string().nullable().optional(),
+  marshalExecutedDate: z.string().nullable().optional(),
 });
 
 export const legalNoteSchema = z.object({

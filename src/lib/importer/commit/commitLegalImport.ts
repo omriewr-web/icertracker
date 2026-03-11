@@ -66,34 +66,44 @@ export async function commitLegalImport(
     if ((match.matchType === "exact" || match.matchType === "likely") && match.tenant) {
       const stage = parseStage(row.legalStage);
       try {
-        await prisma.legalCase.upsert({
-          where: { tenantId: match.tenant.id },
-          create: {
-            tenantId: match.tenant.id, inLegal: true, stage,
-            caseNumber: row.caseNumber || null, attorney: row.attorney || null,
-            filedDate: row.filingDate, courtDate: row.courtDate,
-            arrearsBalance: row.arrearsBalance || null,
-            status: row.status || "active", importBatchId: ctx.importBatchId,
-          },
-          update: {
-            inLegal: true, stage,
-            ...(row.caseNumber ? { caseNumber: row.caseNumber } : {}),
-            ...(row.attorney ? { attorney: row.attorney } : {}),
-            ...(row.filingDate ? { filedDate: row.filingDate } : {}),
-            ...(row.courtDate ? { courtDate: row.courtDate } : {}),
-            ...(row.arrearsBalance ? { arrearsBalance: row.arrearsBalance } : {}),
-            ...(row.status ? { status: row.status } : {}),
-            importBatchId: ctx.importBatchId,
-          },
+        const existingActive = await prisma.legalCase.findFirst({
+          where: { tenantId: match.tenant.id, isActive: true },
         });
 
+        let caseId: string;
+        if (existingActive) {
+          await prisma.legalCase.update({
+            where: { id: existingActive.id },
+            data: {
+              inLegal: true, stage,
+              ...(row.caseNumber ? { caseNumber: row.caseNumber } : {}),
+              ...(row.attorney ? { attorney: row.attorney } : {}),
+              ...(row.filingDate ? { filedDate: row.filingDate } : {}),
+              ...(row.courtDate ? { courtDate: row.courtDate } : {}),
+              ...(row.arrearsBalance ? { arrearsBalance: row.arrearsBalance } : {}),
+              ...(row.status ? { status: row.status } : {}),
+              importBatchId: ctx.importBatchId,
+            },
+          });
+          caseId = existingActive.id;
+        } else {
+          const created = await prisma.legalCase.create({
+            data: {
+              tenantId: match.tenant.id, inLegal: true, stage,
+              caseNumber: row.caseNumber || null, attorney: row.attorney || null,
+              filedDate: row.filingDate, courtDate: row.courtDate,
+              arrearsBalance: row.arrearsBalance || null,
+              status: row.status || "active", importBatchId: ctx.importBatchId,
+              isActive: true,
+            },
+          });
+          caseId = created.id;
+        }
+
         if (row.notes) {
-          const legalCase = await prisma.legalCase.findUnique({ where: { tenantId: match.tenant.id } });
-          if (legalCase) {
-            await prisma.legalNote.create({
-              data: { legalCaseId: legalCase.id, authorId: ctx.userId, text: `[Import] ${row.notes}`, stage },
-            });
-          }
+          await prisma.legalNote.create({
+            data: { legalCaseId: caseId, authorId: ctx.userId, text: `[Import] ${row.notes}`, stage, isSystem: true },
+          });
         }
 
         await prisma.importRow.create({

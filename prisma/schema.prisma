@@ -248,7 +248,7 @@ model Tenant {
   notes              TenantNote[]
   commLogs           CommLog[]
   payments           Payment[]
-  legalCase          LegalCase?
+  legalCases         LegalCase[]
   tasks              Task[]
   emails             EmailLog[]
   workOrders         WorkOrder[]
@@ -347,38 +347,44 @@ enum LegalStage {
 }
 
 model LegalCase {
-  id               String          @id @default(cuid())
-  tenantId         String          @unique
-  buildingId       String?
-  unitId           String?
-  collectionCaseId String?
-  attorneyId       String?
-  assignedUserId   String?
-  inLegal          Boolean         @default(true)
-  stage            LegalStage      @default(NOTICE_SENT)
-  caseNumber       String?
-  attorney         String?
-  filedDate        DateTime?
-  courtDate        DateTime?
-  arrearsBalance   Decimal?        @db.Decimal(10, 2)
-  status           String          @default("active") // active, settled, dismissed, withdrawn
-  importBatchId    String?
-  isActive         Boolean         @default(true)
-  notes_text       String?         @db.Text
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  building         Building?       @relation(fields: [buildingId], references: [id])
-  unit             Unit?           @relation(fields: [unitId], references: [id])
-  collectionCase   CollectionCase? @relation(fields: [collectionCaseId], references: [id])
-  attorneyContact  Vendor?         @relation("LegalCaseAttorney", fields: [attorneyId], references: [id])
-  assignedUser     User?           @relation("LegalCaseAssignee", fields: [assignedUserId], references: [id])
-  notes            LegalNote[]
+  id                   String          @id @default(cuid())
+  tenantId             String
+  buildingId           String?
+  unitId               String?
+  collectionCaseId     String?
+  attorneyId           String?
+  assignedUserId       String?
+  marshalId            String?
+  inLegal              Boolean         @default(true)
+  stage                LegalStage      @default(NOTICE_SENT)
+  caseNumber           String?
+  attorney             String?
+  filedDate            DateTime?
+  courtDate            DateTime?
+  arrearsBalance       Decimal?        @db.Decimal(10, 2)
+  status               String          @default("active") // active, settled, dismissed, withdrawn
+  importBatchId        String?
+  isActive             Boolean         @default(true)
+  marshalScheduledDate DateTime?
+  marshalExecutedDate  DateTime?
+  notes_text           String?         @db.Text
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  tenant               Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  building             Building?       @relation(fields: [buildingId], references: [id])
+  unit                 Unit?           @relation(fields: [unitId], references: [id])
+  collectionCase       CollectionCase? @relation(fields: [collectionCaseId], references: [id])
+  attorneyContact      Vendor?         @relation("LegalCaseAttorney", fields: [attorneyId], references: [id])
+  assignedUser         User?           @relation("LegalCaseAssignee", fields: [assignedUserId], references: [id])
+  marshalContact       Vendor?         @relation("LegalCaseMarshal", fields: [marshalId], references: [id])
+  notes                LegalNote[]
 
+  @@index([tenantId])
   @@index([stage])
   @@index([status])
   @@index([buildingId])
   @@index([collectionCaseId])
+  @@index([isActive])
   @@map("legal_cases")
 }
 
@@ -413,6 +419,7 @@ model LegalNote {
   authorId    String
   text        String     @db.Text
   stage       LegalStage
+  isSystem    Boolean    @default(false)
   createdAt   DateTime   @default(now())
   legalCase   LegalCase  @relation(fields: [legalCaseId], references: [id], onDelete: Cascade)
   author      User       @relation(fields: [authorId], references: [id])
@@ -547,7 +554,7 @@ model Vendor {
   email                String?
   phone                String?
   specialty            String?
-  contactType          String           @default("vendor") // vendor | broker | attorney
+  contactType          String           @default("vendor") // vendor | broker | attorney | marshal
   hourlyRate           Decimal?         @db.Decimal(10, 2)
   notes                String?          @db.Text
   createdAt            DateTime         @default(now())
@@ -556,6 +563,7 @@ model Vendor {
   complianceItems      ComplianceItem[]
   vacanciesBrokered    Vacancy[]        @relation("VacancyBroker")
   legalCasesAsAttorney LegalCase[]      @relation("LegalCaseAttorney")
+  legalCasesAsMarshal  LegalCase[]      @relation("LegalCaseMarshal")
   violationsAssigned   Violation[]      @relation("ViolationVendor")
   turnoverAssignments  TurnoverVendorAssignment[]
 

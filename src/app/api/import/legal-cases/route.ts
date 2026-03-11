@@ -1,3 +1,4 @@
+// Permission: "legal" — legal case import is a legal action
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/api-helpers";
 import { parseLegalCasesExcel } from "@/lib/parsers/legal-cases.parser";
@@ -28,4 +29,4 @@ export const POST = withAuth(async (req: NextRequest) => {
     ...result,
     parseErrors,
   });
-}, "upload");
+}, "legal");

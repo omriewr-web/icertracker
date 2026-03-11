@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Building2, Users, AlertTriangle, DollarSign, Scale, FileText, Shield, Radio } from "lucide-react";
 import { useMetrics } from "@/hooks/use-metrics";
-import { useBuildings, useAllBuildings } from "@/hooks/use-buildings";
+import { useBuildings } from "@/hooks/use-buildings";
 import { useViolationStats } from "@/hooks/use-violations";
 import { useComplianceItems } from "@/hooks/use-compliance";
 import { useSignals } from "@/hooks/use-signals";
@@ -25,13 +25,16 @@ export default function DashboardContent() {
   const { selectedBuildingId, setSelectedBuildingId, selectedPortfolio, setSelectedPortfolio, setArrearsFilter, setLeaseFilter } = useAppStore();
   const { data: metrics, isLoading } = useMetrics();
   const { data: buildings } = useBuildings();
-  const { data: allBuildings } = useAllBuildings();
   const selectedBuilding = buildings?.find((b) => b.id === selectedBuildingId);
 
-  // Derive portfolio list from all buildings (unfiltered) so the dropdown stays populated
-  const portfolios = useMemo(() => {
-    return [...new Set((allBuildings || []).map((b) => b.portfolio).filter(Boolean))].sort() as string[];
-  }, [allBuildings]);
+  // Capture portfolio list from unfiltered buildings; persists across portfolio filter changes
+  const portfolioRef = useRef<string[]>([]);
+  useEffect(() => {
+    if (!selectedPortfolio && buildings && buildings.length > 0) {
+      portfolioRef.current = [...new Set(buildings.map((b) => b.portfolio).filter(Boolean))].sort() as string[];
+    }
+  }, [buildings, selectedPortfolio]);
+  const portfolios = portfolioRef.current;
 
   if (isLoading || !metrics) return <PageSkeleton />;
 
@@ -97,7 +100,7 @@ export default function DashboardContent() {
           onClick={() => { setArrearsFilter("current"); router.push("/alerts"); }}
         />
         <StatCard label="Vacant" value={metrics.vacant} icon={Building2} color="#C9A84C" subtext={metrics.lostRent > 0 ? `${fmt$(metrics.lostRent)} lost/mo` : undefined} href="/vacancies" />
-        <StatCard label="Total Balance" value={fmt$(metrics.totalBalance)} icon={DollarSign} color={metrics.totalBalance >= 500000 ? "#e05c5c" : "#C9A84C"} href="/alerts" />
+        <StatCard label="Total Balance" value={fmt$(metrics.totalBalance)} icon={DollarSign} color={metrics.totalBalance >= 500000 ? "#e05c5c" : "#C9A84C"} href="/collections" />
         <StatCard label="Legal Cases" value={metrics.legalCaseCount} icon={Scale} color="#C9A84C" href="/legal" />
         <StatCard
           label="Expiring Leases"

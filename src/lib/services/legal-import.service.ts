@@ -110,29 +110,38 @@ export async function importLegalCases(
       continue;
     }
 
-    // Upsert LegalCase keyed on tenantId (unique constraint)
-    await prisma.legalCase.upsert({
-      where: { tenantId: matchedTenant.id },
-      create: {
-        tenantId: matchedTenant.id,
-        buildingId,
-        caseNumber: row.caseNumber,
-        stage: row.stage as LegalStage,
-        arrearsBalance: row.amountOwed,
-        notes_text: row.statusNotes || null,
-        isActive: true,
-        inLegal: true,
-        status: row.stage === "SETTLED" ? "settled" : "active",
-      },
-      update: {
-        caseNumber: row.caseNumber,
-        stage: row.stage as LegalStage,
-        arrearsBalance: row.amountOwed,
-        notes_text: row.statusNotes || null,
-        isActive: row.stage !== "SETTLED",
-        status: row.stage === "SETTLED" ? "settled" : "active",
-      },
+    // Find or create active legal case for tenant
+    const existingActive = await prisma.legalCase.findFirst({
+      where: { tenantId: matchedTenant.id, isActive: true },
     });
+
+    if (existingActive) {
+      await prisma.legalCase.update({
+        where: { id: existingActive.id },
+        data: {
+          caseNumber: row.caseNumber,
+          stage: row.stage as LegalStage,
+          arrearsBalance: row.amountOwed,
+          notes_text: row.statusNotes || null,
+          isActive: row.stage !== "SETTLED",
+          status: row.stage === "SETTLED" ? "settled" : "active",
+        },
+      });
+    } else {
+      await prisma.legalCase.create({
+        data: {
+          tenantId: matchedTenant.id,
+          buildingId,
+          caseNumber: row.caseNumber,
+          stage: row.stage as LegalStage,
+          arrearsBalance: row.amountOwed,
+          notes_text: row.statusNotes || null,
+          isActive: row.stage !== "SETTLED",
+          inLegal: true,
+          status: row.stage === "SETTLED" ? "settled" : "active",
+        },
+      });
+    }
 
     result.imported++;
   }

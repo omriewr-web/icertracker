@@ -1,7 +1,9 @@
 "use client";
 
+import { Calendar } from "lucide-react";
 import { useViolations } from "@/hooks/use-violations";
 import LoadingSpinner from "@/components/ui/loading-spinner";
+import EmptyState from "@/components/ui/empty-state";
 import { fmt$, formatDate } from "@/lib/utils";
 
 export default function HearingsTab() {
@@ -60,7 +62,7 @@ function HearingsTable({ rows }: { rows: any[] }) {
         </tbody>
       </table>
       {rows.length === 0 && (
-        <div className="text-center py-8 text-text-dim text-sm">No hearings found</div>
+        <EmptyState icon={Calendar} title="No hearings found" description="Upcoming ECB and DOB hearings will appear here." />
       )}
     </div>
   );

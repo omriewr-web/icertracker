@@ -3,6 +3,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 
+export type ImportAction = "new_case" | "will_update" | "duplicate" | "needs_review";
+
 export interface LegalMatchRow {
   rowIndex: number;
   sourceAddress: string;
@@ -18,6 +20,7 @@ export interface LegalMatchRow {
   matchedBuilding: string | null;
   matchedUnit: string | null;
   reasons: string[];
+  importAction: ImportAction;
 }
 
 export interface LegalPreviewResult {
@@ -27,6 +30,7 @@ export interface LegalPreviewResult {
     likely: number;
     needsReview: number;
     noMatch: number;
+    duplicates: number;
   };
   matches: LegalMatchRow[];
 }
@@ -34,6 +38,7 @@ export interface LegalPreviewResult {
 export interface LegalImportResult {
   imported: number;
   skipped: number;
+  duplicatesSkipped: number;
   queued: number;
   errors: string[];
   total: number;

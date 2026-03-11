@@ -1,3 +1,4 @@
+// Permission: "legal" — legal case import is a legal action
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { prisma } from "@/lib/prisma";
@@ -119,38 +120,79 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     .filter((r) => r.tenantName || r.address || r.unit)
     .map((r) => matchLegalCase(r, tenantRecords, addressToBuildingId));
 
-  // Preview mode — return match results without importing
+  // Preview mode — return match results with deduplication labels
   if (mode === "preview") {
+    // Look up active cases for matched tenants to detect duplicates
+    const matchedTenantIds = matchResults
+      .filter((m) => m.tenant?.id)
+      .map((m) => m.tenant!.id);
+    const activeCases = matchedTenantIds.length > 0
+      ? await prisma.legalCase.findMany({
+          where: { tenantId: { in: matchedTenantIds }, isActive: true },
+          select: { tenantId: true, caseNumber: true },
+        })
+      : [];
+    const activeCaseMap = new Map<string, string | null>();
+    for (const c of activeCases) {
+      activeCaseMap.set(c.tenantId, c.caseNumber);
+    }
+
+    function getImportAction(m: MatchResult): string {
+      if (m.matchType === "needs_review" || m.matchType === "no_match") return "needs_review";
+      if (!m.tenant) return "needs_review";
+      const existingCaseNumber = activeCaseMap.get(m.tenant.id);
+      if (existingCaseNumber === undefined) return "new_case";
+      // Tenant has an active case
+      if (m.row.caseNumber && existingCaseNumber && m.row.caseNumber === existingCaseNumber) return "will_update";
+      return "duplicate";
+    }
+
+    const matchesWithAction = matchResults.map((m) => ({
+      rowIndex: m.row.rowIndex,
+      sourceAddress: m.row.address,
+      sourceUnit: m.row.unit,
+      sourceTenantName: m.row.tenantName,
+      sourceCaseNumber: m.row.caseNumber,
+      sourceStage: m.row.legalStage,
+      sourceBalance: m.row.arrearsBalance,
+      matchType: m.matchType,
+      confidence: m.confidence,
+      matchedTenantId: m.tenant?.id || null,
+      matchedTenantName: m.tenant?.name || null,
+      matchedBuilding: m.tenant?.buildingAddress || null,
+      matchedUnit: m.tenant?.unitNumber || null,
+      reasons: m.reasons,
+      importAction: getImportAction(m),
+    }));
+
     const summary = {
       total: matchResults.length,
       exact: matchResults.filter((m) => m.matchType === "exact").length,
       likely: matchResults.filter((m) => m.matchType === "likely").length,
       needsReview: matchResults.filter((m) => m.matchType === "needs_review").length,
       noMatch: matchResults.filter((m) => m.matchType === "no_match").length,
+      duplicates: matchesWithAction.filter((m) => m.importAction === "duplicate").length,
     };
 
-    return NextResponse.json({
-      summary,
-      matches: matchResults.map((m) => ({
-        rowIndex: m.row.rowIndex,
-        sourceAddress: m.row.address,
-        sourceUnit: m.row.unit,
-        sourceTenantName: m.row.tenantName,
-        sourceCaseNumber: m.row.caseNumber,
-        sourceStage: m.row.legalStage,
-        sourceBalance: m.row.arrearsBalance,
-        matchType: m.matchType,
-        confidence: m.confidence,
-        matchedTenantId: m.tenant?.id || null,
-        matchedTenantName: m.tenant?.name || null,
-        matchedBuilding: m.tenant?.buildingAddress || null,
-        matchedUnit: m.tenant?.unitNumber || null,
-        reasons: m.reasons,
-      })),
-    });
+    return NextResponse.json({ summary, matches: matchesWithAction });
   }
 
   // Import mode — create batch and process
+  // Look up active cases to skip duplicates
+  const importMatchedTenantIds = matchResults
+    .filter((m) => m.tenant?.id)
+    .map((m) => m.tenant!.id);
+  const importActiveCases = importMatchedTenantIds.length > 0
+    ? await prisma.legalCase.findMany({
+        where: { tenantId: { in: importMatchedTenantIds }, isActive: true },
+        select: { tenantId: true, caseNumber: true },
+      })
+    : [];
+  const importActiveCaseMap = new Map<string, string | null>();
+  for (const c of importActiveCases) {
+    importActiveCaseMap.set(c.tenantId, c.caseNumber);
+  }
+
   const importBatch = await prisma.importBatch.create({
     data: {
       filename: file.name,
@@ -162,6 +204,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
 
   let imported = 0;
   let skipped = 0;
+  let duplicatesSkipped = 0;
   let queued = 0;
   const errors: string[] = [];
 
@@ -171,48 +214,70 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
 
     // Auto-import exact and likely matches
     if ((match.matchType === "exact" || match.matchType === "likely") && match.tenant) {
+      // Skip duplicates: tenant has active case and case numbers don't match
+      const existingCaseNum = importActiveCaseMap.get(match.tenant.id);
+      if (existingCaseNum !== undefined) {
+        // Active case exists — only proceed if case number matches (update)
+        if (!(row.caseNumber && existingCaseNum && row.caseNumber === existingCaseNum)) {
+          duplicatesSkipped++;
+          continue;
+        }
+      }
       const stage = parseStage(row.legalStage);
       try {
-        await prisma.legalCase.upsert({
-          where: { tenantId: match.tenant.id },
-          create: {
-            tenantId: match.tenant.id,
-            inLegal: true,
-            stage,
-            caseNumber: row.caseNumber || null,
-            attorney: row.attorney || null,
-            filedDate: row.filingDate,
-            courtDate: row.courtDate,
-            arrearsBalance: row.arrearsBalance || null,
-            status: row.status || "active",
-            importBatchId: importBatch.id,
-          },
-          update: {
-            inLegal: true,
-            stage,
-            ...(row.caseNumber ? { caseNumber: row.caseNumber } : {}),
-            ...(row.attorney ? { attorney: row.attorney } : {}),
-            ...(row.filingDate ? { filedDate: row.filingDate } : {}),
-            ...(row.courtDate ? { courtDate: row.courtDate } : {}),
-            ...(row.arrearsBalance ? { arrearsBalance: row.arrearsBalance } : {}),
-            ...(row.status ? { status: row.status } : {}),
-            importBatchId: importBatch.id,
-          },
+        const existingActive = await prisma.legalCase.findFirst({
+          where: { tenantId: match.tenant.id, isActive: true },
         });
+
+        let caseId: string;
+        if (existingActive) {
+          // Update existing active case
+          await prisma.legalCase.update({
+            where: { id: existingActive.id },
+            data: {
+              inLegal: true,
+              stage,
+              ...(row.caseNumber ? { caseNumber: row.caseNumber } : {}),
+              ...(row.attorney ? { attorney: row.attorney } : {}),
+              ...(row.filingDate ? { filedDate: row.filingDate } : {}),
+              ...(row.courtDate ? { courtDate: row.courtDate } : {}),
+              ...(row.arrearsBalance ? { arrearsBalance: row.arrearsBalance } : {}),
+              ...(row.status ? { status: row.status } : {}),
+              importBatchId: importBatch.id,
+            },
+          });
+          caseId = existingActive.id;
+        } else {
+          // Create new case
+          const created = await prisma.legalCase.create({
+            data: {
+              tenantId: match.tenant.id,
+              inLegal: true,
+              stage,
+              caseNumber: row.caseNumber || null,
+              attorney: row.attorney || null,
+              filedDate: row.filingDate,
+              courtDate: row.courtDate,
+              arrearsBalance: row.arrearsBalance || null,
+              status: row.status || "active",
+              importBatchId: importBatch.id,
+              isActive: true,
+            },
+          });
+          caseId = created.id;
+        }
 
         // Add note if provided
         if (row.notes) {
-          const legalCase = await prisma.legalCase.findUnique({ where: { tenantId: match.tenant.id } });
-          if (legalCase) {
-            await prisma.legalNote.create({
-              data: {
-                legalCaseId: legalCase.id,
-                authorId: user.id,
-                text: `[Import] ${row.notes}`,
-                stage,
-              },
-            });
-          }
+          await prisma.legalNote.create({
+            data: {
+              legalCaseId: caseId,
+              authorId: user.id,
+              text: `[Import] ${row.notes}`,
+              stage,
+              isSystem: true,
+            },
+          });
         }
 
         await prisma.importRow.create({
@@ -220,7 +285,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
             importBatchId: importBatch.id,
             rowIndex: row.rowIndex,
             rawData: row as any,
-            status: match.matchType === "exact" ? "CREATED" : "UPDATED",
+            status: existingActive ? "UPDATED" : "CREATED",
             entityType: "legal_case",
             entityId: match.tenant.id,
           },
@@ -273,6 +338,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   return NextResponse.json({
     imported,
     skipped,
+    duplicatesSkipped,
     queued,
     errors,
     total: matchResults.length,
@@ -284,4 +350,4 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       noMatch: matchResults.filter((m) => m.matchType === "no_match").length,
     },
   });
-}, "upload");
+}, "legal");

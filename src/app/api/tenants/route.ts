@@ -6,6 +6,7 @@ import { TenantView } from "@/types";
 import { getTenantScope, EMPTY_SCOPE } from "@/lib/data-scope";
 import { getArrearsCategory, getArrearsDays, getLeaseStatus, calcCollectionScore } from "@/lib/scoring";
 import { getDisplayAddress } from "@/lib/building-matching";
+import { scoreLegalCandidate } from "@/lib/legal-matching";
 
 export const GET = withAuth(async (req, { user }) => {
   const url = new URL(req.url);
@@ -46,7 +47,7 @@ export const GET = withAuth(async (req, { user }) => {
           building: { select: { id: true, address: true, altAddress: true, region: true, entity: true, portfolio: true } },
         },
       },
-      legalCase: { select: { inLegal: true, stage: true } },
+      legalCases: { where: { isActive: true }, select: { inLegal: true, stage: true }, take: 1 },
       _count: { select: { notes: true, payments: true, tasks: true } },
     },
     orderBy: sortField === "name" ? { name: sortDir } :
@@ -87,9 +88,21 @@ export const GET = withAuth(async (req, { user }) => {
     monthsOwed: t.balance && t.marketRent ? Math.round((Number(t.balance) / Number(t.marketRent)) * 10) / 10 : 0,
     leaseStatus: t.leaseStatus as any,
     collectionScore: t.collectionScore,
-    legalFlag: !!t.legalCase?.inLegal,
-    legalStage: (t.legalCase?.stage as any) || null,
-    legalRecommended: t.collectionScore >= 70 && !t.legalCase?.inLegal,
+    legalFlag: !!t.legalCases[0]?.inLegal,
+    legalStage: (t.legalCases[0]?.stage as any) || null,
+    legalRecommended: (() => {
+      const hasActiveCase = !!t.legalCases[0]?.inLegal;
+      if (hasActiveCase) return false;
+      const { score } = scoreLegalCandidate({
+        balance: Number(t.balance),
+        marketRent: Number(t.marketRent),
+        collectionScore: t.collectionScore,
+        arrearsCategory: t.arrearsCategory,
+        leaseStatus: t.leaseStatus,
+        arrearsDays: t.arrearsDays,
+      });
+      return score >= 40;
+    })(),
     noteCount: t._count.notes,
     paymentCount: t._count.payments,
     taskCount: t._count.tasks,

@@ -55,12 +55,12 @@ export async function getCollectionsDashboard(
     select: {
       id: true,
       balance: true,
-      legalCase: { select: { inLegal: true } },
+      legalCases: { where: { isActive: true }, select: { inLegal: true }, take: 1 },
     },
   });
 
   const totalBalance = tenants.reduce((sum, t) => sum + Number(t.balance), 0);
-  const legalCount = tenants.filter((t) => t.legalCase?.inLegal === true).length;
+  const legalCount = tenants.filter((t) => t.legalCases[0]?.inLegal === true).length;
 
   const tenantIds = tenants.map((t) => t.id);
 
@@ -311,6 +311,9 @@ interface ARTenantRow {
   unitNumber: string;
   lastNoteDate: string | null;
   lastNoteText: string | null;
+  collectionStatus: string | null;
+  collectionNoteDate: string | null;
+  collectionNoteText: string | null;
 }
 
 interface ARReportResult {
@@ -338,7 +341,7 @@ export async function getARReport(
   };
 
   if (filters.status === "LEGAL") {
-    where.legalCase = { inLegal: true };
+    where.legalCases = { some: { isActive: true, inLegal: true } };
   }
 
   const [tenants, total] = await Promise.all([
@@ -354,7 +357,7 @@ export async function getARReport(
         arrearsCategory: true,
         arrearsDays: true,
         leaseStatus: true,
-        legalCase: { select: { inLegal: true } },
+        legalCases: { where: { isActive: true }, select: { inLegal: true }, take: 1 },
         unit: {
           select: {
             unitNumber: true,
@@ -365,6 +368,16 @@ export async function getARReport(
           orderBy: { createdAt: "desc" },
           take: 1,
           select: { text: true, createdAt: true },
+        },
+        collectionCases: {
+          where: { isActive: true },
+          take: 1,
+          select: { status: true },
+        },
+        collectionNotes: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { content: true, createdAt: true },
         },
       },
     }),
@@ -378,13 +391,171 @@ export async function getARReport(
     arrearsCategory: t.arrearsCategory,
     arrearsDays: t.arrearsDays,
     leaseStatus: t.leaseStatus,
-    inLegal: t.legalCase?.inLegal === true,
+    inLegal: t.legalCases[0]?.inLegal === true,
     buildingAddress: t.unit.building.address,
     buildingId: t.unit.building.id,
     unitNumber: t.unit.unitNumber,
     lastNoteDate: t.notes[0]?.createdAt?.toISOString() ?? null,
     lastNoteText: t.notes[0]?.text ?? null,
+    collectionStatus: t.collectionCases[0]?.status ?? null,
+    collectionNoteDate: t.collectionNotes[0]?.createdAt?.toISOString() ?? null,
+    collectionNoteText: t.collectionNotes[0]?.content ?? null,
   }));
 
   return { data, total, page, pageSize };
+}
+
+// ── bulkCollectionAction ──────────────────────────────────────
+
+interface BulkActionData {
+  tenantIds: string[];
+  action: "change_status" | "add_note";
+  value?: string;
+  note?: string;
+}
+
+export async function bulkCollectionAction(
+  user: ScopeUser & { id: string },
+  data: BulkActionData
+): Promise<{ updated: number; errors: string[] }> {
+  const errors: string[] = [];
+
+  // Verify all tenant IDs are in scope
+  const tenants = await prisma.tenant.findMany({
+    where: { id: { in: data.tenantIds } },
+    select: { id: true, unitId: true, unit: { select: { buildingId: true } } },
+  });
+
+  const tenantMap = new Map(tenants.map((t) => [t.id, t]));
+  for (const id of data.tenantIds) {
+    const t = tenantMap.get(id);
+    if (!t) {
+      throw new ApiError(`Tenant ${id} not found`, 404);
+    }
+    if (!canAccessBuilding(user, t.unit.buildingId)) {
+      throw new ApiError("One or more tenants are outside your building scope", 403);
+    }
+  }
+
+  let updated = 0;
+
+  if (data.action === "change_status" && data.value) {
+    await prisma.$transaction(async (tx) => {
+      for (const t of tenants) {
+        const existing = await tx.collectionCase.findFirst({
+          where: { tenantId: t.id, isActive: true },
+        });
+        if (existing) {
+          await tx.collectionCase.update({
+            where: { id: existing.id },
+            data: { status: data.value!, lastActionDate: new Date() },
+          });
+        } else {
+          await tx.collectionCase.create({
+            data: {
+              buildingId: t.unit.buildingId,
+              unitId: t.unitId,
+              tenantId: t.id,
+              status: data.value!,
+            },
+          });
+        }
+        updated++;
+      }
+    });
+  } else if (data.action === "add_note" && data.note) {
+    await prisma.$transaction(async (tx) => {
+      for (const t of tenants) {
+        await tx.collectionNote.create({
+          data: {
+            tenantId: t.id,
+            buildingId: t.unit.buildingId,
+            authorId: user.id,
+            content: data.note!,
+            actionType: "OTHER",
+          },
+        });
+        updated++;
+      }
+    });
+  }
+
+  return { updated, errors };
+}
+
+// ── sendToLegal ───────────────────────────────────────────────
+
+export async function sendToLegal(
+  user: ScopeUser & { id: string },
+  tenantId: string
+): Promise<{ legalCaseId: string }> {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { id: true, name: true, balance: true, unitId: true, unit: { select: { buildingId: true } } },
+  });
+  if (!tenant) throw new ApiError("Tenant not found", 404);
+  if (!canAccessBuilding(user, tenant.unit.buildingId)) throw new ApiError("Forbidden", 403);
+
+  // Check for existing active legal case
+  const existingLegal = await prisma.legalCase.findFirst({
+    where: { tenantId, isActive: true },
+  });
+  if (existingLegal) {
+    throw new ApiError("Tenant already has an active legal case", 409);
+  }
+
+  // Find or create active collection case
+  const collectionCase = await prisma.collectionCase.findFirst({
+    where: { tenantId, isActive: true },
+  });
+
+  const result = await prisma.$transaction(async (tx) => {
+    // Update or create collection case with legal_referred status
+    let caseId = collectionCase?.id;
+    if (collectionCase) {
+      await tx.collectionCase.update({
+        where: { id: collectionCase.id },
+        data: { status: "legal_referred", lastActionDate: new Date() },
+      });
+    } else {
+      const created = await tx.collectionCase.create({
+        data: {
+          buildingId: tenant.unit.buildingId,
+          unitId: tenant.unitId,
+          tenantId,
+          status: "legal_referred",
+        },
+      });
+      caseId = created.id;
+    }
+
+    // Create legal case
+    const legalCase = await tx.legalCase.create({
+      data: {
+        tenantId,
+        buildingId: tenant.unit.buildingId,
+        unitId: tenant.unitId,
+        collectionCaseId: caseId,
+        stage: "NOTICE_SENT",
+        arrearsBalance: tenant.balance,
+        inLegal: true,
+        isActive: true,
+      },
+    });
+
+    // Create collection note
+    await tx.collectionNote.create({
+      data: {
+        tenantId,
+        buildingId: tenant.unit.buildingId,
+        authorId: user.id,
+        content: "Referred to legal",
+        actionType: "SENT_TO_LEGAL",
+      },
+    });
+
+    return legalCase;
+  });
+
+  return { legalCaseId: result.id };
 }

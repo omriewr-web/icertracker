@@ -22,7 +22,7 @@ export const GET = withAuth(async (req, { user }) => {
       units: {
         include: {
           tenant: {
-            select: { id: true, balance: true, marketRent: true, legalCase: { select: { inLegal: true } } },
+            select: { id: true, balance: true, marketRent: true, legalCases: { where: { isActive: true }, select: { inLegal: true }, take: 1 } },
           },
         },
       },
@@ -38,11 +38,11 @@ export const GET = withAuth(async (req, { user }) => {
     const totalMarketRent = residentialUnits.reduce((sum, u) => sum + Number(u.tenant?.marketRent ?? 0), 0);
     const totalBalance = residentialUnits.reduce((sum, u) => sum + Number(u.tenant?.balance ?? 0), 0);
     const legalBalance = residentialUnits
-      .filter((u) => u.tenant?.legalCase?.inLegal === true)
+      .filter((u) => u.tenant?.legalCases?.[0]?.inLegal === true)
       .reduce((sum, u) => sum + Number(u.tenant?.balance ?? 0), 0);
     const nonLegalBalance = totalBalance - legalBalance;
     const arrearsCount = residentialUnits.filter((u) => Number(u.tenant?.balance ?? 0) > 0).length;
-    const legalCount = residentialUnits.filter((u) => u.tenant?.legalCase?.inLegal === true).length;
+    const legalCount = residentialUnits.filter((u) => u.tenant?.legalCases?.[0]?.inLegal === true).length;
 
     const displayAddress = getDisplayAddress(b);
 

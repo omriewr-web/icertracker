@@ -1,3 +1,4 @@
+// Permission: "legal" — legal referral candidates
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
@@ -15,7 +16,7 @@ export const GET = withAuth(async (req, { user }) => {
     where: {
       ...(scope as object),
       balance: { gt: 0 },
-      legalCase: null, // not already in legal
+      legalCases: { none: { isActive: true } },
     },
     select: {
       id: true,

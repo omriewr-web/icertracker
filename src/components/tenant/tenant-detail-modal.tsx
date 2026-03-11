@@ -113,11 +113,11 @@ export default function TenantDetailModal() {
                 <span className="text-text-dim">Lease Status</span>
                 <div className="mt-0.5"><LeaseBadge status={tenant.leaseStatus} /></div>
               </div>
-              {tenant.legalCase && (
+              {tenant.legalCases?.[0] && (
                 <div>
                   <span className="text-text-dim">Legal</span>
                   <div className="mt-0.5 text-purple-400 text-xs font-medium">
-                    {tenant.legalCase.stage?.replace(/_/g, " ")}
+                    {tenant.legalCases[0].stage?.replace(/_/g, " ")}
                   </div>
                 </div>
               )}

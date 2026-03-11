@@ -1,3 +1,4 @@
+// Permission: "legal" — legal note management
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
@@ -11,7 +12,7 @@ export const POST = withAuth(async (req, { user, params }) => {
 
   const data = await parseBody(req, legalNoteSchema);
 
-  const legalCase = await prisma.legalCase.findUnique({ where: { tenantId: id } });
+  const legalCase = await prisma.legalCase.findFirst({ where: { tenantId: id, isActive: true } });
   if (!legalCase) return NextResponse.json({ error: "No legal case found" }, { status: 404 });
 
   const note = await prisma.legalNote.create({

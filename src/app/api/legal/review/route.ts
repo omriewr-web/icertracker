@@ -1,3 +1,4 @@
+// Permission: "legal" — legal import review queue
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
@@ -66,49 +67,46 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   const rawData = item.rawData as any;
   const stage = parseStage(rawData.legalStage);
 
-  await prisma.legalCase.upsert({
-    where: { tenantId: targetTenantId },
-    create: {
-      tenantId: targetTenantId,
-      inLegal: true,
-      stage,
-      caseNumber: rawData.caseNumber || null,
-      attorney: rawData.attorney || null,
-      filedDate: rawData.filingDate ? new Date(rawData.filingDate) : null,
-      courtDate: rawData.courtDate ? new Date(rawData.courtDate) : null,
-      arrearsBalance: rawData.arrearsBalance || null,
-      status: rawData.status || "active",
-      importBatchId: item.importBatchId,
-    },
-    update: {
-      inLegal: true,
-      stage,
-      ...(rawData.caseNumber ? { caseNumber: rawData.caseNumber } : {}),
-      ...(rawData.attorney ? { attorney: rawData.attorney } : {}),
-      ...(rawData.filingDate ? { filedDate: new Date(rawData.filingDate) } : {}),
-      ...(rawData.courtDate ? { courtDate: new Date(rawData.courtDate) } : {}),
-      ...(rawData.arrearsBalance ? { arrearsBalance: rawData.arrearsBalance } : {}),
-      importBatchId: item.importBatchId,
-    },
-  });
+  await prisma.$transaction(async (tx) => {
+    // Deactivate any existing active case
+    await tx.legalCase.updateMany({
+      where: { tenantId: targetTenantId, isActive: true },
+      data: { isActive: false },
+    });
 
-  if (rawData.notes) {
-    const legalCase = await prisma.legalCase.findUnique({ where: { tenantId: targetTenantId } });
-    if (legalCase) {
-      await prisma.legalNote.create({
+    // Create new case
+    const created = await tx.legalCase.create({
+      data: {
+        tenantId: targetTenantId,
+        inLegal: true,
+        stage,
+        caseNumber: rawData.caseNumber || null,
+        attorney: rawData.attorney || null,
+        filedDate: rawData.filingDate ? new Date(rawData.filingDate) : null,
+        courtDate: rawData.courtDate ? new Date(rawData.courtDate) : null,
+        arrearsBalance: rawData.arrearsBalance || null,
+        status: rawData.status || "active",
+        importBatchId: item.importBatchId,
+        isActive: true,
+      },
+    });
+
+    if (rawData.notes) {
+      await tx.legalNote.create({
         data: {
-          legalCaseId: legalCase.id,
+          legalCaseId: created.id,
           authorId: user.id,
           text: `[Import - Manual Review] ${rawData.notes}`,
           stage,
+          isSystem: true,
         },
       });
     }
-  }
 
-  await prisma.legalImportQueue.update({
-    where: { id: queueId },
-    data: { status: "approved", resolvedById: user.id, resolvedAt: new Date() },
+    await tx.legalImportQueue.update({
+      where: { id: queueId },
+      data: { status: "approved", resolvedById: user.id, resolvedAt: new Date() },
+    });
   });
 
   return NextResponse.json({ status: "approved", tenantId: targetTenantId });

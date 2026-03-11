@@ -55,7 +55,7 @@ export async function buildPortfolioContext(user: any, tenantId?: string): Promi
     where: unitWhere,
     include: {
       unit: { include: { building: { select: { address: true } } } },
-      legalCase: { select: { inLegal: true, stage: true, caseNumber: true, attorney: true } },
+      legalCases: { where: { isActive: true }, select: { inLegal: true, stage: true, caseNumber: true, attorney: true }, take: 1 },
       _count: { select: { notes: true, payments: true } },
     },
     orderBy: { balance: "desc" },
@@ -72,7 +72,8 @@ export async function buildPortfolioContext(user: any, tenantId?: string): Promi
     const balance = Number(t.balance);
     const rent = Number(t.marketRent);
     const monthsOwed = rent > 0 ? (balance / rent).toFixed(1) : "N/A";
-    const legal = t.legalCase ? `IN LEGAL (${t.legalCase.stage}, Case: ${t.legalCase.caseNumber || "pending"}, Attorney: ${t.legalCase.attorney || "unassigned"})` : "No legal";
+    const lc = t.legalCases?.[0];
+    const legal = lc ? `IN LEGAL (${lc.stage}, Case: ${lc.caseNumber || "pending"}, Attorney: ${lc.attorney || "unassigned"})` : "No legal";
     return `  - ${t.name} | Unit ${t.unit.unitNumber} @ ${t.unit.building.address} | Balance: ${fmt$(balance)} | Rent: ${fmt$(rent)} | ${monthsOwed} months owed | Score: ${t.collectionScore} | Arrears: ${t.arrearsCategory} (${t.arrearsDays} days) | Lease: ${t.leaseStatus} (exp: ${fmtDate(t.leaseExpiration)}) | ${legal} | Notes: ${t._count.notes}, Payments: ${t._count.payments}`;
   }).join("\n");
 
@@ -255,7 +256,7 @@ async function buildTenantContext(tenantId: string): Promise<string> {
     where: { id: tenantId },
     include: {
       unit: { include: { building: true } },
-      legalCase: { include: { notes: { orderBy: { createdAt: "desc" }, take: 10, include: { author: { select: { name: true } } } } } },
+      legalCases: { where: { isActive: true }, take: 1, include: { notes: { orderBy: { createdAt: "desc" }, take: 10, include: { author: { select: { name: true } } } } } },
       notes: { orderBy: { createdAt: "desc" }, take: 20, include: { author: { select: { name: true } } } },
       payments: { orderBy: { date: "desc" }, take: 15 },
       commLogs: { orderBy: { createdAt: "desc" }, take: 10, include: { author: { select: { name: true } } } },
@@ -282,8 +283,8 @@ async function buildTenantContext(tenantId: string): Promise<string> {
   Move-in: ${fmtDate(tenant.moveInDate)} | Stabilized: ${tenant.isStabilized ? "Yes" : "No"}
   Charge Code: ${tenant.chargeCode || "None"}`);
 
-  if (tenant.legalCase) {
-    const lc = tenant.legalCase;
+  if (tenant.legalCases?.[0]) {
+    const lc = tenant.legalCases[0];
     const legalNotes = lc.notes.map((n) =>
       `    [${fmtDate(n.createdAt)}] ${n.stage}: "${n.text.slice(0, 200)}" — ${n.author.name}`
     ).join("\n");

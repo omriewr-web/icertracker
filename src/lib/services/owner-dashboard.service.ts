@@ -76,6 +76,7 @@ export async function getOwnerDashboard(user: ScopeUser): Promise<OwnerDashboard
     // Active legal cases (no notes or internal data)
     prisma.legalCase.findMany({
       where: {
+        isActive: true,
         inLegal: true,
         tenant: tenantScope as object,
       },

@@ -44,6 +44,9 @@ export interface ARTenantRow {
   unitNumber: string;
   lastNoteDate: string | null;
   lastNoteText: string | null;
+  collectionStatus: string | null;
+  collectionNoteDate: string | null;
+  collectionNoteText: string | null;
 }
 
 interface ARTenantsResponse {
@@ -114,6 +117,56 @@ export function useCreateCollectionNote() {
       toast.success("Collection note added");
     },
     onError: () => toast.error("Failed to add collection note"),
+  });
+}
+
+// ── Bulk collection action ──
+
+export function useBulkCollectionAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { tenantIds: string[]; action: string; value?: string; note?: string }) => {
+      const res = await fetch("/api/collections/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to perform bulk action");
+      }
+      return res.json();
+    },
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ["collections"] });
+      toast.success(`Updated ${result.updated} tenant${result.updated !== 1 ? "s" : ""}`);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+// ── Send to legal ──
+
+export function useSendToLegal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (tenantId: string) => {
+      const res = await fetch("/api/collections/send-to-legal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to send to legal");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["collections"] });
+      toast.success("Tenant referred to legal");
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 }
 

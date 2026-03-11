@@ -1,3 +1,4 @@
+// Permission: "legal" — legal note deletion
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
