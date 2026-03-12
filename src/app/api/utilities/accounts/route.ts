@@ -6,8 +6,6 @@ import { utilityAccountCreateSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
-export const dynamic = "force-dynamic";
-
 export const POST = withAuth(async (req, { user }) => {
   const { utilityMeterId, accountNumber, assignedPartyType, assignedPartyName, tenantId, startDate, notes } = await parseBody(req, utilityAccountCreateSchema);
 

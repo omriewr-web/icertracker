@@ -15,13 +15,10 @@ export const GET = withAuth(async (req, { user }) => {
     return new NextResponse("No data", { status: 204 });
   }
 
-<<<<<<< HEAD
   const where = {
     ...(scope as object),
   };
 
-=======
->>>>>>> b7aff7c (Update route.ts)
   const tenants = await prisma.tenant.findMany({
     where,
     include: {
@@ -32,7 +29,6 @@ export const GET = withAuth(async (req, { user }) => {
     orderBy: { balance: "desc" },
   });
 
-<<<<<<< HEAD
   if (format === "csv") {
     const headers = [
       "Tenant Name", "Unit", "Building", "Balance", "Monthly Rent",

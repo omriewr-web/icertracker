@@ -8,8 +8,6 @@ import { legalReviewSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
-export const dynamic = "force-dynamic";
-
 const STAGE_MAP: Record<string, LegalStage> = {
   "notice sent": "NOTICE_SENT", "notice": "NOTICE_SENT",
   "holdover": "HOLDOVER", "nonpayment": "NONPAYMENT",
