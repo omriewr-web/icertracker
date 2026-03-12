@@ -1,20 +1,9 @@
-export const dynamic = 'force-dynamic';
-
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { withAuth } from "@/lib/api-helpers";
-import { exportToExcel } from "@/lib/excel-export";
-import { getTenantScope, EMPTY_SCOPE } from "@/lib/data-scope";
-import { TenantView } from "@/types";
-
-export const GET = withAuth(async (req, { user }) => {
-  const url = new URL(req.url);
-  const buildingId = url.searchParams.get("buildingId");
   const scope = getTenantScope(user, buildingId);
   if (scope === EMPTY_SCOPE) {
     return new NextResponse("No data", { status: 204 });
   }
   const where = { ...scope };
+
 
   const tenants = await prisma.tenant.findMany({
     where,
@@ -25,6 +14,7 @@ export const GET = withAuth(async (req, { user }) => {
     },
     orderBy: { balance: "desc" },
   });
+
 
   const views = tenants.map((t) => ({
     id: t.id,
@@ -47,17 +37,17 @@ export const GET = withAuth(async (req, { user }) => {
     chargeCode: t.chargeCode ?? "",
     balance: t.balance,
     deposit: t.deposit,
-    arrears: t.arrears,
-    arrearsCategory: t.arrearsCategory,
-    arrearsDays: t.arrearsDays,
-    monthsOwed: t.monthsOwed,
+    arrears: (t as any).arrears,
+    arrearsCategory: (t as any).arrearsCategory,
+    arrearsDays: (t as any).arrearsDays,
+    monthsOwed: (t as any).monthsOwed,
     leaseStatus: t.leaseStatus,
     leaseExpiration: t.leaseExpiration,
     moveInDate: t.moveInDate,
     moveOutDate: t.moveOutDate,
-    collectionScore: t.collectionScore,
-    collectionStatus: t.collectionStatus,
-    legalFlag: t.legalFlag,
+    collectionScore: (t as any).collectionScore,
+    collectionStatus: (t as any).collectionStatus,
+    legalFlag: (t as any).legalFlag,
     legalStage: t.legalCases?.[0]?.stage ?? "",
     noteCount: t._count.notes,
     paymentCount: t._count.payments,
@@ -66,8 +56,10 @@ export const GET = withAuth(async (req, { user }) => {
     monthlyRent: t.marketRent,
   })) as unknown as TenantView[];
 
+
   const filename = `tenants-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
   const buffer = exportToExcel(views, filename);
+
 
   return new NextResponse(buffer, {
     status: 200,
@@ -77,3 +69,4 @@ export const GET = withAuth(async (req, { user }) => {
     },
   });
 });
+
