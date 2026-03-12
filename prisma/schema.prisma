@@ -514,6 +514,7 @@ model ImportBatch {
   importedAt  DateTime  @default(now())
   building    Building? @relation(fields: [buildingId], references: [id])
 
+  @@index([buildingId])
   @@map("import_batches")
 }
 
@@ -540,6 +541,7 @@ model EmailLog {
   sentBy         User      @relation(fields: [sentById], references: [id])
 
   @@index([tenantId, sentAt(sort: Desc)])
+  @@index([sentById])
   @@map("email_logs")
 }
 
@@ -802,6 +804,10 @@ model Violation {
   @@unique([source, externalId])
   @@index([buildingId])
   @@index([unitId])
+  @@index([assignedUserId])
+  @@index([assignedVendorId])
+  @@index([linkedWorkOrderId])
+  @@index([complaintId])
   @@index([source])
   @@index([currentStatus])
   @@index([isOpen])
@@ -836,6 +842,8 @@ model ComplianceItem {
   linkedViolation   Violation?          @relation(fields: [linkedViolationId], references: [id])
 
   @@index([buildingId])
+  @@index([assignedVendorId])
+  @@index([linkedViolationId])
   @@index([status])
   @@index([nextDueDate])
   @@index([category])
@@ -1189,6 +1197,7 @@ model LeasingActivity {
 
   @@index([unitId])
   @@index([buildingId])
+  @@index([userId])
   @@index([createdAt])
   @@map("leasing_activities")
 }
@@ -1373,6 +1382,7 @@ model Complaint {
   violations   Violation[]
 
   @@index([buildingId])
+  @@index([unitId])
   @@index([status])
   @@index([source])
   @@map("complaints")
@@ -1547,6 +1557,7 @@ model OperationalSignal {
   @@index([type])
   @@index([buildingId])
   @@index([tenantId])
+  @@index([organizationId])
   @@index([assignedToUserId])
   @@index([dueAt])
   @@map("operational_signals")
@@ -1621,6 +1632,7 @@ model TurnoverWorkflow {
 
   @@index([unitId])
   @@index([buildingId])
+  @@index([assignedToUserId])
   @@index([status])
   @@index([isActive])
   @@map("turnover_workflows")
