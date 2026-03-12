@@ -7,6 +7,8 @@ import { leasingActivityCreateSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
+export const dynamic = "force-dynamic";
+
 export const GET = withAuth(async (req, { user }) => {
   const url = new URL(req.url);
   const unitId = url.searchParams.get("unitId");

@@ -5,6 +5,8 @@ import { collectionStatusUpdateSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
+export const dynamic = "force-dynamic";
+
 export const PATCH = withAuth(async (req, { user, params }) => {
   const { tenantId } = await params;
   const { status } = await parseBody(req, collectionStatusUpdateSchema);

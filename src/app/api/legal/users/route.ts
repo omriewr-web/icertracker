@@ -7,6 +7,8 @@ import { withAuth } from "@/lib/api-helpers";
 import { getOrgScope } from "@/lib/data-scope";
 import type { UserRole } from "@/types";
 
+export const dynamic = "force-dynamic";
+
 const ADMIN_ROLES: UserRole[] = ["SUPER_ADMIN", "ADMIN", "ACCOUNT_ADMIN"];
 
 

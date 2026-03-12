@@ -410,6 +410,7 @@ export const turnoverVendorUpdateSchema = z.object({
   notes: z.string().nullable().optional(),
 });
 
+// ── Turnover Schemas (continued) ────────────────────────────
 export const turnoverUpdateSchema = z.object({
   status: z.enum([
     "PENDING_INSPECTION", "INSPECTION_DONE", "SCOPE_CREATED",

@@ -7,6 +7,8 @@ import { deduplicateMergeSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
+export const dynamic = "force-dynamic";
+
 const FORBIDDEN = NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
 // GET /api/buildings/deduplicate?mode=scan

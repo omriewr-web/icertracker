@@ -7,6 +7,8 @@ import { utilityMeterUpdateSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
+export const dynamic = "force-dynamic";
+
 export const GET = withAuth(async (req, { user, params }) => {
   const { id } = await params;
   const meter = await prisma.utilityMeter.findUnique({

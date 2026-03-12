@@ -6,6 +6,8 @@ import { utilityCheckUpdateSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
+export const dynamic = "force-dynamic";
+
 export const PATCH = withAuth(async (req, { user, params }) => {
   const { id, checkId } = await params;
 

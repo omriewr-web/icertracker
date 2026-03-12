@@ -6,6 +6,8 @@ import { utilityAccountUpdateSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
+export const dynamic = "force-dynamic";
+
 export const GET = withAuth(async (req, { user, params }) => {
   const { id } = await params;
   const account = await prisma.utilityAccount.findUnique({
