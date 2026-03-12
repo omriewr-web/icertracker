@@ -10,4 +10,3 @@ export const GET = withAuth(async (req, { user }) => {
   const result = await getCollectionsDashboard(user, buildingId);
   return NextResponse.json(result);
 }, "collections");
-
