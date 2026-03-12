@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getTenantScope, EMPTY_SCOPE } from "@/lib/services/scopeService";
+import { getOrgScope, EMPTY_SCOPE } from "@/lib/data-scope";
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   const format = searchParams.get("format") || "csv";
 
   const user = session.user as any;
-  const scope = getTenantScope(user, buildingId);
+  const scope = getOrgScope(user, buildingId);
 
   if (scope === EMPTY_SCOPE) {
     return new NextResponse("No data", { status: 204 });
@@ -67,7 +67,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(rows);
   }
 
-  // CSV export
   if (rows.length === 0) {
     return new NextResponse("No data", { status: 204 });
   }
