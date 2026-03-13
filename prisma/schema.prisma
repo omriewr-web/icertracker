@@ -192,6 +192,7 @@ model Building {
   turnoverWorkflows    TurnoverWorkflow[]
   leasingActivities    LeasingActivity[]
   leases               Lease[]
+  vendorAssignments    VendorAssignment[]
 
   @@index([organizationId])
   @@index([ownerId])
@@ -281,6 +282,7 @@ model Tenant {
   collectionNotes    CollectionNote[]
   arSnapshots        ARSnapshot[]
   utilityAccounts    UtilityAccount[]
+  paymentPlans       PaymentPlan[]
 
   @@index([balance])
   @@index([arrearsCategory])
@@ -599,6 +601,8 @@ model Vendor {
   legalCasesAsMarshal  LegalCase[]                @relation("LegalCaseMarshal")
   violationsAssigned   Violation[]                @relation("ViolationVendor")
   turnoverAssignments  TurnoverVendorAssignment[]
+  trades               VendorTrade[]
+  buildingAssignments  VendorAssignment[]
 
   @@index([contactType])
   @@index([organizationId])
@@ -625,6 +629,8 @@ model WorkOrder {
   createdById     String?
   sourceType      String? // manual | inspection | violation | vacancy | move_out
   sourceId        String?
+  violationId     String?
+  trade           String?
   dueDate         DateTime?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
@@ -632,6 +638,7 @@ model WorkOrder {
   unit            Unit?               @relation(fields: [unitId], references: [id])
   tenant          Tenant?             @relation(fields: [tenantId], references: [id])
   vendor          Vendor?             @relation(fields: [vendorId], references: [id])
+  violationDirect Violation?          @relation("WorkOrderViolation", fields: [violationId], references: [id])
   assignedTo      User?               @relation("WorkOrderAssignee", fields: [assignedToId], references: [id])
   createdBy       User?               @relation("WorkOrderCreator", fields: [createdById], references: [id])
   comments        WorkOrderComment[]
@@ -645,6 +652,7 @@ model WorkOrder {
   @@index([assignedToId])
   @@index([createdById])
   @@index([vendorId])
+  @@index([violationId])
   @@index([status])
   @@index([priority])
   @@index([sourceType, sourceId])
@@ -792,6 +800,7 @@ model Violation {
   hearingDate          DateTime?
   hearingStatus        String?
   linkedWorkOrderId    String?
+  sourceUrl            String?
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   building             Building           @relation(fields: [buildingId], references: [id], onDelete: Cascade)
@@ -799,6 +808,7 @@ model Violation {
   assignedUser         User?              @relation(fields: [assignedUserId], references: [id])
   assignedVendor       Vendor?            @relation("ViolationVendor", fields: [assignedVendorId], references: [id])
   linkedWorkOrder      WorkOrder?         @relation(fields: [linkedWorkOrderId], references: [id])
+  workOrdersFromSource WorkOrder[]        @relation("WorkOrderViolation")
   complaint            Complaint?         @relation(fields: [complaintId], references: [id])
   complianceItems      ComplianceItem[]
 
@@ -945,6 +955,8 @@ model Lease {
   isStabilized     Boolean           @default(false)
   householdSize    Int?
   securityDeposit  Decimal           @default(0) @db.Decimal(10, 2)
+  currentBalance   Decimal           @default(0) @db.Decimal(10, 2)
+  chargeCode       String?
   notes            String?           @db.Text
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
@@ -955,6 +967,7 @@ model Lease {
   occupants        LeaseOccupant[]
   recurringCharges RecurringCharge[]
   balanceSnapshots BalanceSnapshot[]
+  paymentPlans     PaymentPlan[]
 
   @@index([organizationId])
   @@index([buildingId])
@@ -963,6 +976,7 @@ model Lease {
   @@index([status])
   @@index([isCurrent])
   @@index([leaseEnd])
+  @@index([organizationId, isCurrent])
   @@map("leases")
 }
 
@@ -1219,6 +1233,7 @@ model Inspection {
   buildingId         String
   unitId             String?
   assignedUserId     String?
+  templateId         String?
   inspectionType     String
   frequencyType      String              @default("one_time") // monthly | weekly | move_in | move_out | one_time
   scheduledFor       DateTime?
@@ -1230,35 +1245,40 @@ model Inspection {
   building           Building            @relation(fields: [buildingId], references: [id])
   unit               Unit?               @relation(fields: [unitId], references: [id])
   assignedUser       User?               @relation("InspectionAssignee", fields: [assignedUserId], references: [id])
+  template           InspectionTemplate? @relation(fields: [templateId], references: [id])
   items              InspectionItem[]
   moveOutAssessments MoveOutAssessment[]
 
   @@index([buildingId])
   @@index([unitId])
   @@index([assignedUserId])
+  @@index([templateId])
   @@index([scheduledFor])
   @@index([overallStatus])
   @@map("inspections")
 }
 
 model InspectionItem {
-  id                   String     @id @default(cuid())
+  id                   String                  @id @default(cuid())
   inspectionId         String
   buildingId           String
   unitId               String?
+  templateItemId       String?
   label                String
-  status               String     @default("pending") // pass | fail | needs_attention | na | pending
-  notes                String?    @db.Text
+  status               String                  @default("pending") // pass | fail | needs_attention | na | pending
+  notes                String?                 @db.Text
   generatedWorkOrderId String?
-  createdAt            DateTime   @default(now())
-  inspection           Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-  building             Building   @relation(fields: [buildingId], references: [id])
-  unit                 Unit?      @relation(fields: [unitId], references: [id])
-  generatedWorkOrder   WorkOrder? @relation(fields: [generatedWorkOrderId], references: [id])
+  createdAt            DateTime                @default(now())
+  inspection           Inspection              @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  building             Building                @relation(fields: [buildingId], references: [id])
+  unit                 Unit?                   @relation(fields: [unitId], references: [id])
+  generatedWorkOrder   WorkOrder?              @relation(fields: [generatedWorkOrderId], references: [id])
+  templateItem         InspectionTemplateItem? @relation(fields: [templateItemId], references: [id])
 
   @@index([inspectionId])
   @@index([buildingId])
   @@index([unitId])
+  @@index([templateItemId])
   @@map("inspection_items")
 }
 
@@ -1672,6 +1692,104 @@ model TurnoverVendorAssignment {
   @@index([turnoverWorkflowId])
   @@index([vendorId])
   @@map("turnover_vendor_assignments")
+}
+
+// ── Inspection Templates ─────────────────────────────────────────
+
+model InspectionTemplate {
+  id             String                   @id @default(cuid())
+  organizationId String?
+  name           String
+  inspectionType String // property_walkthrough | unit_condition | move_in | move_out | safety | custom
+  description    String?                  @db.Text
+  isDefault      Boolean                  @default(false)
+  isActive       Boolean                  @default(true)
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  items          InspectionTemplateItem[]
+  inspections    Inspection[]
+
+  @@index([organizationId])
+  @@index([inspectionType])
+  @@index([isActive])
+  @@map("inspection_templates")
+}
+
+model InspectionTemplateItem {
+  id              String             @id @default(cuid())
+  templateId      String
+  label           String
+  category        String? // structure | plumbing | electrical | hvac | fire_safety | general | appliances | exterior
+  sortOrder       Int                @default(0)
+  isRequired      Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  template        InspectionTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  inspectionItems InspectionItem[]
+
+  @@index([templateId])
+  @@map("inspection_template_items")
+}
+
+// ── Vendor Trades & Assignments ─────────────────────────────────
+
+model VendorTrade {
+  id        String   @id @default(cuid())
+  vendorId  String
+  trade     String // plumbing | electrical | hvac | painting | flooring | general | cleaning | carpentry | roofing | fire_safety | elevator | other
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, trade])
+  @@index([trade])
+  @@map("vendor_trades")
+}
+
+model VendorAssignment {
+  id         String    @id @default(cuid())
+  vendorId   String
+  buildingId String
+  role       String // superintendent | elevator_company | fire_alarm_company | plumber | electrician | general_contractor | other
+  isPrimary  Boolean   @default(false)
+  notes      String?
+  startDate  DateTime?
+  endDate    DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  vendor     Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  building   Building  @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, buildingId, role])
+  @@index([vendorId])
+  @@index([buildingId])
+  @@index([role])
+  @@map("vendor_assignments")
+}
+
+// ── Payment Plans ────────────────────────────────────────────────
+
+model PaymentPlan {
+  id                String    @id @default(cuid())
+  organizationId    String?
+  leaseId           String
+  tenantId          String?
+  totalAmount       Decimal   @db.Decimal(10, 2)
+  installmentAmount Decimal   @db.Decimal(10, 2)
+  installmentCount  Int
+  startDate         DateTime
+  nextDueDate       DateTime?
+  status            String    @default("active") // active | completed | defaulted | cancelled
+  notes             String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  lease             Lease     @relation(fields: [leaseId], references: [id])
+  tenant            Tenant?   @relation(fields: [tenantId], references: [id])
+
+  @@index([organizationId])
+  @@index([leaseId])
+  @@index([tenantId])
+  @@index([status])
+  @@map("payment_plans")
 }
 
 model SnoozedAction {
