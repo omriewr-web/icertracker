@@ -46,6 +46,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
   const vClass = url.searchParams.get("class");
   const status = url.searchParams.get("status");
   const isComplaint = url.searchParams.get("isComplaint");
+  const lifecycleStatus = url.searchParams.get("lifecycleStatus");
   const dateFrom = url.searchParams.get("dateFrom");
   const dateTo = url.searchParams.get("dateTo");
 
@@ -57,6 +58,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
   if (source) where.source = source;
   if (vClass) where.class = vClass;
   if (status) where.currentStatus = { contains: status, mode: "insensitive" };
+  if (lifecycleStatus) where.lifecycleStatus = lifecycleStatus;
 
   if (isComplaint === "true") {
     where.source = { in: ["HPD_COMPLAINTS", "DOB_COMPLAINTS"] };

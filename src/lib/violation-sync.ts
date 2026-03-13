@@ -11,43 +11,9 @@ import {
   mapHpdComplaint,
 } from "./nyc-open-data";
 import type { FetchResult } from "./nyc-open-data";
+import { interceptViolation } from "./services/violation-interceptor.service";
 
 type Source = "HPD" | "DOB" | "ECB" | "HPD_COMPLAINTS";
-
-/**
- * Auto-create an URGENT work order for a Class C / Immediately Hazardous violation.
- * Uses the violationId FK on WorkOrder (preferred) and also back-links via linkedWorkOrderId.
- */
-async function autoCreateUrgentWorkOrder(
-  violationId: string,
-  buildingId: string,
-  source: string,
-  externalId: string,
-  description: string,
-): Promise<void> {
-  // Check for existing WO already linked via violationId FK
-  const existingWo = await prisma.workOrder.findFirst({
-    where: { violationId },
-    select: { id: true },
-  });
-  if (existingWo) return;
-
-  const wo = await prisma.workOrder.create({
-    data: {
-      title: `[AUTO] ${source} Violation - ${externalId}`,
-      description: `Auto-created from ${source} violation.\n\n${description}`,
-      status: "OPEN",
-      priority: "URGENT",
-      category: "GENERAL",
-      buildingId,
-      violationId,
-    },
-  });
-  await prisma.violation.update({
-    where: { id: violationId },
-    data: { linkedWorkOrderId: wo.id },
-  });
-}
 
 interface SyncResult {
   buildingId: string;
@@ -66,7 +32,7 @@ export async function syncBuildingViolations(
 ): Promise<SyncResult[]> {
   const building = await prisma.building.findUnique({
     where: { id: buildingId },
-    select: { id: true, address: true, block: true, lot: true, zip: true },
+    select: { id: true, address: true, block: true, lot: true, zip: true, organizationId: true },
   });
 
   if (!building || !building.block || !building.lot) {
@@ -134,22 +100,34 @@ export async function syncBuildingViolations(
           await prisma.violation.update({ where: { id: existing.id }, data: mapped.update });
           updatedCount++;
 
-          // Auto-create work order if violation is now Class C / Immediately Hazardous
+          // Intercept: triage/dispatch via rule engine
           if (mapped.update.class === "C" || mapped.update.severity === "IMMEDIATELY_HAZARDOUS") {
-            await autoCreateUrgentWorkOrder(
-              existing.id, buildingId, source, existing.externalId,
-              mapped.update.description || existing.novDescription || "",
+            await interceptViolation(
+              {
+                id: existing.id, class: mapped.update.class ?? existing.class ?? null,
+                severity: mapped.update.severity ?? existing.severity ?? null,
+                description: mapped.update.description || existing.novDescription || "",
+                source: source as any, buildingId, externalId: existing.externalId,
+                orgId: building.organizationId,
+              },
+              buildingId, building.organizationId,
             );
           }
         } else {
           const created = await prisma.violation.create({ data: mapped.create });
           newCount++;
 
-          // Auto-create work order for Class C / Immediately Hazardous
+          // Intercept: triage/dispatch via rule engine
           if (mapped.create.class === "C" || mapped.create.severity === "IMMEDIATELY_HAZARDOUS") {
-            await autoCreateUrgentWorkOrder(
-              created.id, buildingId, source, mapped.create.externalId,
-              mapped.create.description || mapped.create.novDescription || "",
+            await interceptViolation(
+              {
+                id: created.id, class: mapped.create.class ?? null,
+                severity: mapped.create.severity ?? null,
+                description: mapped.create.description || mapped.create.novDescription || "",
+                source: source as any, buildingId, externalId: mapped.create.externalId,
+                orgId: building.organizationId,
+              },
+              buildingId, building.organizationId,
             );
           }
         }

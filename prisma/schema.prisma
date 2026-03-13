@@ -65,7 +65,10 @@ model User {
   scanLogs            SignalScanLog[]
   assignedTurnovers   TurnoverWorkflow[]  @relation("TurnoverAssignee")
   workOrderActivities WorkOrderActivity[] @relation("WorkOrderActivityUser")
-  leasingActivities   LeasingActivity[]
+  leasingActivities       LeasingActivity[]
+  preparedCertPackets     CertificationPacket[] @relation("CertPacketPreparer")
+  reviewedCertPackets     CertificationPacket[] @relation("CertPacketReviewer")
+  pmVerifiedViolations    Violation[]           @relation("ViolationPMVerifier")
 
   @@index([organizationId])
   @@index([managerId])
@@ -194,9 +197,10 @@ model Building {
   riskScore            Float?
   riskCategory         String?
 
-  leases               Lease[]
-  vendorAssignments    VendorAssignment[]
-  riskSnapshots        RiskSnapshot[]
+  leases                 Lease[]
+  vendorAssignments      VendorAssignment[]
+  riskSnapshots          RiskSnapshot[]
+  certificationPackets   CertificationPacket[]
 
   @@index([organizationId])
   @@index([ownerId])
@@ -649,6 +653,7 @@ model WorkOrder {
   activities      WorkOrderActivity[]
   violations      Violation[]
   inspectionItems InspectionItem[]
+  evidence        Evidence[]
 
   @@index([buildingId])
   @@index([unitId])
@@ -744,6 +749,37 @@ enum ViolationSeverity {
   INFO
 }
 
+enum EvidenceType {
+  BEFORE
+  AFTER
+  TENANT_SIGNATURE
+  SUPER_ATTESTATION
+  MATERIAL_RECEIPT
+  PM_VERIFICATION
+  NO_ACCESS
+}
+
+enum CertStatus {
+  PENDING_REVIEW
+  READY
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ViolationLifecycle {
+  INGESTED
+  TRIAGED
+  DISPATCHED
+  IN_REPAIR
+  EVIDENCE_PENDING
+  PM_VERIFIED
+  CERTIFICATION_READY
+  CERTIFIED
+  REJECTED
+}
+
 enum ComplianceCategory {
   LOCAL_LAW
   INSPECTION
@@ -805,6 +841,12 @@ model Violation {
   hearingStatus        String?
   linkedWorkOrderId    String?
   sourceUrl            String?
+  lifecycleStatus      String             @default("INGESTED")
+  triagedAt            DateTime?
+  dispatchedAt         DateTime?
+  evidenceSubmittedAt  DateTime?
+  pmVerifiedAt         DateTime?
+  pmVerifiedById       String?
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   building             Building           @relation(fields: [buildingId], references: [id], onDelete: Cascade)
@@ -814,7 +856,9 @@ model Violation {
   linkedWorkOrder      WorkOrder?         @relation(fields: [linkedWorkOrderId], references: [id])
   workOrdersFromSource WorkOrder[]        @relation("WorkOrderViolation")
   complaint            Complaint?         @relation(fields: [complaintId], references: [id])
+  pmVerifiedBy         User?              @relation("ViolationPMVerifier", fields: [pmVerifiedById], references: [id])
   complianceItems      ComplianceItem[]
+  certificationItems   CertificationPacketItem[]
 
   @@unique([source, externalId])
   @@index([buildingId])
@@ -828,6 +872,8 @@ model Violation {
   @@index([isOpen])
   @@index([hearingDate])
   @@index([respondByDate])
+  @@index([lifecycleStatus])
+  @@index([pmVerifiedById])
   @@map("violations")
 }
 
@@ -1821,4 +1867,80 @@ model RiskSnapshot {
   @@index([buildingId])
   @@index([snapshotDate])
   @@map("risk_snapshots")
+}
+
+// ── V2W Compliance System ───────────────────────────────────────
+
+model Evidence {
+  id          String       @id @default(cuid())
+  workOrderId String
+  type        EvidenceType
+  imageUrl    String
+  lat         Float?
+  lng         Float?
+  capturedAt  DateTime     @default(now())
+  notes       String?      @db.Text
+  createdAt   DateTime     @default(now())
+  workOrder   WorkOrder    @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+  @@map("evidence")
+}
+
+model ViolationRuleMapping {
+  id                    String            @id @default(cuid())
+  organizationId        String?
+  agency                String
+  defectPattern         String            @db.Text
+  internalTrade         String
+  internalCategory      WorkOrderCategory
+  defaultPriority       WorkOrderPriority @default(MEDIUM)
+  dispatchSLAMinutes    Int               @default(480)
+  escalationMinutes     Int               @default(60)
+  certificationRequired Boolean           @default(true)
+  confidenceScore       Decimal           @default(1.0) @db.Decimal(3, 2)
+  isActive              Boolean           @default(true)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([agency])
+  @@map("violation_rule_mappings")
+}
+
+model CertificationPacket {
+  id              String     @id @default(cuid())
+  organizationId  String?
+  buildingId      String
+  agency          String
+  status          CertStatus @default(PENDING_REVIEW)
+  preparedById    String?
+  reviewedById    String?
+  verifiedAt      DateTime?
+  submittedAt     DateTime?
+  certifyByDate   DateTime?
+  submissionId    String?
+  rejectionReason String?    @db.Text
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  building        Building   @relation(fields: [buildingId], references: [id])
+  preparedBy      User?      @relation("CertPacketPreparer", fields: [preparedById], references: [id])
+  reviewedBy      User?      @relation("CertPacketReviewer", fields: [reviewedById], references: [id])
+  items           CertificationPacketItem[]
+
+  @@index([buildingId, status])
+  @@index([certifyByDate])
+  @@map("certification_packets")
+}
+
+model CertificationPacketItem {
+  id          String              @id @default(cuid())
+  packetId    String
+  violationId String
+  addedAt     DateTime            @default(now())
+  packet      CertificationPacket @relation(fields: [packetId], references: [id], onDelete: Cascade)
+  violation   Violation           @relation(fields: [violationId], references: [id])
+
+  @@unique([packetId, violationId])
+  @@index([violationId])
+  @@map("certification_packet_items")
 }
