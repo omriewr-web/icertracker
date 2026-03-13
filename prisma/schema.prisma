@@ -191,6 +191,7 @@ model Building {
   utilityMeterRecords  UtilityMeter[]
   turnoverWorkflows    TurnoverWorkflow[]
   leasingActivities    LeasingActivity[]
+  leases               Lease[]
 
   @@index([organizationId])
   @@index([ownerId])
@@ -921,10 +922,15 @@ enum ImportRowStatus {
 
 model Lease {
   id               String            @id @default(cuid())
+  organizationId   String?
+  buildingId       String?
   unitId           String
   tenantId         String?
+  isCurrent        Boolean           @default(true)
   leaseStart       DateTime?
   leaseEnd         DateTime?
+  moveInDate       DateTime?
+  moveOutDate      DateTime?
   monthlyRent      Decimal           @default(0) @db.Decimal(10, 2)
   legalRent        Decimal           @default(0) @db.Decimal(10, 2)
   preferentialRent Decimal           @default(0) @db.Decimal(10, 2)
@@ -942,15 +948,20 @@ model Lease {
   notes            String?           @db.Text
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+  organization     Organization?     @relation(fields: [organizationId], references: [id])
+  building         Building?         @relation(fields: [buildingId], references: [id])
   unit             Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
   tenant           Tenant?           @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   occupants        LeaseOccupant[]
   recurringCharges RecurringCharge[]
   balanceSnapshots BalanceSnapshot[]
 
+  @@index([organizationId])
+  @@index([buildingId])
   @@index([unitId])
   @@index([tenantId])
   @@index([status])
+  @@index([isCurrent])
   @@index([leaseEnd])
   @@map("leases")
 }
@@ -1099,6 +1110,7 @@ model Organization {
   updatedAt      DateTime        @updatedAt
   users          User[]
   buildings      Building[]
+  leases         Lease[]
   activityEvents ActivityEvent[]
 
   @@map("organizations")
