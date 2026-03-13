@@ -7,4 +7,4 @@ export const dynamic = "force-dynamic";
 export const GET = withAuth(async (req, { user }) => {
   const data = await getOwnerDashboard(user);
   return NextResponse.json(data);
-}, "owner-dashboard");
+}, "owner");
