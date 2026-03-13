@@ -14,6 +14,41 @@ import type { FetchResult } from "./nyc-open-data";
 
 type Source = "HPD" | "DOB" | "ECB" | "HPD_COMPLAINTS";
 
+/**
+ * Auto-create an URGENT work order for a Class C / Immediately Hazardous violation.
+ * Uses the violationId FK on WorkOrder (preferred) and also back-links via linkedWorkOrderId.
+ */
+async function autoCreateUrgentWorkOrder(
+  violationId: string,
+  buildingId: string,
+  source: string,
+  externalId: string,
+  description: string,
+): Promise<void> {
+  // Check for existing WO already linked via violationId FK
+  const existingWo = await prisma.workOrder.findFirst({
+    where: { violationId },
+    select: { id: true },
+  });
+  if (existingWo) return;
+
+  const wo = await prisma.workOrder.create({
+    data: {
+      title: `[AUTO] ${source} Violation - ${externalId}`,
+      description: `Auto-created from ${source} violation.\n\n${description}`,
+      status: "OPEN",
+      priority: "URGENT",
+      category: "GENERAL",
+      buildingId,
+      violationId,
+    },
+  });
+  await prisma.violation.update({
+    where: { id: violationId },
+    data: { linkedWorkOrderId: wo.id },
+  });
+}
+
 interface SyncResult {
   buildingId: string;
   address: string;
@@ -99,49 +134,23 @@ export async function syncBuildingViolations(
           await prisma.violation.update({ where: { id: existing.id }, data: mapped.update });
           updatedCount++;
 
-          // Auto-create work order if violation is now Class C / Immediately Hazardous and has no linked WO
-          if (
-            !existing.linkedWorkOrderId &&
-            (mapped.update.class === "C" || mapped.update.severity === "IMMEDIATELY_HAZARDOUS")
-          ) {
-            const wo = await prisma.workOrder.create({
-              data: {
-                title: `[AUTO] ${source} Violation - ${existing.externalId}`,
-                description: `Auto-created from ${source} violation upgrade.\n\n${mapped.update.description || existing.novDescription || ""}`,
-                status: "OPEN",
-                priority: "URGENT",
-                category: "GENERAL",
-                buildingId,
-              },
-            });
-            await prisma.violation.update({
-              where: { id: existing.id },
-              data: { linkedWorkOrderId: wo.id },
-            });
+          // Auto-create work order if violation is now Class C / Immediately Hazardous
+          if (mapped.update.class === "C" || mapped.update.severity === "IMMEDIATELY_HAZARDOUS") {
+            await autoCreateUrgentWorkOrder(
+              existing.id, buildingId, source, existing.externalId,
+              mapped.update.description || existing.novDescription || "",
+            );
           }
         } else {
           const created = await prisma.violation.create({ data: mapped.create });
           newCount++;
 
-          // Auto-create work order for HPD Class C (Immediately Hazardous)
-          if (
-            mapped.create.class === "C" ||
-            mapped.create.severity === "IMMEDIATELY_HAZARDOUS"
-          ) {
-            const wo = await prisma.workOrder.create({
-              data: {
-                title: `[AUTO] ${source} Violation - ${mapped.create.externalId}`,
-                description: `Auto-created from ${source} violation.\n\n${mapped.create.description || mapped.create.novDescription || ""}`,
-                status: "OPEN",
-                priority: "URGENT",
-                category: "GENERAL",
-                buildingId,
-              },
-            });
-            await prisma.violation.update({
-              where: { id: created.id },
-              data: { linkedWorkOrderId: wo.id },
-            });
+          // Auto-create work order for Class C / Immediately Hazardous
+          if (mapped.create.class === "C" || mapped.create.severity === "IMMEDIATELY_HAZARDOUS") {
+            await autoCreateUrgentWorkOrder(
+              created.id, buildingId, source, mapped.create.externalId,
+              mapped.create.description || mapped.create.novDescription || "",
+            );
           }
         }
       }

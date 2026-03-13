@@ -191,8 +191,12 @@ model Building {
   utilityMeterRecords  UtilityMeter[]
   turnoverWorkflows    TurnoverWorkflow[]
   leasingActivities    LeasingActivity[]
+  riskScore            Float?
+  riskCategory         String?
+
   leases               Lease[]
   vendorAssignments    VendorAssignment[]
+  riskSnapshots        RiskSnapshot[]
 
   @@index([organizationId])
   @@index([ownerId])
@@ -1802,4 +1806,19 @@ model SnoozedAction {
   @@unique([actionKey, userId])
   @@index([userId, snoozedUntil])
   @@map("snoozed_actions")
+}
+
+model RiskSnapshot {
+  id           String   @id @default(cuid())
+  buildingId   String
+  building     Building @relation(fields: [buildingId], references: [id])
+  snapshotDate DateTime @default(now())
+  riskScore    Float
+  riskCategory String
+  factors      Json?
+  createdAt    DateTime @default(now())
+
+  @@index([buildingId])
+  @@index([snapshotDate])
+  @@map("risk_snapshots")
 }
