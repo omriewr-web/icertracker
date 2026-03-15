@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { assertTenantAccess } from "@/lib/data-scope";
+import { AI_MODEL } from "@/lib/ai-config";
 
 export const dynamic = "force-dynamic";
 
@@ -127,7 +128,7 @@ export const GET = withAuth(async (req, { user, params }) => {
     const client = new Anthropic({ apiKey });
 
     const message = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: AI_MODEL,
       max_tokens: 600,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],

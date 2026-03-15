@@ -1,4 +1,5 @@
 import type { AIImportAnalyzer, AIImportPayload, AIImportResult } from "./types";
+import { AI_MODEL } from "@/lib/ai-config";
 
 const AI_SYSTEM_PROMPT = `You are an AI import-analysis engine for a property management platform called AtlasPM.
 Your job is to analyze a spreadsheet sample (Excel or CSV) and determine how it should be imported into the AtlasPM database.
@@ -68,7 +69,7 @@ export function createAnthropicAnalyzer(): AIImportAnalyzer | null {
       const client = new Anthropic({ apiKey });
 
       const message = await client.messages.create({
-        model: "claude-sonnet-4-5-20250514",
+        model: AI_MODEL,
         max_tokens: 4096,
         system: AI_SYSTEM_PROMPT,
         messages: [

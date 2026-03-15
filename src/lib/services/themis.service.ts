@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import Anthropic from "@anthropic-ai/sdk";
 import { triageWorkOrderTrade } from "@/lib/ai/asset-manager";
+import { AI_MODEL } from "@/lib/ai-config";
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -142,7 +143,7 @@ export async function runAIExtraction(intakeId: string): Promise<AIExtractionRes
     );
     const response = await Promise.race([
       anthropic.messages.create({
-        model: "claude-sonnet-4-5-20250929",
+        model: AI_MODEL,
         max_tokens: 1024,
         system: EXTRACTION_SYSTEM,
         messages: [{ role: "user", content: userContent }],
@@ -250,7 +251,7 @@ export async function runAIReview(draftId: string): Promise<AIReviewResult> {
     );
     const response = await Promise.race([
       anthropic.messages.create({
-        model: "claude-sonnet-4-5-20250929",
+        model: AI_MODEL,
         max_tokens: 1024,
         system: REVIEW_SYSTEM,
         messages: [{ role: "user", content: REVIEW_USER(draft) }],
@@ -561,7 +562,7 @@ export async function generateTenantResponseEmail(
     );
     const response = await Promise.race([
       anthropic.messages.create({
-        model: "claude-sonnet-4-5-20250929",
+        model: AI_MODEL,
         max_tokens: 1024,
         system: EMAIL_SYSTEM,
         messages: [{

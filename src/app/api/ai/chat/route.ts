@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/api-helpers";
 import Anthropic from "@anthropic-ai/sdk";
 import { buildPortfolioContext } from "@/lib/ai-context";
+import { AI_MODEL } from "@/lib/ai-config";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export const POST = withAuth(async (req, { user }) => {
   const anthropic = new Anthropic({ apiKey });
 
   const stream = anthropic.messages.stream({
-    model: "claude-sonnet-4-5-20250929",
+    model: AI_MODEL,
     max_tokens: 4096,
     system: `${SYSTEM_PROMPT}\n\n--- PORTFOLIO DATA ---\n${context}\n--- END PORTFOLIO DATA ---`,
     messages: messages.map((m: any) => ({
