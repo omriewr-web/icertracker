@@ -19,8 +19,12 @@ export const GET = withAuth(async (req, { user }) => {
   const sortField = url.searchParams.get("sort") || "balance";
   const sortDir = url.searchParams.get("dir") === "asc" ? "asc" : "desc";
 
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
+  const limit = Math.min(Math.max(1, parseInt(url.searchParams.get("limit") || "50")), 100);
+  const skip = (page - 1) * limit;
+
   const scope = getTenantScope(user, buildingId);
-  if (scope === EMPTY_SCOPE) return NextResponse.json([]);
+  if (scope === EMPTY_SCOPE) return NextResponse.json({ tenants: [], pagination: { page, limit, total: 0, totalPages: 0 } });
 
   const where: any = { ...scope };
 
@@ -41,23 +45,28 @@ export const GET = withAuth(async (req, { user }) => {
     where.leaseStatus = lease;
   }
 
-  const tenants = await prisma.tenant.findMany({
-    where,
-    include: {
-      unit: {
-        include: {
-          building: { select: { id: true, address: true, altAddress: true, region: true, entity: true, portfolio: true } },
+  const [tenants, total] = await Promise.all([
+    prisma.tenant.findMany({
+      where,
+      include: {
+        unit: {
+          include: {
+            building: { select: { id: true, address: true, altAddress: true, region: true, entity: true, portfolio: true } },
+          },
         },
+        legalCases: { where: { isActive: true }, select: { inLegal: true, stage: true }, take: 1 },
+        _count: { select: { notes: true, payments: true, tasks: true } },
       },
-      legalCases: { where: { isActive: true }, select: { inLegal: true, stage: true }, take: 1 },
-      _count: { select: { notes: true, payments: true, tasks: true } },
-    },
-    orderBy: sortField === "name" ? { name: sortDir } :
-             sortField === "balance" ? { balance: sortDir } :
-             sortField === "collectionScore" ? { collectionScore: sortDir } :
-             sortField === "arrearsDays" ? { arrearsDays: sortDir } :
-             { balance: "desc" },
-  });
+      orderBy: sortField === "name" ? { name: sortDir } :
+               sortField === "balance" ? { balance: sortDir } :
+               sortField === "collectionScore" ? { collectionScore: sortDir } :
+               sortField === "arrearsDays" ? { arrearsDays: sortDir } :
+               { balance: "desc" as const },
+      skip,
+      take: limit,
+    }),
+    prisma.tenant.count({ where }),
+  ]);
 
   const result: TenantView[] = tenants.map((t) => ({
     id: t.id,
@@ -110,7 +119,15 @@ export const GET = withAuth(async (req, { user }) => {
     taskCount: t._count.tasks,
   }));
 
-  return NextResponse.json(result);
+  return NextResponse.json({
+    tenants: result,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  });
 }, "dash");
 
 export const POST = withAuth(async (req, { user }) => {
