@@ -24,6 +24,17 @@ function parseStage(value: string | undefined | null): LegalStage {
 
 // GET — List pending review items (scoped to user's org via candidate tenants)
 export const GET = withAuth(async (req: NextRequest, { user }) => {
+  const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
+  const orgFilter = isAdmin
+    ? {}
+    : user.organizationId
+      ? { organizationId: user.organizationId }
+      : null;
+
+  if (orgFilter === null) {
+    return NextResponse.json({ items: [] }, { status: 200 });
+  }
+
   if (user.role === "SUPER_ADMIN") {
     const items = await prisma.legalImportQueue.findMany({
       where: { status: "pending" },

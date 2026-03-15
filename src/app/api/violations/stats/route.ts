@@ -7,6 +7,17 @@ import type { ViolationStats } from "@/types";
 export const dynamic = "force-dynamic";
 
 export const GET = withAuth(async (req: NextRequest, { user }) => {
+  const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
+  const orgFilter = isAdmin
+    ? {}
+    : user.organizationId
+      ? { organizationId: user.organizationId }
+      : null;
+
+  if (orgFilter === null) {
+    return NextResponse.json({ totalOpen: 0, classACount: 0, classBCount: 0, classCCount: 0, totalPenalties: 0, upcomingHearings: 0 });
+  }
+
   const url = new URL(req.url);
   const buildingId = url.searchParams.get("buildingId");
 

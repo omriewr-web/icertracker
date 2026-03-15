@@ -11,6 +11,17 @@ import { scoreLegalCandidate } from "@/lib/legal-matching";
 export const dynamic = "force-dynamic";
 
 export const GET = withAuth(async (req, { user }) => {
+  const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
+  const orgFilter = isAdmin
+    ? {}
+    : user.organizationId
+      ? { organizationId: user.organizationId }
+      : null;
+
+  if (orgFilter === null) {
+    return NextResponse.json({ tenants: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 0 } });
+  }
+
   const url = new URL(req.url);
   const buildingId = url.searchParams.get("buildingId");
   const search = url.searchParams.get("search");
