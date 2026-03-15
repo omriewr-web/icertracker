@@ -40,7 +40,7 @@ export const GET = withAuth(async (req, { user }) => {
       balance: u.tenant ? Number(u.tenant.balance) : null,
     }))
   );
-});
+}, "dash");
 
 export const POST = withAuth(async (req, { user }) => {
   const { buildingId, unitNumber, unitType } = await parseBody(req, unitCreateSchema);

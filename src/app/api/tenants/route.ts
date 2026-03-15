@@ -111,7 +111,7 @@ export const GET = withAuth(async (req, { user }) => {
   }));
 
   return NextResponse.json(result);
-});
+}, "dash");
 
 export const POST = withAuth(async (req, { user }) => {
   const data = await parseBody(req, tenantCreateSchema);

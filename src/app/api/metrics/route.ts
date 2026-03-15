@@ -88,4 +88,4 @@ export const GET = withAuth(async (req, { user }) => {
   };
 
   return NextResponse.json(metrics);
-});
+}, "dash");

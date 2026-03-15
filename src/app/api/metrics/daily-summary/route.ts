@@ -70,4 +70,4 @@ export const GET = withAuth(async (req, { user }) => {
       unit: t.unit.unitNumber,
     })),
   });
-});
+}, "dash");
