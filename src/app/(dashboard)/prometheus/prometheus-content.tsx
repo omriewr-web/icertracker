@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Zap, ArrowLeft, ArrowRight, Upload, Mail, PenLine, Check, AlertTriangle, Download, Loader2, Plus, Trash2 } from "lucide-react";
+import { Zap, ArrowLeft, ArrowRight, Upload, Mail, PenLine, Check, AlertTriangle, Download, Loader2, Plus, Trash2, Shield, Copy, Scale, Building2 } from "lucide-react";
 import Button from "@/components/ui/button";
 import { useBuildings } from "@/hooks/use-buildings";
 import { cn } from "@/lib/utils";
@@ -31,10 +31,32 @@ interface SimilarWO {
   completedDate: string | null;
 }
 
+interface ExposureResult {
+  exposureLevel: "NONE" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  triggers: string[];
+  relevantLaws: string[];
+  recommendedActions: string[];
+  hpdComplaintRisk: boolean;
+  isChronicIssue: boolean;
+  chronicCount: number;
+}
+
+interface PortfolioContext {
+  buildingMatch: { id: string; address: string; totalUnits: number } | null;
+  tenantMatches: { id: string; name: string; unitNumber: string; balance: number }[];
+  openViolations: { id: string; externalId: string; description: string; class: string | null; source: string }[];
+  recentWorkOrders: { id: string; title: string; status: string; createdAt: string }[];
+  openLegalCases: { id: string; stage: string; tenantName: string }[];
+}
+
 interface DraftResponse {
   draft: any;
   similarWorkOrders: SimilarWO[];
   review: { flaggedIssues: string[]; completenessScore: number; readyForPromotion: boolean };
+  portfolioContext?: PortfolioContext;
+  exposure?: ExposureResult;
+  suggestedResponseEmail?: { subject: string; body: string };
+  linkedViolations?: { id: string; externalId: string; description: string; class: string | null }[];
 }
 
 interface AccessAttempt {
@@ -543,6 +565,122 @@ export default function PrometheusContent() {
               </div>
             )}
           </div>
+
+          {/* Legal Exposure */}
+          {currentDraft.exposure && currentDraft.exposure.exposureLevel !== "NONE" && (
+            <div className="lg:col-span-2 bg-card border border-border rounded-lg p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Scale className="w-4 h-4 text-text-muted" />
+                <h2 className="text-sm font-semibold text-text-primary">Legal Exposure</h2>
+                <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full",
+                  currentDraft.exposure.exposureLevel === "CRITICAL" ? "bg-red-500/20 text-red-400" :
+                  currentDraft.exposure.exposureLevel === "HIGH" ? "bg-orange-500/20 text-orange-400" :
+                  currentDraft.exposure.exposureLevel === "MEDIUM" ? "bg-yellow-500/20 text-yellow-400" :
+                  currentDraft.exposure.exposureLevel === "LOW" ? "bg-blue-500/20 text-blue-400" :
+                  "bg-green-500/20 text-green-400"
+                )}>
+                  {currentDraft.exposure.exposureLevel}
+                </span>
+              </div>
+
+              {currentDraft.exposure.hpdComplaintRisk && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-2.5 mb-3 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                  <span className="text-xs text-red-300 font-medium">HPD Complaint Risk — Document everything</span>
+                </div>
+              )}
+
+              {currentDraft.exposure.isChronicIssue && (
+                <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-2.5 mb-3 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-orange-400 shrink-0" />
+                  <span className="text-xs text-orange-300 font-medium">Chronic Issue — {currentDraft.exposure.chronicCount} prior occurrences found</span>
+                </div>
+              )}
+
+              <div className="space-y-1.5 mb-3">
+                {currentDraft.exposure.triggers.map((t, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 shrink-0 mt-0.5" />
+                    <span className="text-xs text-yellow-200">{t}</span>
+                  </div>
+                ))}
+              </div>
+
+              {currentDraft.exposure.relevantLaws.length > 0 && (
+                <div className="text-[11px] text-text-dim space-y-0.5">
+                  {currentDraft.exposure.relevantLaws.map((law, i) => (
+                    <p key={i}>{law}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Portfolio Context */}
+          {currentDraft.portfolioContext && (
+            <div className="lg:col-span-2 bg-card border border-border rounded-lg p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Building2 className="w-4 h-4 text-text-muted" />
+                <h2 className="text-sm font-semibold text-text-primary">Portfolio Context</h2>
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                {currentDraft.portfolioContext.tenantMatches.length > 0 && (
+                  <div>
+                    <span className="text-text-dim">Matched Tenants:</span>
+                    {currentDraft.portfolioContext.tenantMatches.slice(0, 3).map((t) => (
+                      <p key={t.id} className="text-text-primary">{t.name} (Unit {t.unitNumber}){t.balance > 0 ? ` — $${t.balance.toLocaleString()} bal` : ""}</p>
+                    ))}
+                  </div>
+                )}
+                <div>
+                  <span className="text-text-dim">Open Violations:</span>
+                  <p className="text-text-primary">{currentDraft.portfolioContext.openViolations.length} open</p>
+                </div>
+                <div>
+                  <span className="text-text-dim">Recent Work Orders:</span>
+                  <p className="text-text-primary">{currentDraft.portfolioContext.recentWorkOrders.length} recent</p>
+                </div>
+                {currentDraft.portfolioContext.openLegalCases.length > 0 && (
+                  <div>
+                    <span className="text-text-dim">Open Legal Cases:</span>
+                    <p className="text-orange-400 font-medium">{currentDraft.portfolioContext.openLegalCases.length} active</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Suggested Response Email */}
+          {currentDraft.suggestedResponseEmail && (
+            <div className="lg:col-span-2 bg-card border border-border rounded-lg p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-text-muted" />
+                  <h2 className="text-sm font-semibold text-text-primary">Draft Tenant Response</h2>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`Subject: ${currentDraft.suggestedResponseEmail!.subject}\n\n${currentDraft.suggestedResponseEmail!.body}`);
+                  }}
+                >
+                  <Copy className="w-3 h-3 mr-1" /> Copy to Clipboard
+                </Button>
+              </div>
+              <div className="mb-2">
+                <span className="text-xs text-text-dim">Subject:</span>
+                <p className="text-sm text-text-primary font-medium">{currentDraft.suggestedResponseEmail.subject}</p>
+              </div>
+              <textarea
+                readOnly
+                rows={5}
+                value={currentDraft.suggestedResponseEmail.body}
+                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary resize-none"
+              />
+              <p className="text-[10px] text-text-dim mt-1.5">Review before sending — do not send directly from AtlasPM</p>
+            </div>
+          )}
 
           {/* Bottom Actions */}
           <div className="lg:col-span-2 flex justify-between">

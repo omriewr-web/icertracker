@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { assertBuildingAccess } from "@/lib/data-scope";
-import { findSimilarWorkOrders, runAIReview } from "@/lib/services/prometheus.service";
+import { findSimilarWorkOrders, runAIReview, enrichWithPortfolioContext, analyzeNYCLegalExposure, generateTenantResponseEmail, autoLinkViolations } from "@/lib/services/prometheus.service";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
@@ -31,7 +31,7 @@ export const POST = withAuth(async (req, { user, params }) => {
 
   const intake = await prisma.prometheusIntake.findUnique({
     where: { id: intakeId },
-    select: { id: true, buildingId: true, unitId: true, tenantId: true, organizationId: true, attachmentUrls: true },
+    select: { id: true, buildingId: true, unitId: true, tenantId: true, organizationId: true, attachmentUrls: true, extractedIssue: true, extractedUnit: true, extractedContact: true, rawBody: true },
   });
 
   if (!intake) return NextResponse.json({ error: "Intake not found" }, { status: 404 });
@@ -85,9 +85,30 @@ export const POST = withAuth(async (req, { user, params }) => {
   // Run AI review
   const review = await runAIReview(draft.id);
 
+  // Portfolio context enrichment
+  const portfolioContext = await enrichWithPortfolioContext(intakeId);
+
+  // NYC legal exposure analysis
+  const exposure = analyzeNYCLegalExposure(intake.extractedIssue, portfolioContext);
+
+  // Generate tenant response email
+  const suggestedResponseEmail = await generateTenantResponseEmail(intake, exposure, portfolioContext);
+
+  // Auto-link violations
+  const violationLinks = await autoLinkViolations(draft.id, portfolioContext, intake.extractedIssue);
+
+  // Filter linked violations from portfolio context
+  const linkedViolations = portfolioContext.openViolations.filter((v) =>
+    violationLinks.linkedViolationIds.includes(v.id),
+  );
+
   return NextResponse.json({
     draft: { ...draft, similarWOIds: similarWOs.map((w) => w.id), flaggedIssues: review.flaggedIssues },
     similarWorkOrders: similarWOs,
     review,
+    portfolioContext,
+    exposure,
+    suggestedResponseEmail,
+    linkedViolations,
   }, { status: 201 });
 }, "maintenance");
