@@ -267,24 +267,26 @@ export async function updateCollectionStatus(
   if (!tenant) throw new ApiError("Tenant not found", 404);
   if (!(await canAccessBuilding(user, tenant.unit.buildingId))) throw new ApiError("Forbidden", 403);
 
-  const existing = await prisma.collectionCase.findFirst({
-    where: { tenantId, isActive: true },
-  });
-
-  if (existing) {
-    return prisma.collectionCase.update({
-      where: { id: existing.id },
-      data: { status, lastActionDate: new Date() },
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.collectionCase.findFirst({
+      where: { tenantId, isActive: true },
     });
-  }
 
-  return prisma.collectionCase.create({
-    data: {
-      buildingId: tenant.unit.buildingId,
-      unitId: tenant.unitId,
-      tenantId,
-      status,
-    },
+    if (existing) {
+      return tx.collectionCase.update({
+        where: { id: existing.id },
+        data: { status, lastActionDate: new Date() },
+      });
+    }
+
+    return tx.collectionCase.create({
+      data: {
+        buildingId: tenant.unit.buildingId,
+        unitId: tenant.unitId,
+        tenantId,
+        status,
+      },
+    });
   });
 }
 
@@ -490,27 +492,35 @@ export async function sendToLegal(
   user: ScopeUser & { id: string },
   tenantId: string
 ): Promise<{ legalCaseId: string }> {
-  const tenant = await prisma.tenant.findUnique({
+  // Pre-flight access check (outside transaction for fast rejection)
+  const tenantCheck = await prisma.tenant.findUnique({
     where: { id: tenantId },
-    select: { id: true, name: true, balance: true, unitId: true, unit: { select: { buildingId: true } } },
+    select: { id: true, unit: { select: { buildingId: true } } },
   });
-  if (!tenant) throw new ApiError("Tenant not found", 404);
-  if (!(await canAccessBuilding(user, tenant.unit.buildingId))) throw new ApiError("Forbidden", 403);
-
-  // Check for existing active legal case
-  const existingLegal = await prisma.legalCase.findFirst({
-    where: { tenantId, isActive: true },
-  });
-  if (existingLegal) {
-    throw new ApiError("Tenant already has an active legal case", 409);
-  }
-
-  // Find or create active collection case
-  const collectionCase = await prisma.collectionCase.findFirst({
-    where: { tenantId, isActive: true },
-  });
+  if (!tenantCheck) throw new ApiError("Tenant not found", 404);
+  if (!(await canAccessBuilding(user, tenantCheck.unit.buildingId))) throw new ApiError("Forbidden", 403);
 
   const result = await prisma.$transaction(async (tx) => {
+    // Re-read tenant inside transaction for consistent balance
+    const tenant = await tx.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true, name: true, balance: true, unitId: true, unit: { select: { buildingId: true } } },
+    });
+    if (!tenant) throw new ApiError("Tenant not found", 404);
+
+    // Check for existing active legal case inside transaction
+    const existingLegal = await tx.legalCase.findFirst({
+      where: { tenantId, isActive: true },
+    });
+    if (existingLegal) {
+      throw new ApiError("Tenant already has an active legal case", 409);
+    }
+
+    // Find or create active collection case
+    const collectionCase = await tx.collectionCase.findFirst({
+      where: { tenantId, isActive: true },
+    });
+
     // Update or create collection case with legal_referred status
     let caseId = collectionCase?.id;
     if (collectionCase) {
@@ -530,7 +540,7 @@ export async function sendToLegal(
       caseId = created.id;
     }
 
-    // Create legal case
+    // Create legal case with consistent balance
     const legalCase = await tx.legalCase.create({
       data: {
         tenantId,
