@@ -33,6 +33,11 @@ type ScopeResult = Record<string, unknown> | typeof EMPTY_SCOPE;
  */
 export function getOrgScope(user: ScopeUser): Record<string, unknown> {
   if (user.role === "SUPER_ADMIN") return {};
+  // If org is not set, admin roles see all; non-admin with no org see nothing
+  if (!user.organizationId) {
+    if (FULL_ORG_ROLES.includes(user.role)) return {};
+    return { organizationId: "__no_org__" }; // will match nothing
+  }
   return { organizationId: user.organizationId };
 }
 
@@ -50,23 +55,28 @@ export function getBuildingScope(user: ScopeUser, explicitBuildingId?: string | 
       return { buildingId: { in: [explicitBuildingId] } };
     }
     if (FULL_ORG_ROLES.includes(user.role)) {
+      // If org is null, skip org filter for admin roles (defense-in-depth only when org exists)
+      if (!user.organizationId) return { buildingId: { in: [explicitBuildingId] } };
       return { buildingId: { in: [explicitBuildingId] }, building: { organizationId: user.organizationId } };
     }
     const assigned = user.assignedProperties ?? [];
     if (assigned.length === 0 || !assigned.includes(explicitBuildingId)) {
       return EMPTY_SCOPE;
     }
+    if (!user.organizationId) return { buildingId: { in: [explicitBuildingId] } };
     return { buildingId: { in: [explicitBuildingId] }, building: { organizationId: user.organizationId } };
   }
 
   if (user.role === "SUPER_ADMIN") return {};
   if (FULL_ORG_ROLES.includes(user.role)) {
+    if (!user.organizationId) return {};
     return { building: { organizationId: user.organizationId } };
   }
 
   const assigned = user.assignedProperties ?? [];
   if (assigned.length === 0) return EMPTY_SCOPE;
 
+  if (!user.organizationId) return { buildingId: { in: assigned } };
   return { buildingId: { in: assigned }, building: { organizationId: user.organizationId } };
 }
 
@@ -80,23 +90,27 @@ export function getBuildingIdScope(user: ScopeUser, explicitBuildingId?: string 
       return { id: explicitBuildingId };
     }
     if (FULL_ORG_ROLES.includes(user.role)) {
+      if (!user.organizationId) return { id: explicitBuildingId };
       return { id: explicitBuildingId, organizationId: user.organizationId };
     }
     const assigned = user.assignedProperties ?? [];
     if (assigned.length === 0 || !assigned.includes(explicitBuildingId)) {
       return EMPTY_SCOPE;
     }
+    if (!user.organizationId) return { id: explicitBuildingId };
     return { id: explicitBuildingId, organizationId: user.organizationId };
   }
 
   if (user.role === "SUPER_ADMIN") return {};
   if (FULL_ORG_ROLES.includes(user.role)) {
+    if (!user.organizationId) return {};
     return { organizationId: user.organizationId };
   }
 
   const assigned = user.assignedProperties ?? [];
   if (assigned.length === 0) return EMPTY_SCOPE;
 
+  if (!user.organizationId) return { id: { in: assigned } };
   return { id: { in: assigned }, organizationId: user.organizationId };
 }
 
@@ -110,23 +124,27 @@ export function getTenantScope(user: ScopeUser, explicitBuildingId?: string | nu
       return { unit: { buildingId: explicitBuildingId } };
     }
     if (FULL_ORG_ROLES.includes(user.role)) {
+      if (!user.organizationId) return { unit: { buildingId: explicitBuildingId } };
       return { unit: { buildingId: explicitBuildingId, building: { organizationId: user.organizationId } } };
     }
     const assigned = user.assignedProperties ?? [];
     if (assigned.length === 0 || !assigned.includes(explicitBuildingId)) {
       return EMPTY_SCOPE;
     }
+    if (!user.organizationId) return { unit: { buildingId: explicitBuildingId } };
     return { unit: { buildingId: explicitBuildingId, building: { organizationId: user.organizationId } } };
   }
 
   if (user.role === "SUPER_ADMIN") return {};
   if (FULL_ORG_ROLES.includes(user.role)) {
+    if (!user.organizationId) return {};
     return { unit: { building: { organizationId: user.organizationId } } };
   }
 
   const assigned = user.assignedProperties ?? [];
   if (assigned.length === 0) return EMPTY_SCOPE;
 
+  if (!user.organizationId) return { unit: { buildingId: { in: assigned } } };
   return { unit: { buildingId: { in: assigned }, building: { organizationId: user.organizationId } } };
 }
 
@@ -140,23 +158,27 @@ export function getLeaseScope(user: ScopeUser, explicitBuildingId?: string | nul
       return { buildingId: explicitBuildingId };
     }
     if (FULL_ORG_ROLES.includes(user.role)) {
+      if (!user.organizationId) return { buildingId: explicitBuildingId };
       return { buildingId: explicitBuildingId, organizationId: user.organizationId };
     }
     const assigned = user.assignedProperties ?? [];
     if (assigned.length === 0 || !assigned.includes(explicitBuildingId)) {
       return EMPTY_SCOPE;
     }
+    if (!user.organizationId) return { buildingId: explicitBuildingId };
     return { buildingId: explicitBuildingId, organizationId: user.organizationId };
   }
 
   if (user.role === "SUPER_ADMIN") return {};
   if (FULL_ORG_ROLES.includes(user.role)) {
+    if (!user.organizationId) return {};
     return { organizationId: user.organizationId };
   }
 
   const assigned = user.assignedProperties ?? [];
   if (assigned.length === 0) return EMPTY_SCOPE;
 
+  if (!user.organizationId) return { buildingId: { in: assigned } };
   return { buildingId: { in: assigned }, organizationId: user.organizationId };
 }
 
