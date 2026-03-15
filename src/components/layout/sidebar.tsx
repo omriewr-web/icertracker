@@ -22,6 +22,7 @@ import {
   Radio,
   Building2,
   ClipboardList,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hasPermission, UserRole } from "@/types";
@@ -42,6 +43,7 @@ const navItems: { href: string; label: string; icon: typeof LayoutDashboard; per
   { href: "/turnovers", label: "Turnovers", icon: ClipboardList, perm: "vac", section: "OPERATIONS" },
   { href: "/leases", label: "Leases", icon: FileText, perm: "lease", section: "OPERATIONS" },
   { href: "/maintenance", label: "Work Orders", icon: Wrench, perm: "maintenance", section: "OPERATIONS" },
+  { href: "/prometheus", label: "Prometheus", icon: Zap, perm: "maintenance", section: "OPERATIONS" },
   { href: "/utilities", label: "Utilities", icon: Gauge, perm: "utilities", section: "OPERATIONS" },
   { href: "/compliance", label: "Compliance", icon: Shield, perm: "compliance", section: "OPERATIONS" },
   { href: "/reports", label: "Reports", icon: BarChart3, perm: "reports", section: "SETTINGS" },

@@ -69,6 +69,8 @@ model User {
   preparedCertPackets     CertificationPacket[] @relation("CertPacketPreparer")
   reviewedCertPackets     CertificationPacket[] @relation("CertPacketReviewer")
   pmVerifiedViolations    Violation[]           @relation("ViolationPMVerifier")
+  prometheusIntakes       PrometheusIntake[]    @relation("PrometheusCreator")
+  verifiedDrafts          WorkOrderDraft[]      @relation("DraftVerifier")
 
   @@index([organizationId])
   @@index([managerId])
@@ -201,6 +203,8 @@ model Building {
   vendorAssignments      VendorAssignment[]
   riskSnapshots          RiskSnapshot[]
   certificationPackets   CertificationPacket[]
+  prometheusIntakes      PrometheusIntake[]
+  workOrderDrafts        WorkOrderDraft[]
 
   @@index([organizationId])
   @@index([ownerId])
@@ -1943,4 +1947,71 @@ model CertificationPacketItem {
   @@unique([packetId, violationId])
   @@index([violationId])
   @@map("certification_packet_items")
+}
+
+// ── Prometheus Module ─────────────────────────────────────────────
+
+model PrometheusIntake {
+  id               String          @id @default(cuid())
+  organizationId   String?
+  buildingId       String?
+  unitId           String?
+  tenantId         String?
+  source           String
+  rawSubject       String?
+  rawBody          String?         @db.Text
+  rawSender        String?
+  attachmentUrls   Json?
+  extractedDate    DateTime?
+  extractedIssue   String?         @db.Text
+  extractedUnit    String?
+  extractedContact String?
+  aiSummary        String?         @db.Text
+  status           String          @default("pending")
+  convertedWOId    String?
+  createdByUserId  String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  building         Building?       @relation(fields: [buildingId], references: [id])
+  createdBy        User?           @relation("PrometheusCreator", fields: [createdByUserId], references: [id])
+  draft            WorkOrderDraft?
+
+  @@index([buildingId, status])
+  @@index([organizationId])
+  @@map("prometheus_intakes")
+}
+
+model WorkOrderDraft {
+  id               String            @id @default(cuid())
+  intakeId         String?           @unique
+  organizationId   String?
+  buildingId       String
+  unitId           String?
+  tenantId         String?
+  title            String
+  description      String            @db.Text
+  category         WorkOrderCategory @default(GENERAL)
+  priority         WorkOrderPriority @default(MEDIUM)
+  trade            String?
+  assignedToId     String?
+  vendorId         String?
+  scheduledDate    DateTime?
+  incidentDate     DateTime?
+  accessAttempts   Json?
+  verifiedByUserId String?
+  verifiedAt       DateTime?
+  flaggedIssues    Json?
+  similarWOIds     Json?
+  photoUrls        Json?
+  promotedToWOId   String?
+  status           String            @default("draft")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  building         Building          @relation(fields: [buildingId], references: [id])
+  intake           PrometheusIntake? @relation(fields: [intakeId], references: [id])
+  verifiedBy       User?             @relation("DraftVerifier", fields: [verifiedByUserId], references: [id])
+
+  @@index([buildingId, status])
+  @@index([organizationId])
+  @@map("work_order_drafts")
 }
