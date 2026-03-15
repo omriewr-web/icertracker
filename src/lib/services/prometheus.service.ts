@@ -24,6 +24,8 @@ interface AIExtractionResult {
   suggestedCategory: string;
   suggestedPriority: string;
   summary: string;
+  affectedUnits?: string[];
+  keyDates?: string[];
 }
 
 interface SimilarWorkOrder {
@@ -58,10 +60,23 @@ export async function createIntakeManual(input: CreateIntakeInput) {
 
 // ── 2. runAIExtraction ───────────────────────────────────────────
 
-const EXTRACTION_SYSTEM = `You are an expert NYC property manager assistant. Extract structured information from maintenance reports. Respond ONLY with valid JSON, no preamble, no markdown backticks.`;
+const EXTRACTION_SYSTEM = `You are an expert NYC property manager assistant. When given email chains, PDFs, or documents, extract ALL relevant operational information including timelines, affected units, tenant names, and recurring issues. Respond ONLY with valid JSON, no preamble, no markdown backticks.`;
+
+const EXTRACTION_JSON_SCHEMA = `{
+  "issueDescription": "full description of the issue",
+  "unitNumber": "unit number or empty string",
+  "contactName": "tenant or contact name",
+  "incidentDate": "ISO date string or null",
+  "urgency": "low|medium|high|emergency",
+  "suggestedCategory": "PLUMBING|ELECTRICAL|HVAC|APPLIANCE|GENERAL|OTHER",
+  "suggestedPriority": "LOW|MEDIUM|HIGH|URGENT",
+  "summary": "2-3 sentence summary including timeline if available",
+  "affectedUnits": ["array of unit numbers mentioned"],
+  "keyDates": ["array of important dates mentioned"]
+}`;
 
 const EXTRACTION_USER = (body: string) =>
-  `Extract structured data from this maintenance intake:\n\n"""${body}"""\n\nRespond with JSON:\n{ "issueDescription": string, "unitNumber": string or null, "contactName": string or null, "incidentDate": ISO string or null, "urgency": "low"|"medium"|"high"|"emergency", "suggestedCategory": "PLUMBING"|"ELECTRICAL"|"HVAC"|"APPLIANCE"|"GENERAL"|"OTHER", "suggestedPriority": "LOW"|"MEDIUM"|"HIGH"|"URGENT", "summary": string }`;
+  `Extract structured data from this maintenance intake:\n\n"""${body}"""\n\nRespond ONLY with valid JSON:\n${EXTRACTION_JSON_SCHEMA}`;
 
 function mapUrgencyToPriority(urgency: string): string {
   switch (urgency) {
@@ -84,7 +99,7 @@ function safeParse<T>(raw: string): T | null {
 
 export async function runAIExtraction(intakeId: string): Promise<AIExtractionResult | null> {
   const intake = await prisma.prometheusIntake.findUnique({ where: { id: intakeId } });
-  if (!intake?.rawBody) return null;
+  if (!intake) return null;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -94,12 +109,39 @@ export async function runAIExtraction(intakeId: string): Promise<AIExtractionRes
 
   const anthropic = new Anthropic({ apiKey });
 
+  // Check for PDF base64 attachments
+  const attachments = Array.isArray(intake.attachmentUrls) ? (intake.attachmentUrls as string[]) : [];
+  const pdfAttachments = attachments.filter((url) => typeof url === "string" && url.startsWith("data:application/pdf;base64,"));
+
   try {
+    let userContent: Anthropic.MessageCreateParams["messages"][0]["content"];
+
+    if (pdfAttachments.length > 0) {
+      // Build multi-part content with PDF documents
+      const contentParts: any[] = [];
+      for (const pdfDataUrl of pdfAttachments) {
+        const base64Data = pdfDataUrl.replace("data:application/pdf;base64,", "");
+        contentParts.push({
+          type: "document",
+          source: { type: "base64", media_type: "application/pdf", data: base64Data },
+        });
+      }
+      contentParts.push({
+        type: "text",
+        text: `Extract all operational information from the document(s) above and any text below.\n${intake.rawBody ? "Additional context: " + intake.rawBody : ""}\nRespond ONLY with valid JSON:\n${EXTRACTION_JSON_SCHEMA}`,
+      });
+      userContent = contentParts;
+    } else if (intake.rawBody) {
+      userContent = EXTRACTION_USER(intake.rawBody);
+    } else {
+      return null;
+    }
+
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-5-20250929",
       max_tokens: 1024,
       system: EXTRACTION_SYSTEM,
-      messages: [{ role: "user", content: EXTRACTION_USER(intake.rawBody) }],
+      messages: [{ role: "user", content: userContent }],
     });
 
     const text = response.content[0]?.type === "text" ? response.content[0].text : "";
@@ -110,8 +152,17 @@ export async function runAIExtraction(intakeId: string): Promise<AIExtractionRes
     }
 
     // Also run keyword-based trade triage
-    const trade = triageWorkOrderTrade(intake.rawBody);
+    const trade = triageWorkOrderTrade(intake.rawBody || parsed.issueDescription);
     const priority = mapUrgencyToPriority(parsed.urgency);
+
+    // Build summary with affectedUnits and keyDates if present
+    let fullSummary = parsed.summary;
+    if (parsed.affectedUnits?.length) {
+      fullSummary += `\nAffected units: ${parsed.affectedUnits.join(", ")}`;
+    }
+    if (parsed.keyDates?.length) {
+      fullSummary += `\nKey dates: ${parsed.keyDates.join(", ")}`;
+    }
 
     await prisma.prometheusIntake.update({
       where: { id: intakeId },
@@ -120,7 +171,7 @@ export async function runAIExtraction(intakeId: string): Promise<AIExtractionRes
         extractedUnit: parsed.unitNumber,
         extractedContact: parsed.contactName,
         extractedDate: parsed.incidentDate ? new Date(parsed.incidentDate) : null,
-        aiSummary: parsed.summary,
+        aiSummary: fullSummary,
         status: "extracted",
       },
     });
