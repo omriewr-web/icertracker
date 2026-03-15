@@ -302,6 +302,7 @@ model Tenant {
   @@index([arrearsCategory])
   @@index([leaseExpiration])
   @@index([collectionScore])
+  @@index([unitId, balance])
   @@map("tenants")
 }
 
@@ -428,6 +429,7 @@ model LegalCase {
   @@index([attorneyId])
   @@index([marshalId])
   @@index([isActive])
+  @@index([buildingId, isActive])
   @@map("legal_cases")
 }
 
@@ -671,6 +673,8 @@ model WorkOrder {
   @@index([status])
   @@index([priority])
   @@index([sourceType, sourceId])
+  @@index([status, priority])
+  @@index([buildingId, status])
   @@map("work_orders")
 }
 
@@ -880,6 +884,8 @@ model Violation {
   @@index([respondByDate])
   @@index([lifecycleStatus])
   @@index([pmVerifiedById])
+  @@index([source, currentStatus])
+  @@index([buildingId, isOpen])
   @@map("violations")
 }
 
@@ -1229,6 +1235,7 @@ model CollectionCase {
   @@index([assignedUserId])
   @@index([status])
   @@index([isActive])
+  @@index([buildingId, status])
   @@map("collection_cases")
 }
 
