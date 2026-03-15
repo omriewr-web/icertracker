@@ -16,25 +16,27 @@ export const authOptions: NextAuthOptions = {
 
         const user = await prisma.user.findUnique({
           where: { username: credentials.username },
-          include: {
-            assignedProperties: { select: { buildingId: true } },
-            manager: {
-              include: { assignedProperties: { select: { buildingId: true } } },
-            },
-          },
         });
-
-        if (!user || !user.active) return null;
+        if (!user || !user.passwordHash) return null;
 
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!valid) return null;
 
+        // Load properties separately for session
+        const props = await prisma.userProperty.findMany({
+          where: { userId: user.id },
+          select: { buildingId: true },
+        });
+        let properties = props.map((p) => p.buildingId);
+
         // Roles that inherit their manager's buildings
         const INHERITS_MANAGER = ["APM", "LEASING_SPECIALIST", "ACCOUNTING"];
-        let properties = user.assignedProperties.map((p) => p.buildingId);
-
-        if (INHERITS_MANAGER.includes(user.role) && user.manager) {
-          properties = user.manager.assignedProperties.map((p) => p.buildingId);
+        if (INHERITS_MANAGER.includes(user.role) && user.managerId) {
+          const mgrProps = await prisma.userProperty.findMany({
+            where: { userId: user.managerId },
+            select: { buildingId: true },
+          });
+          properties = mgrProps.map((p) => p.buildingId);
         }
 
         return {
