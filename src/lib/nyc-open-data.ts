@@ -76,8 +76,11 @@ async function socrataFetch(
   const appToken = process.env.NYC_OPEN_DATA_APP_TOKEN;
   if (appToken) headers["X-App-Token"] = appToken;
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
   try {
-    const res = await fetch(finalUrl, { headers, cache: "no-store" });
+    const res = await fetch(finalUrl, { headers, cache: "no-store", signal: controller.signal });
     console.log(`[NYC Open Data] Response: ${res.status} ${res.statusText}`);
 
     if (!res.ok) {
@@ -90,8 +93,14 @@ async function socrataFetch(
     console.log(`[NYC Open Data] Got ${data.length} rows from ${endpoint}`);
     return { rows: data, url: finalUrl, status: res.status };
   } catch (err: any) {
+    if (err instanceof Error && err.name === "AbortError") {
+      console.error(`[NYC Open Data] Request timed out after 15s: ${finalUrl}`);
+      return { rows: [], url: finalUrl, status: 0, error: `NYC Open Data request timed out after 15s: ${finalUrl}` };
+    }
     console.error(`[NYC Open Data] Network error:`, err.message);
     return { rows: [], url: finalUrl, status: 0, error: err.message };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

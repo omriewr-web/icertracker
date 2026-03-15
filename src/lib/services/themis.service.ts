@@ -137,12 +137,18 @@ export async function runAIExtraction(intakeId: string): Promise<AIExtractionRes
       return null;
     }
 
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 1024,
-      system: EXTRACTION_SYSTEM,
-      messages: [{ role: "user", content: userContent }],
-    });
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("AI request timed out after 30s")), 30000)
+    );
+    const response = await Promise.race([
+      anthropic.messages.create({
+        model: "claude-sonnet-4-5-20250929",
+        max_tokens: 1024,
+        system: EXTRACTION_SYSTEM,
+        messages: [{ role: "user", content: userContent }],
+      }),
+      timeoutPromise,
+    ]);
 
     const text = response.content[0]?.type === "text" ? response.content[0].text : "";
     const parsed = safeParse<AIExtractionResult>(text);
@@ -239,12 +245,18 @@ export async function runAIReview(draftId: string): Promise<AIReviewResult> {
   const anthropic = new Anthropic({ apiKey });
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 1024,
-      system: REVIEW_SYSTEM,
-      messages: [{ role: "user", content: REVIEW_USER(draft) }],
-    });
+    const reviewTimeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("AI request timed out after 30s")), 30000)
+    );
+    const response = await Promise.race([
+      anthropic.messages.create({
+        model: "claude-sonnet-4-5-20250929",
+        max_tokens: 1024,
+        system: REVIEW_SYSTEM,
+        messages: [{ role: "user", content: REVIEW_USER(draft) }],
+      }),
+      reviewTimeoutPromise,
+    ]);
 
     const text = response.content[0]?.type === "text" ? response.content[0].text : "";
     const parsed = safeParse<AIReviewResult>(text);
@@ -544,13 +556,17 @@ export async function generateTenantResponseEmail(
 
   try {
     const anthropic = new Anthropic({ apiKey });
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 1024,
-      system: EMAIL_SYSTEM,
-      messages: [{
-        role: "user",
-        content: JSON.stringify({
+    const emailTimeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("AI request timed out after 30s")), 30000)
+    );
+    const response = await Promise.race([
+      anthropic.messages.create({
+        model: "claude-sonnet-4-5-20250929",
+        max_tokens: 1024,
+        system: EMAIL_SYSTEM,
+        messages: [{
+          role: "user",
+          content: JSON.stringify({
           issue: intake.extractedIssue,
           unit: intake.extractedUnit,
           tenantName: intake.extractedContact,
@@ -560,7 +576,9 @@ export async function generateTenantResponseEmail(
           isChronicIssue: exposure.isChronicIssue,
         }),
       }],
-    });
+    }),
+      emailTimeoutPromise,
+    ]);
 
     const text = response.content[0]?.type === "text" ? response.content[0].text : "";
     return safeParse<{ subject: string; body: string }>(text) ?? fallback;
