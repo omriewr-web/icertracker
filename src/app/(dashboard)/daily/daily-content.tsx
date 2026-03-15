@@ -28,7 +28,7 @@ export default function DailyContent() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <CalendarClock className="w-5 h-5 text-accent" />
-          <h1 className="text-2xl font-bold text-text-primary">Daily Summary</h1>
+          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Daily Summary</h1>
           <span className="text-sm text-text-dim">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span>
         </div>
         <div className="flex items-center gap-2">
@@ -90,13 +90,13 @@ export default function DailyContent() {
       </div>
 
       {isError && (
-        <div className="bg-card-gradient border border-border rounded-xl p-8 text-center">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl p-8 text-center">
           <p className="text-red-400 text-sm">Failed to load daily summary. Please try refreshing.</p>
         </div>
       )}
 
       {!isError && !hasContent && (
-        <div className="bg-card-gradient border border-border rounded-xl p-8 text-center">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl p-8 text-center">
           <p className="text-text-dim text-sm">No data to display. Import tenants to see your daily summary.</p>
         </div>
       )}
@@ -192,7 +192,7 @@ export default function DailyContent() {
 
 function Section({ title, icon: Icon, iconColor, children }: { title: string; icon: any; iconColor: string; children: React.ReactNode }) {
   return (
-    <div className="bg-card-gradient border border-border rounded-xl">
+    <div className="bg-atlas-navy-3 border border-border rounded-xl">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
         <Icon className={`w-4 h-4 ${iconColor}`} />
         <h3 className="text-sm font-medium text-text-primary">{title}</h3>

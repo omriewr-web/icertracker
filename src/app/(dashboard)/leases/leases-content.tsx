@@ -29,7 +29,7 @@ export default function LeasesContent() {
 
       <FilterBar showLeaseFilter />
 
-      <div className="bg-card-gradient border border-border rounded-xl overflow-hidden">
+      <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-hidden">
         <TenantTable tenants={tenants || []} showLease showScore={false} />
       </div>
 

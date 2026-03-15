@@ -141,7 +141,10 @@ export default function LegalContent() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-text-primary">Legal Cases</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Legal Cases</h1>
+          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Themis — Justice Pipeline</span>
+        </div>
         {tab === "cases" && (
           <ExportButton
             data={filteredLegalTenants.map((t) => ({
@@ -178,10 +181,10 @@ export default function LegalContent() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={cn(
-              "flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap",
+              "flex items-center gap-2 px-4 py-2.5 text-xs font-medium tracking-wide uppercase transition-colors whitespace-nowrap",
               tab === t.key
-                ? "text-accent border-b-2 border-accent"
-                : "text-text-dim hover:text-text-muted",
+                ? "text-accent border-b-2 border-accent bg-accent/5"
+                : "text-text-dim hover:text-text-muted hover:bg-atlas-navy-4/50",
             )}
           >
             <t.icon className="w-4 h-4 shrink-0" />
@@ -189,9 +192,9 @@ export default function LegalContent() {
             {t.badge !== undefined && (
               <span className={cn(
                 "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
-                t.key === "review" ? "bg-amber-500/20 text-amber-400" :
-                t.key === "candidates" ? "bg-orange-500/20 text-orange-400" :
-                t.key === "court-dates" ? "bg-blue-500/20 text-blue-400" :
+                t.key === "review" ? "bg-atlas-amber/20 text-atlas-amber" :
+                t.key === "candidates" ? "bg-atlas-amber/20 text-atlas-amber" :
+                t.key === "court-dates" ? "bg-atlas-blue/20 text-atlas-blue" :
                 "bg-accent/20 text-accent",
               )}>
                 {t.badge}
@@ -226,7 +229,7 @@ export default function LegalContent() {
                 key={s}
                 onClick={() => toggleStageFilter(s)}
                 className={cn(
-                  "bg-card-gradient border rounded-lg px-3 py-2 text-center min-w-[80px] transition-colors",
+                  "bg-atlas-navy-3 border rounded-lg px-3 py-2 text-center min-w-[80px] transition-colors",
                   stageFilter.includes(s) ? "border-accent" : "border-border",
                 )}
               >
@@ -267,7 +270,7 @@ export default function LegalContent() {
           </div>
 
           {filteredLegalTenants.length > 0 ? (
-            <div className="bg-card-gradient border border-border rounded-xl overflow-x-auto">
+            <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-x-auto">
               <table className="w-full text-sm min-w-[600px]">
                 <thead>
                   <tr className="border-b border-border">
@@ -342,7 +345,7 @@ export default function LegalContent() {
           </div>
 
           {courtCases.length > 0 ? (
-            <div className="bg-card-gradient border border-border rounded-xl overflow-x-auto">
+            <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-x-auto">
               <table className="w-full text-sm min-w-[800px]">
                 <thead>
                   <tr className="border-b border-border">

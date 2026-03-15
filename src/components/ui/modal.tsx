@@ -41,20 +41,20 @@ export default function Modal({ open, onClose, title, children, className, wide 
       role="dialog"
       aria-modal="true"
       aria-label={title || "Dialog"}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
     >
       <div
         className={cn(
-          "bg-card-gradient border border-border rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] flex flex-col max-h-[90vh] animate-slide-up",
+          "bg-atlas-navy-3 border border-border rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex flex-col max-h-[90vh] animate-slide-up",
           wide ? "w-full max-w-3xl" : "w-full max-w-lg",
           className
         )}
       >
         {title && (
           <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-            <h2 className="font-semibold text-text-primary">{title}</h2>
-            <button onClick={onClose} aria-label="Close dialog" className="text-text-dim hover:text-text-muted">
+            <h2 className="font-semibold text-text-primary font-display tracking-wide">{title}</h2>
+            <button onClick={onClose} aria-label="Close dialog" className="text-text-dim hover:text-text-muted transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>

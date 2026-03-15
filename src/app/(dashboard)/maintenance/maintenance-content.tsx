@@ -100,7 +100,10 @@ export default function MaintenanceContent() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-text-primary">Maintenance</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Maintenance</h1>
+          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Operations — Work Orders</span>
+        </div>
         <div className="flex items-center gap-2">
           {tab === "orders" && (
             <>
@@ -152,14 +155,14 @@ export default function MaintenanceContent() {
         </div>
       </div>
 
-      <div className="flex gap-1 bg-card border border-border rounded-lg p-1">
+      <div className="flex gap-1 bg-atlas-navy-3 border border-border rounded-lg p-1">
         {(["orders", "vendors", "schedules"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={cn(
-              "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-              tab === t ? "bg-accent text-white" : "text-text-dim hover:text-text-muted"
+              "px-3 py-1.5 text-xs font-medium tracking-wide uppercase rounded-md transition-colors",
+              tab === t ? "bg-accent/90 text-atlas-navy-1 font-semibold" : "text-text-dim hover:text-text-muted hover:bg-atlas-navy-4/50"
             )}
           >
             {t === "orders" ? "Work Orders" : t === "vendors" ? "Vendors" : "Schedules"}
@@ -250,7 +253,7 @@ export default function MaintenanceContent() {
           {view === "kanban" ? (
             <KanbanBoard workOrders={workOrders || []} onSelect={(wo) => setSelectedWO(wo.id)} />
           ) : (
-            <div className="bg-card-gradient border border-border rounded-xl overflow-x-auto">
+            <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-x-auto">
               <table className="w-full text-sm min-w-[900px]">
                 <thead>
                   <tr className="border-b border-border">

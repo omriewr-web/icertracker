@@ -36,7 +36,10 @@ export default function AlertsContent() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-text-primary">Arrears Alerts</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Arrears Alerts</h1>
+          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Financial — Revenue at Risk</span>
+        </div>
         <Button size="sm" onClick={() => setTenantCreateOpen(true)}>
           <UserPlus className="w-3.5 h-3.5" /> Add Tenant
         </Button>
@@ -52,7 +55,7 @@ export default function AlertsContent() {
       <FilterBar />
       <BulkActionsBar />
 
-      <div className="bg-card-gradient border border-border rounded-xl overflow-hidden">
+      <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-hidden">
         <TenantTable tenants={arrearsTenants} />
       </div>
 

@@ -97,7 +97,7 @@ export default function TurnoversContent() {
               key={key}
               onClick={() => setFilterStatus(filterStatus === key ? "all" : key)}
               className={`rounded-lg p-3 text-center border transition-colors ${
-                filterStatus === key ? "border-accent bg-accent/10" : "border-border bg-card-gradient hover:bg-card-hover"
+                filterStatus === key ? "border-accent bg-accent/10" : "border-border bg-atlas-navy-3 hover:bg-card-hover"
               }`}
             >
               <p className="text-lg font-bold font-mono tabular-nums text-text-primary">{statusCounts[key] || 0}</p>
@@ -125,7 +125,7 @@ export default function TurnoversContent() {
 
       {/* Table */}
       {filtered.length > 0 ? (
-        <div className="bg-card-gradient border border-border rounded-xl overflow-x-auto">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-x-auto">
           <table className="w-full text-sm min-w-[700px]">
             <thead>
               <tr className="border-b border-border">

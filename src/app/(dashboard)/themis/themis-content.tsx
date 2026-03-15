@@ -84,7 +84,7 @@ function StepIndicator({ current }: { current: number }) {
             {i > 0 && <div className={cn("w-6 h-px", isCompleted ? "bg-green-500" : isCurrent ? "bg-accent" : "bg-border")} />}
             <div className={cn(
               "flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full",
-              isCompleted ? "bg-green-500/10 text-green-400" : isCurrent ? "bg-accent/10 text-accent" : "bg-card text-text-dim"
+              isCompleted ? "bg-atlas-green/10 text-atlas-green" : isCurrent ? "bg-accent/10 text-accent animate-atlas-pulse-gold" : "bg-atlas-navy-3 text-text-dim"
             )}>
               <span>{stepNum}</span>
               <span>{label}</span>
@@ -99,7 +99,7 @@ function StepIndicator({ current }: { current: number }) {
 // ── Source Badge ──────────────────────────────────────────────────
 
 function SourceBadge({ source }: { source: string }) {
-  const color = source === "EMAIL" ? "text-blue-400 bg-blue-400/10" : source === "UPLOAD" ? "text-purple-400 bg-purple-400/10" : "text-accent bg-accent/10";
+  const color = source === "EMAIL" ? "text-atlas-blue bg-atlas-blue/10" : source === "UPLOAD" ? "text-atlas-purple bg-atlas-purple/10" : "text-accent bg-accent/10";
   return <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded", color)}>{source}</span>;
 }
 
@@ -307,11 +307,13 @@ export default function ThemisContent() {
   const labelClass = "block text-xs text-text-dim mb-1";
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto bg-atlas-navy-1 min-h-screen -m-4 sm:-m-6">
       <div className="flex items-center gap-3 mb-4">
         <Scale className="w-6 h-6 text-accent" />
-        <h1 className="text-xl font-semibold text-text-primary font-display">Themis</h1>
-        <span className="text-xs text-text-dim">Justice &amp; Legal Defense Pipeline</span>
+        <div>
+          <h1 className="text-xl font-semibold text-text-primary font-display tracking-wide">Themis</h1>
+          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase">Justice &amp; Legal Defense Vault</span>
+        </div>
       </div>
 
       <StepIndicator current={step} />
@@ -324,7 +326,7 @@ export default function ThemisContent() {
             <h2 className="text-sm font-semibold text-text-primary mb-2">Pending Intakes</h2>
             {loading && <p className="text-xs text-text-dim">Loading...</p>}
             {!loading && intakes.length === 0 && (
-              <div className="bg-card border border-border rounded-lg p-6 text-center">
+              <div className="bg-atlas-navy-3 border border-border rounded-lg p-6 text-center">
                 <Scale className="w-8 h-8 text-text-dim mx-auto mb-2" />
                 <p className="text-sm text-text-dim">No pending intakes — submit one using the form</p>
               </div>
@@ -333,7 +335,7 @@ export default function ThemisContent() {
               <button
                 key={intake.id}
                 onClick={() => selectIntake(intake)}
-                className="w-full text-left bg-card border border-border rounded-lg p-3 hover:border-accent/50 transition-colors"
+                className="w-full text-left bg-atlas-navy-3 border border-border rounded-lg p-3 hover:border-accent/50 transition-colors"
               >
                 <div className="flex items-center gap-2 mb-1">
                   <SourceBadge source={intake.source} />
@@ -347,7 +349,7 @@ export default function ThemisContent() {
           </div>
 
           {/* Right: Submit Form */}
-          <div className="lg:col-span-2 bg-card border border-border rounded-lg p-5">
+          <div className="lg:col-span-2 bg-atlas-navy-3 border border-border rounded-lg p-5">
             <h2 className="text-sm font-semibold text-text-primary mb-4">New Intake</h2>
             <div className="space-y-3">
               <div>
@@ -406,7 +408,7 @@ export default function ThemisContent() {
 
       {/* ═══ STEP 2: VERIFICATION FORM ═══ */}
       {step === 2 && selectedIntake && (
-        <div className="bg-card border border-border rounded-lg p-5">
+        <div className="bg-atlas-navy-3 border border-border rounded-lg p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <h2 className="text-sm font-semibold text-text-primary">Verify Intake</h2>
@@ -513,7 +515,7 @@ export default function ThemisContent() {
       {step === 3 && currentDraft && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left: AI Flags */}
-          <div className="bg-card border border-border rounded-lg p-5">
+          <div className="bg-atlas-navy-3 border border-border rounded-lg p-5">
             <h2 className="text-sm font-semibold text-text-primary mb-3">AI Flags</h2>
             {currentDraft.review.flaggedIssues.length > 0 ? (
               <div className="space-y-2">
@@ -551,7 +553,7 @@ export default function ThemisContent() {
           </div>
 
           {/* Right: Similar Work Orders */}
-          <div className="bg-card border border-border rounded-lg p-5">
+          <div className="bg-atlas-navy-3 border border-border rounded-lg p-5">
             <h2 className="text-sm font-semibold text-text-primary mb-3">Similar Past Work Orders</h2>
             {currentDraft.similarWorkOrders.length > 0 ? (
               <div className="space-y-2">
@@ -571,16 +573,16 @@ export default function ThemisContent() {
 
           {/* Legal Exposure */}
           {currentDraft.exposure && currentDraft.exposure.exposureLevel !== "NONE" && (
-            <div className="lg:col-span-2 bg-card border border-border rounded-lg p-5">
+            <div className="lg:col-span-2 bg-atlas-navy-3 border border-border rounded-lg p-5">
               <div className="flex items-center gap-2 mb-3">
                 <Scale className="w-4 h-4 text-text-muted" />
                 <h2 className="text-sm font-semibold text-text-primary">Legal Exposure</h2>
                 <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full",
-                  currentDraft.exposure.exposureLevel === "CRITICAL" ? "bg-red-500/20 text-red-400" :
-                  currentDraft.exposure.exposureLevel === "HIGH" ? "bg-orange-500/20 text-orange-400" :
-                  currentDraft.exposure.exposureLevel === "MEDIUM" ? "bg-yellow-500/20 text-yellow-400" :
-                  currentDraft.exposure.exposureLevel === "LOW" ? "bg-blue-500/20 text-blue-400" :
-                  "bg-green-500/20 text-green-400"
+                  currentDraft.exposure.exposureLevel === "CRITICAL" ? "bg-atlas-red/20 text-atlas-red" :
+                  currentDraft.exposure.exposureLevel === "HIGH" ? "bg-atlas-amber/20 text-atlas-amber" :
+                  currentDraft.exposure.exposureLevel === "MEDIUM" ? "bg-accent/20 text-accent" :
+                  currentDraft.exposure.exposureLevel === "LOW" ? "bg-atlas-blue/20 text-atlas-blue" :
+                  "bg-atlas-green/20 text-atlas-green"
                 )}>
                   {currentDraft.exposure.exposureLevel}
                 </span>
@@ -635,7 +637,7 @@ export default function ThemisContent() {
 
           {/* Portfolio Context */}
           {currentDraft.portfolioContext && (
-            <div className="lg:col-span-2 bg-card border border-border rounded-lg p-5">
+            <div className="lg:col-span-2 bg-atlas-navy-3 border border-border rounded-lg p-5">
               <div className="flex items-center gap-2 mb-3">
                 <Building2 className="w-4 h-4 text-text-muted" />
                 <h2 className="text-sm font-semibold text-text-primary">Portfolio Context</h2>
@@ -688,7 +690,7 @@ export default function ThemisContent() {
 
           {/* Suggested Response Email */}
           {currentDraft.suggestedResponseEmail && (
-            <div className="lg:col-span-2 bg-card border border-border rounded-lg p-5">
+            <div className="lg:col-span-2 bg-atlas-navy-3 border border-border rounded-lg p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Mail className="w-4 h-4 text-text-muted" />
@@ -742,7 +744,7 @@ export default function ThemisContent() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Download PDF */}
-            <div className="bg-card border border-border rounded-lg p-6 text-center">
+            <div className="bg-atlas-navy-3 border border-border rounded-lg p-6 text-center">
               <Download className="w-8 h-8 text-text-dim mx-auto mb-3" />
               <h3 className="text-sm font-semibold text-text-primary mb-2">Download PDF Package</h3>
               <p className="text-xs text-text-dim mb-4">Full work order package with all details, flags, and history</p>
@@ -752,7 +754,7 @@ export default function ThemisContent() {
             </div>
 
             {/* Promote */}
-            <div className="bg-card border border-border rounded-lg p-6 text-center">
+            <div className="bg-atlas-navy-3 border border-border rounded-lg p-6 text-center">
               <Scale className="w-8 h-8 text-accent mx-auto mb-3" />
               <h3 className="text-sm font-semibold text-text-primary mb-2">Promote to Work Order</h3>
               <p className="text-xs text-text-dim mb-4">Create a live work order from this verified draft</p>
@@ -770,7 +772,7 @@ export default function ThemisContent() {
           </div>
 
           {/* Read-only summary */}
-          <div className="bg-card border border-border rounded-lg p-5">
+          <div className="bg-atlas-navy-3 border border-border rounded-lg p-5">
             <h2 className="text-sm font-semibold text-text-primary mb-3">Draft Summary</h2>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div><span className="text-text-dim">Title:</span> <span className="text-text-primary">{currentDraft.draft.title}</span></div>

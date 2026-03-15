@@ -127,7 +127,10 @@ export default function VacanciesContent() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-text-primary">Vacancy Tracking</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Vacancy Tracking</h1>
+          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Operations — Vacancy Tracking</span>
+        </div>
         <div className="flex items-center gap-2">
           <ExportButton
             data={buildingsWithVacancies.map((b) => ({
@@ -174,7 +177,7 @@ export default function VacanciesContent() {
       </div>
 
       {buildingsWithVacancies.length > 0 && (
-        <div className="bg-card-gradient border border-border rounded-xl p-5">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
           <h3 className="text-sm font-medium text-text-muted mb-4">Vacancies by Property</h3>
           <VacancyChart buildings={buildingsWithVacancies} />
         </div>
@@ -182,7 +185,7 @@ export default function VacanciesContent() {
 
       {/* Vacant Units Detail Table */}
       {vacantUnits.length > 0 && (
-        <div className="bg-card-gradient border border-border rounded-xl overflow-x-auto">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-x-auto">
           <div className="px-3 py-2 border-b border-border">
             <h3 className="text-sm font-medium text-text-muted">Vacant Units</h3>
           </div>
@@ -281,7 +284,7 @@ export default function VacanciesContent() {
 
       {/* Recent Leasing Activity */}
       {activities && activities.length > 0 && (
-        <div className="bg-card-gradient border border-border rounded-xl overflow-x-auto">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-x-auto">
           <div className="px-3 py-2 border-b border-border">
             <h3 className="text-sm font-medium text-text-muted flex items-center gap-2">
               <MessageSquare className="w-4 h-4" />
@@ -323,7 +326,7 @@ export default function VacanciesContent() {
 
       {/* Active turnovers summary */}
       {turnovers && turnovers.length > 0 && (
-        <div className="bg-card-gradient border border-border rounded-xl overflow-x-auto">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-x-auto">
           <div className="px-3 py-2 border-b border-border">
             <h3 className="text-sm font-medium text-text-muted">Active Turnover Workflows</h3>
           </div>
@@ -363,7 +366,7 @@ export default function VacanciesContent() {
       )}
 
       {buildingsWithVacancies.length > 0 ? (
-        <div className="bg-card-gradient border border-border rounded-xl overflow-x-auto">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-x-auto">
           <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr className="border-b border-border">

@@ -203,7 +203,7 @@ export default function TenantCollectionPage() {
         Back to Collections
       </button>
 
-      <div className="bg-card-gradient border border-border rounded-xl p-5">
+      <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-text-primary">{tenantName}</h1>
@@ -238,7 +238,7 @@ export default function TenantCollectionPage() {
 
       {/* ── Balance Trend Chart ── */}
       {chartData.length > 1 && (
-        <div className="bg-card-gradient border border-border rounded-xl p-5">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
           <h2 className="text-sm font-medium text-text-muted mb-4">Balance Trend (Last 6 Months)</h2>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={chartData} margin={{ left: 10, right: 10, top: 5, bottom: 5 }}>
@@ -263,19 +263,19 @@ export default function TenantCollectionPage() {
       {/* ── Aging Breakdown ── */}
       {snapshot && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-card-gradient border border-border rounded-xl p-4">
+          <div className="bg-atlas-navy-3 border border-border rounded-xl p-4">
             <p className="text-xs text-text-dim uppercase tracking-wider">0-30 Days</p>
             <p className="text-xl font-bold font-mono text-green-400 mt-1">{fmt$(Number(snapshot.balance0_30))}</p>
           </div>
-          <div className="bg-card-gradient border border-border rounded-xl p-4">
+          <div className="bg-atlas-navy-3 border border-border rounded-xl p-4">
             <p className="text-xs text-text-dim uppercase tracking-wider">31-60 Days</p>
             <p className="text-xl font-bold font-mono text-yellow-400 mt-1">{fmt$(Number(snapshot.balance31_60))}</p>
           </div>
-          <div className="bg-card-gradient border border-border rounded-xl p-4">
+          <div className="bg-atlas-navy-3 border border-border rounded-xl p-4">
             <p className="text-xs text-text-dim uppercase tracking-wider">61-90 Days</p>
             <p className="text-xl font-bold font-mono text-orange-400 mt-1">{fmt$(Number(snapshot.balance61_90))}</p>
           </div>
-          <div className="bg-card-gradient border border-border rounded-xl p-4">
+          <div className="bg-atlas-navy-3 border border-border rounded-xl p-4">
             <p className="text-xs text-text-dim uppercase tracking-wider">90+ Days</p>
             <p className="text-xl font-bold font-mono text-red-400 mt-1">{fmt$(Number(snapshot.balance90plus))}</p>
           </div>
@@ -283,7 +283,7 @@ export default function TenantCollectionPage() {
       )}
 
       {/* ── Collection Status ── */}
-      <div className="bg-card-gradient border border-border rounded-xl p-5">
+      <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
         <h2 className="text-sm font-medium text-text-muted mb-3">Collection Status</h2>
         <div className="flex flex-wrap items-center gap-2">
           {ALL_STATUSES.map((s) => {
@@ -309,7 +309,7 @@ export default function TenantCollectionPage() {
       </div>
 
       {/* ── Add Note Form ── */}
-      <div className="bg-card-gradient border border-border rounded-xl p-5">
+      <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
         <h2 className="text-sm font-medium text-text-muted mb-3">Add Collection Note</h2>
         <div className="space-y-3">
           <textarea
@@ -354,7 +354,7 @@ export default function TenantCollectionPage() {
       </div>
 
       {/* ── Notes Timeline ── */}
-      <div className="bg-card-gradient border border-border rounded-xl p-5">
+      <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
         <h2 className="text-sm font-medium text-text-muted mb-4">Collection History</h2>
         {notes.length > 0 ? (
           <div className="space-y-0">
@@ -402,7 +402,7 @@ export default function TenantCollectionPage() {
       </div>
 
       {/* ── AI Recommendation Panel ── */}
-      <div className="bg-card-gradient border border-border rounded-xl overflow-hidden">
+      <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-hidden">
         <button
           onClick={() => aiOpen ? setAiOpen(false) : handleGetAI()}
           className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-card-hover transition-colors"

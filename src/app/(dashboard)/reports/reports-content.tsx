@@ -72,7 +72,7 @@ export default function ReportsContent() {
         />
       </div>
 
-      <div className="bg-card-gradient border border-border rounded-xl p-5">
+      <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
         <h3 className="text-sm font-medium text-text-muted mb-3">Export Data</h3>
         <p className="text-xs text-text-dim mb-4">Download all tenant data as an Excel spreadsheet</p>
         <Button variant="outline" onClick={exportExcel}>
@@ -85,7 +85,7 @@ export default function ReportsContent() {
 
 function ReportCard({ title, description, onGenerate }: { title: string; description: string; onGenerate: () => void }) {
   return (
-    <div className="bg-card-gradient border border-border rounded-xl p-5 flex flex-col">
+    <div className="bg-atlas-navy-3 border border-border rounded-xl p-5 flex flex-col">
       <h3 className="text-sm font-medium text-text-primary mb-1">{title}</h3>
       <p className="text-xs text-text-dim mb-4 flex-1">{description}</p>
       <Button variant="outline" size="sm" onClick={onGenerate}>

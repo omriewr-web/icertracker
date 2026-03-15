@@ -45,6 +45,7 @@ import { useBuildings } from "@/hooks/use-buildings";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/empty-state";
 import Button from "@/components/ui/button";
+import TitanAction from "@/components/ui/titan-action";
 import ExportButton from "@/components/ui/export-button";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils";
@@ -52,9 +53,9 @@ import { formatDate } from "@/lib/utils";
 // ── Config ─────────────────────────────────────────────────────
 
 const SEVERITY_CONFIG: Record<string, { color: string; bg: string; border: string; label: string; chartColor: string }> = {
-  critical: { color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/30", label: "Critical", chartColor: "#ef4444" },
-  high: { color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/30", label: "High", chartColor: "#f97316" },
-  medium: { color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/30", label: "Medium", chartColor: "#eab308" },
+  critical: { color: "text-atlas-red", bg: "bg-atlas-red/10", border: "border-atlas-red/30", label: "Critical", chartColor: "#e05c5c" },
+  high: { color: "text-atlas-amber", bg: "bg-atlas-amber/10", border: "border-atlas-amber/30", label: "High", chartColor: "#e09a3e" },
+  medium: { color: "text-accent", bg: "bg-accent/10", border: "border-accent/30", label: "Medium", chartColor: "#c9a84c" },
   low: { color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/30", label: "Low", chartColor: "#3b82f6" },
 };
 
@@ -229,9 +230,9 @@ export default function CoeusContent() {
         <div>
           <div className="flex items-center gap-3">
             <Radio className="w-5 h-5 text-accent" />
-            <h1 className="text-2xl font-bold text-text-primary">Coeus</h1>
+            <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Coeus</h1>
           </div>
-          <p className="text-sm text-text-dim mt-1 ml-8">Pattern recognition across your entire portfolio.</p>
+          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase ml-8">Coeus — Pattern Recognition Engine</span>
         </div>
         <div className="flex items-center gap-2">
           <ExportButton
@@ -257,20 +258,20 @@ export default function CoeusContent() {
               ],
             }}
           />
-          <Button
-            size="sm"
+          <TitanAction
+            label={scan.isPending ? "Analyzing..." : "Run Analysis"}
+            icon={RefreshCw}
             onClick={() => scan.mutate()}
-            disabled={scan.isPending}
-          >
-            <RefreshCw className={cn("w-3.5 h-3.5", scan.isPending && "animate-spin")} />
-            {scan.isPending ? "Analyzing..." : "Run Analysis"}
-          </Button>
+            loading={scan.isPending}
+            variant="gold"
+            size="sm"
+          />
         </div>
       </div>
 
       {/* Last Scan Bar */}
       {lastScan && (
-        <div className="flex items-center gap-3 text-xs text-text-dim bg-card-gradient border border-border rounded-lg px-4 py-2">
+        <div className="flex items-center gap-3 text-xs text-text-dim bg-atlas-navy-3 border border-border rounded-lg px-4 py-2">
           <Clock className="w-3.5 h-3.5" />
           <span>
             Last {lastScan.scanType} scan: {timeAgo(lastScan.startedAt)}
@@ -290,7 +291,7 @@ export default function CoeusContent() {
       {allSignals.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Severity Chart */}
-          <div className="bg-card-gradient border border-border rounded-xl p-4">
+          <div className="bg-atlas-navy-3 border border-border rounded-xl p-4">
             <h3 className="text-xs font-medium text-text-dim uppercase tracking-wider mb-3">By Severity</h3>
             <ResponsiveContainer width="100%" height={120}>
               <BarChart data={severityChartData} layout="vertical" margin={{ left: 0, right: 10 }}>
@@ -307,7 +308,7 @@ export default function CoeusContent() {
           </div>
 
           {/* By Type */}
-          <div className="bg-card-gradient border border-border rounded-xl p-4">
+          <div className="bg-atlas-navy-3 border border-border rounded-xl p-4">
             <h3 className="text-xs font-medium text-text-dim uppercase tracking-wider mb-3">By Type</h3>
             <div className="space-y-1.5">
               {byType.map((d) => {
@@ -327,7 +328,7 @@ export default function CoeusContent() {
           </div>
 
           {/* Key Metrics */}
-          <div className="bg-card-gradient border border-border rounded-xl p-4">
+          <div className="bg-atlas-navy-3 border border-border rounded-xl p-4">
             <h3 className="text-xs font-medium text-text-dim uppercase tracking-wider mb-3">Key Metrics</h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -479,8 +480,8 @@ export default function CoeusContent() {
 
       {/* Resolve Modal */}
       {resolveModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setResolveModal(null)}>
-          <div className="bg-card border border-border rounded-xl p-5 w-full max-w-md mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setResolveModal(null)}>
+          <div className="bg-atlas-navy-3 border border-border rounded-xl p-5 w-full max-w-md mx-4 space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.5)] animate-slide-up" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-medium text-text-primary">Resolve Insight</h3>
             <textarea
               value={resolveNote}
@@ -553,7 +554,7 @@ function InsightGroup({
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="bg-card-gradient border border-border rounded-xl overflow-hidden">
+    <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-hidden">
       <button
         onClick={() => setCollapsed(!collapsed)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-card-hover transition-colors"

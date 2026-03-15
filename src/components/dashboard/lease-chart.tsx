@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Sector } from "recharts";
 import { useAppStore } from "@/stores/app-store";
 
-const COLORS = ["#10B981", "#F59E0B", "#EF4444", "#6B7280"];
+const COLORS = ["#4caf82", "#e09a3e", "#e05c5c", "#5a7a9a"];
 const FILTER_KEYS = ["active", "expiring-soon", "expired", "no-lease"] as const;
 
 interface Props {

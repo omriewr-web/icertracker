@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Sector } from "recharts";
 import { useAppStore } from "@/stores/app-store";
 
-const COLORS = ["#10B981", "#3B82F6", "#F59E0B", "#EF4444"];
+const COLORS = ["#4caf82", "#3b82f6", "#e09a3e", "#e05c5c"];
 const FILTER_KEYS = ["current", "30", "60", "90"] as const;
 
 function fmtShort(v: number): string {

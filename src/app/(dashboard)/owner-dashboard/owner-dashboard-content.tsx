@@ -134,7 +134,7 @@ export default function OwnerDashboardContent() {
       {/* Collections & Arrears + Vacancies */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Arrears Breakdown */}
-        <div className="bg-card-gradient border border-border rounded-xl p-5">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium text-text-muted">Collections & Arrears</h3>
             {trendIcon && (
@@ -154,7 +154,7 @@ export default function OwnerDashboardContent() {
         </div>
 
         {/* Vacancy Summary */}
-        <div className="bg-card-gradient border border-border rounded-xl p-5">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
           <h3 className="text-sm font-medium text-text-muted mb-4">Vacancy Summary</h3>
           <div className="grid grid-cols-3 gap-4 mb-4">
             <MiniStat label="Vacant Units" value={data.vacancies.count} />
@@ -193,7 +193,7 @@ export default function OwnerDashboardContent() {
       {/* Violations & Legal */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Violations */}
-        <div className="bg-card-gradient border border-border rounded-xl p-5">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
           <h3 className="text-sm font-medium text-text-muted mb-4">Violations & Compliance</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
             <MiniStat label="Total Open" value={data.violations.totalOpen} />
@@ -224,7 +224,7 @@ export default function OwnerDashboardContent() {
         </div>
 
         {/* Legal */}
-        <div className="bg-card-gradient border border-border rounded-xl p-5">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
           <h3 className="text-sm font-medium text-text-muted mb-4">Legal Cases</h3>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <MiniStat label="Active Cases" value={data.legal.totalActive} />
@@ -253,7 +253,7 @@ export default function OwnerDashboardContent() {
       {/* Upcoming Renewals & Vacancy Pipeline */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Upcoming Renewals */}
-        <div className="bg-card-gradient border border-border rounded-xl p-5">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
           <h3 className="text-sm font-medium text-text-muted mb-4 flex items-center gap-2">
             <CalendarClock className="w-4 h-4" />
             Upcoming Renewals (90 days)
@@ -294,7 +294,7 @@ export default function OwnerDashboardContent() {
         </div>
 
         {/* Vacancy Pipeline */}
-        <div className="bg-card-gradient border border-border rounded-xl p-5">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
           <h3 className="text-sm font-medium text-text-muted mb-4 flex items-center gap-2">
             <Activity className="w-4 h-4" />
             Vacancy Pipeline
@@ -347,7 +347,7 @@ export default function OwnerDashboardContent() {
 
       {/* Per-Building Table */}
       {sortedBuildings.length > 0 && (
-        <div className="bg-card-gradient border border-border rounded-xl p-5">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
           <h3 className="text-sm font-medium text-text-muted mb-4">Property Summary</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

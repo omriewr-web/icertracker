@@ -209,7 +209,7 @@ export default function UtilitiesContent() {
 
       {/* Building Rollup */}
       {summary && summary.buildingRollup.length > 1 && (
-        <div className="bg-card-gradient border border-border rounded-xl overflow-x-auto">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-x-auto">
           <div className="px-3 py-2 border-b border-border">
             <h3 className="text-sm font-medium text-text-muted">Building Summary</h3>
           </div>
@@ -289,7 +289,7 @@ export default function UtilitiesContent() {
 
       {/* Table */}
       {filtered.length > 0 ? (
-        <div className="bg-card-gradient border border-border rounded-xl overflow-x-auto">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-x-auto">
           <table className="w-full text-sm min-w-[1100px]">
             <thead>
               <tr className="border-b border-border">

@@ -38,17 +38,17 @@ import ExportButton from "@/components/ui/export-button";
 // ── Status config ──
 
 const COLLECTION_STATUSES = [
-  { value: "monitoring", label: "Monitoring", color: "bg-blue-500/10 text-blue-400" },
-  { value: "demand_sent", label: "Demand Sent", color: "bg-amber-500/10 text-amber-400" },
-  { value: "legal_referred", label: "Legal Referred", color: "bg-purple-500/10 text-purple-400" },
-  { value: "payment_plan", label: "Payment Plan", color: "bg-green-500/10 text-green-400" },
-  { value: "resolved", label: "Resolved", color: "bg-gray-500/10 text-gray-400" },
+  { value: "monitoring", label: "Monitoring", color: "bg-atlas-blue/10 text-atlas-blue" },
+  { value: "demand_sent", label: "Demand Sent", color: "bg-atlas-amber/10 text-atlas-amber" },
+  { value: "legal_referred", label: "Legal Referred", color: "bg-atlas-purple/10 text-atlas-purple" },
+  { value: "payment_plan", label: "Payment Plan", color: "bg-atlas-green/10 text-atlas-green" },
+  { value: "resolved", label: "Resolved", color: "bg-text-dim/10 text-text-dim" },
   // Legacy values from existing data
-  { value: "new_arrears", label: "New Arrears", color: "bg-red-500/10 text-red-400" },
-  { value: "reminder_sent", label: "Reminder Sent", color: "bg-amber-500/10 text-amber-400" },
-  { value: "notice_served", label: "Notice Served", color: "bg-orange-500/10 text-orange-400" },
-  { value: "legal_review", label: "Legal Review", color: "bg-purple-500/10 text-purple-400" },
-  { value: "legal_filed", label: "Legal Filed", color: "bg-purple-500/10 text-purple-400" },
+  { value: "new_arrears", label: "New Arrears", color: "bg-atlas-red/10 text-atlas-red" },
+  { value: "reminder_sent", label: "Reminder Sent", color: "bg-atlas-amber/10 text-atlas-amber" },
+  { value: "notice_served", label: "Notice Served", color: "bg-atlas-amber/10 text-atlas-amber" },
+  { value: "legal_review", label: "Legal Review", color: "bg-atlas-purple/10 text-atlas-purple" },
+  { value: "legal_filed", label: "Legal Filed", color: "bg-atlas-purple/10 text-atlas-purple" },
 ];
 
 function getStatusConfig(status: string | null) {
@@ -64,12 +64,12 @@ function getStatusConfig(status: string | null) {
 
 function AgingBadge({ category }: { category: string }) {
   if (category === "120+" || category === "90")
-    return <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-red-500/10 text-red-400">90+</span>;
+    return <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold font-data bg-atlas-red/10 text-atlas-red">90+</span>;
   if (category === "60")
-    return <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-orange-500/10 text-orange-400">61-90</span>;
+    return <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold font-data bg-atlas-amber/10 text-atlas-amber">61-90</span>;
   if (category === "30")
-    return <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-yellow-500/10 text-yellow-400">31-60</span>;
-  return <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-green-500/10 text-green-400">0-30</span>;
+    return <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold font-data bg-accent/10 text-accent">31-60</span>;
+  return <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold font-data bg-atlas-green/10 text-atlas-green">0-30</span>;
 }
 
 // ── Days since note helper ──
@@ -322,7 +322,10 @@ export default function CollectionsContent() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-text-primary">Collections</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Collections</h1>
+          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Financial — A/R Pipeline</span>
+        </div>
         <ExportButton
           data={selectedIds.size > 0 ? filteredRows.filter((r) => selectedIds.has(r.id)) : filteredRows}
           filename="collections-ar-aging"
@@ -359,7 +362,7 @@ export default function CollectionsContent() {
 
       {/* ── Stale Tenants Alert ── */}
       {(dashboard?.staleCount ?? 0) > 0 && (
-        <div className="bg-card-gradient border border-amber-500/30 rounded-xl overflow-hidden">
+        <div className="bg-atlas-navy-3 border border-amber-500/30 rounded-xl overflow-hidden">
           <button
             onClick={() => setStaleOpen(!staleOpen)}
             className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-card-hover transition-colors"
@@ -381,7 +384,7 @@ export default function CollectionsContent() {
       )}
 
       {/* ── Filter Bar ── */}
-      <div className="bg-card-gradient border border-border rounded-xl p-4">
+      <div className="bg-atlas-navy-3 border border-border rounded-xl p-4">
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1">
             <label className="text-[10px] text-text-dim uppercase tracking-wider">Building</label>
@@ -523,7 +526,7 @@ export default function CollectionsContent() {
 
       {/* ── Tenant AR Table ── */}
       {filteredRows.length > 0 ? (
-        <div className="bg-card-gradient border border-border rounded-xl overflow-x-auto">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-x-auto">
           <table className="w-full text-sm min-w-[1100px]">
             <thead>
               <tr className="border-b border-border">

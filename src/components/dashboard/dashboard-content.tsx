@@ -41,7 +41,10 @@ export default function DashboardContent() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Command Center</h1>
+          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Argus — Portfolio Intelligence</span>
+        </div>
         <div className="flex items-center gap-2">
           <ExportButton
             data={(buildings || []).map((b) => ({
@@ -116,7 +119,7 @@ export default function DashboardContent() {
       <CoeusWidget />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-card-gradient border border-border rounded-xl p-5 chart-container">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5 chart-container">
           <h3 className="text-sm font-medium text-text-muted mb-4">Arrears Distribution</h3>
           <ArrearsChart
             current={metrics.totalUnits - metrics.arrears30 - metrics.arrears60 - metrics.arrears90Plus - metrics.vacant}
@@ -129,7 +132,7 @@ export default function DashboardContent() {
             d90plus$={metrics.arrears90Plus$ ?? 0}
           />
         </div>
-        <div className="bg-card-gradient border border-border rounded-xl p-5 chart-container">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5 chart-container">
           <h3 className="text-sm font-medium text-text-muted mb-4">Lease Status</h3>
           <LeaseChart
             active={metrics.occupied - metrics.noLease - metrics.expiredLease - metrics.expiringSoon}
@@ -148,12 +151,12 @@ export default function DashboardContent() {
 
       {buildings && buildings.length > 0 && (
         <>
-          <div className="bg-card-gradient border border-border rounded-xl p-5 chart-container">
+          <div className="bg-atlas-navy-3 border border-border rounded-xl p-5 chart-container">
             <h3 className="text-sm font-medium text-text-muted mb-4">Arrears by Building — Legal vs. Non-Legal Exposure</h3>
             <BalanceChart buildings={buildings.sort((a, b) => b.totalBalance - a.totalBalance).slice(0, 10)} />
           </div>
 
-          <div className="bg-card-gradient border border-border rounded-xl p-5">
+          <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
             <h3 className="text-sm font-medium text-text-muted mb-4">Properties Overview</h3>
             <PropertiesTable buildings={buildings} />
           </div>
@@ -173,7 +176,7 @@ function CoeusWidget() {
 
   return (
     <Link href="/coeus" className="block">
-      <div className="bg-card-gradient border border-border rounded-xl p-4 hover:bg-card-hover transition-colors card-hover-lift">
+      <div className="bg-atlas-navy-3 border border-border rounded-xl p-4 hover:bg-card-hover transition-colors card-hover-lift">
         <div className="flex items-center gap-3">
           <Radio className="w-5 h-5 text-accent" />
           <span className="text-xs font-semibold text-accent uppercase tracking-wider">Coeus Intelligence</span>
@@ -208,7 +211,7 @@ function ComplianceWidget() {
 
   return (
     <Link href="/compliance" className="block">
-      <div className="bg-card-gradient border border-border rounded-xl p-4 hover:bg-card-hover transition-colors card-hover-lift">
+      <div className="bg-atlas-navy-3 border border-border rounded-xl p-4 hover:bg-card-hover transition-colors card-hover-lift">
         <div className="flex items-center gap-3">
           <Shield className="w-5 h-5 text-accent" />
           <div className="flex items-center gap-4 text-sm">

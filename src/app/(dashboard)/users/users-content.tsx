@@ -59,7 +59,7 @@ export default function UsersContent() {
         </Button>
       </div>
 
-      <div className="bg-card-gradient border border-border rounded-xl overflow-x-auto">
+      <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-x-auto">
         <table className="w-full text-sm min-w-[700px]">
           <thead>
             <tr className="border-b border-border">

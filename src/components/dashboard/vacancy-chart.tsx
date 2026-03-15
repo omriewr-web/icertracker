@@ -26,15 +26,15 @@ export default function VacancyChart({ buildings }: Props) {
   return (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={data} layout="vertical" margin={{ left: 10, right: 20 }}>
-        <XAxis type="number" tick={{ fill: "#8A95A5", fontSize: 11 }} />
+        <XAxis type="number" tick={{ fill: "#5a7a9a", fontSize: 11 }} />
         <YAxis
           type="category"
           dataKey="name"
           width={140}
-          tick={{ fill: "#8A95A5", fontSize: 11 }}
+          tick={{ fill: "#5a7a9a", fontSize: 11 }}
         />
         <Tooltip
-          contentStyle={{ background: "#1A2029", border: "1px solid #2A3441", borderRadius: 8, color: "#E8ECF1" }}
+          contentStyle={{ background: "linear-gradient(135deg, #0a1628, #0f2337)", border: "1px solid #1e3a5f", borderRadius: 12, color: "#e8edf4", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
           formatter={(value: number, name: string, props: any) => [
             `${value} units (${props.payload.rate}%)`,
             "Vacant",
@@ -42,7 +42,7 @@ export default function VacancyChart({ buildings }: Props) {
         />
         <Bar dataKey="vacant" radius={[0, 4, 4, 0]}>
           {data.map((entry, i) => (
-            <Cell key={i} fill={entry.rate >= 30 ? "#EF4444" : entry.rate >= 15 ? "#F59E0B" : "#3B82F6"} />
+            <Cell key={i} fill={entry.rate >= 30 ? "#e05c5c" : entry.rate >= 15 ? "#e09a3e" : "#3b82f6"} />
           ))}
         </Bar>
       </BarChart>

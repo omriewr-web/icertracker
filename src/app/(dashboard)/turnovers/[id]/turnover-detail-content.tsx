@@ -135,7 +135,7 @@ export default function TurnoverDetailContent({ id }: { id: string }) {
       </div>
 
       {/* Status Timeline */}
-      <div className="bg-card-gradient border border-border rounded-xl p-5">
+      <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
         <h3 className="text-sm font-medium text-text-muted mb-4">Progress</h3>
         <div className="flex items-center gap-1">
           {STATUSES.map((s, i) => {
@@ -164,7 +164,7 @@ export default function TurnoverDetailContent({ id }: { id: string }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Inspection Section */}
-        <div className="bg-card-gradient border border-border rounded-xl p-5">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
           <h3 className="text-sm font-medium text-text-muted mb-4">Inspection</h3>
           <div className="space-y-3">
             <div>
@@ -209,7 +209,7 @@ export default function TurnoverDetailContent({ id }: { id: string }) {
         </div>
 
         {/* Scope of Work */}
-        <div className="bg-card-gradient border border-border rounded-xl p-5">
+        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
           <h3 className="text-sm font-medium text-text-muted mb-4">Scope of Work</h3>
           <div className="space-y-3">
             <div>
@@ -245,7 +245,7 @@ export default function TurnoverDetailContent({ id }: { id: string }) {
       </div>
 
       {/* Vendor Assignments */}
-      <div className="bg-card-gradient border border-border rounded-xl p-5">
+      <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-medium text-text-muted">Vendor Assignments</h3>
           <button
