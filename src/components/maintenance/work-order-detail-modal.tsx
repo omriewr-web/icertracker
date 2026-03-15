@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Modal from "@/components/ui/modal";
 import Button from "@/components/ui/button";
 import { useWorkOrder, useUpdateWorkOrder, useDeleteWorkOrder, useCreateWorkOrderComment, useWorkOrderActivity, useUploadWorkOrderPhotos } from "@/hooks/use-work-orders";
@@ -34,6 +35,7 @@ interface Props {
 }
 
 export default function WorkOrderDetailModal({ workOrderId, onClose }: Props) {
+  const router = useRouter();
   const { data: wo, isLoading, isError } = useWorkOrder(workOrderId);
   const updateWO = useUpdateWorkOrder();
   const deleteWO = useDeleteWorkOrder();
@@ -43,7 +45,7 @@ export default function WorkOrderDetailModal({ workOrderId, onClose }: Props) {
   const uploadPhotos = useUploadWorkOrderPhotos(workOrderId || "");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [tab, setTab] = useState<"details" | "comments" | "activity">("details");
+  const [tab, setTab] = useState<"details" | "comments" | "activity" | "themis">("details");
   const [commentText, setCommentText] = useState("");
   const addComment = useCreateWorkOrderComment(workOrderId || "");
 
@@ -158,15 +160,16 @@ export default function WorkOrderDetailModal({ workOrderId, onClose }: Props) {
           </div>
 
           <div className="flex gap-1 border-b border-border mb-4">
-            {(["details", "comments", "activity"] as const).map((t) => (
+            {(["details", "comments", "activity", "themis"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`px-3 py-2 text-sm font-medium capitalize transition-colors ${
+                className={`px-3 py-2 text-sm font-medium transition-colors ${
                   tab === t ? "text-accent border-b-2 border-accent" : "text-text-dim hover:text-text-muted"
                 }`}
               >
-                {t}{t === "comments" && wo.comments?.length ? ` (${wo.comments.length})` : ""}
+                {t === "themis" ? "Themis Package" : t.charAt(0).toUpperCase() + t.slice(1)}
+                {t === "comments" && wo.comments?.length ? ` (${wo.comments.length})` : ""}
                 {t === "activity" && activity?.length ? ` (${activity.length})` : ""}
               </button>
             ))}
@@ -339,6 +342,52 @@ export default function WorkOrderDetailModal({ workOrderId, onClose }: Props) {
                   </div>
                 ))
               )}
+            </div>
+          )}
+
+          {tab === "themis" && (
+            <div className="space-y-4">
+              <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase' }} className="text-text-muted">
+                DOCUMENTATION PACKAGE
+              </p>
+
+              {wo.status === "COMPLETED" ? (
+                <button
+                  onClick={() => { router.push(`/themis?workOrderId=${wo.id}`); onClose(); }}
+                  style={{
+                    border: '1px solid rgba(200,144,26,0.35)',
+                    background: 'rgba(200,144,26,0.08)',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontSize: '10px',
+                    borderRadius: '5px',
+                    padding: '8px 14px',
+                    cursor: 'pointer',
+                    width: '100%',
+                  }}
+                  className="text-accent hover:bg-accent/15 transition-colors"
+                >
+                  Themis — Generate Package
+                </button>
+              ) : (
+                <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', textAlign: 'center', padding: '20px' }} className="text-text-muted">
+                  Complete this work order to generate a Themis package
+                </p>
+              )}
+
+              <div>
+                <div className="flex items-center justify-between py-1.5 border-b border-border/50" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px' }}>
+                  <span className="text-text-muted">Evidence photos</span>
+                  <span className="text-text-primary">{Array.isArray(wo.photos) ? wo.photos.length : 0} files</span>
+                </div>
+                <div className="flex items-center justify-between py-1.5 border-b border-border/50" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px' }}>
+                  <span className="text-text-muted">Access attempts</span>
+                  <span className="text-text-primary">None logged</span>
+                </div>
+                <div className="flex items-center justify-between py-1.5 border-b border-border/50" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px' }}>
+                  <span className="text-text-muted">Linked violation</span>
+                  <span className="text-text-primary">{wo.violationId ? wo.violationId.slice(0, 8) + "..." : "None"}</span>
+                </div>
+              </div>
             </div>
           )}
         </div>

@@ -41,10 +41,10 @@ const navItems: { href: string; label: string; icon: typeof LayoutDashboard; per
   { href: "/turnovers", label: "Turnovers", icon: ClipboardList, perm: "vac", section: "OPERATIONS" },
   { href: "/leases", label: "Leases", icon: FileText, perm: "lease", section: "OPERATIONS" },
   { href: "/maintenance", label: "Work Orders", icon: Wrench, perm: "maintenance", section: "OPERATIONS" },
+  { href: "/themis", label: "Themis", icon: Scale, perm: "maintenance", section: "OPERATIONS" },
   { href: "/utilities", label: "Utilities", icon: Gauge, perm: "utilities", section: "OPERATIONS" },
   { href: "/compliance", label: "Compliance", icon: Shield, perm: "compliance", section: "OPERATIONS" },
   { href: "/legal", label: "Legal Cases", icon: Scale, perm: "legal", section: "LEGAL" },
-  { href: "/themis", label: "Themis", icon: Scale, perm: "maintenance", section: "LEGAL" },
   { href: "/reports", label: "Reports", icon: BarChart3, perm: "reports", section: "SETTINGS" },
   { href: "/data", label: "Data Management", icon: Database, perm: "upload", section: "SETTINGS" },
   { href: "/users", label: "Users", icon: Users, perm: "users", section: "SETTINGS" },
@@ -89,12 +89,22 @@ export default function Sidebar() {
       <div className="p-3 border-b border-border overflow-hidden">
         {sidebarCollapsed ? (
           <div className="flex justify-center py-1">
-            <img src="/images/atlaspm-logo.jpg" alt="AtlasPM" className="rounded" style={{ height: '40px', width: 'auto' }} />
+            <img
+              src="/images/atlaspm-logo.jpg"
+              alt="AtlasPM"
+              className="rounded"
+              style={{ height: '36px', width: '36px', objectFit: 'cover', objectPosition: 'center' }}
+            />
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-2 mb-2">
-              <img src="/images/atlaspm-logo.jpg" alt="AtlasPM" className="rounded-md" style={{ height: '56px', width: 'auto' }} />
+            <div className="flex justify-center items-center py-3 mb-2">
+              <img
+                src="/images/atlaspm-logo.jpg"
+                alt="AtlasPM"
+                className="rounded-lg"
+                style={{ height: '80px', width: 'auto', maxWidth: '140px', objectFit: 'contain' }}
+              />
             </div>
             <PropertySelector />
           </>

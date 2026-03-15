@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Scale, ArrowLeft, ArrowRight, Upload, Mail, PenLine, Check, AlertTriangle, Download, Loader2, Plus, Trash2, Shield, Copy, Building2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Scale, ArrowLeft, ArrowRight, Upload, Mail, PenLine, Check, AlertTriangle, Download, Loader2, Plus, Trash2, Shield, Copy, Building2, X } from "lucide-react";
 import Button from "@/components/ui/button";
 import { useBuildings } from "@/hooks/use-buildings";
 import { cn } from "@/lib/utils";
@@ -106,6 +107,8 @@ function SourceBadge({ source }: { source: string }) {
 // ── Main Component ───────────────────────────────────────────────
 
 export default function ThemisContent() {
+  const searchParams = useSearchParams();
+  const workOrderIdParam = searchParams.get("workOrderId");
   const { data: buildings } = useBuildings();
   const [step, setStep] = useState(1);
   const [intakes, setIntakes] = useState<ThemisIntake[]>([]);
@@ -120,6 +123,7 @@ export default function ThemisContent() {
   const [formSource, setFormSource] = useState("MANUAL");
   const [formDescription, setFormDescription] = useState("");
   const [formFiles, setFormFiles] = useState<{ name: string; dataUrl: string; isImage: boolean }[]>([]);
+  const [prefillWOId, setPrefillWOId] = useState<string | null>(null);
 
   // ── Form state for verification ──
   const [draftTitle, setDraftTitle] = useState("");
@@ -141,6 +145,28 @@ export default function ThemisContent() {
   useEffect(() => {
     loadIntakes();
   }, []);
+
+  // Pre-fill from work order if workOrderId is in URL
+  useEffect(() => {
+    if (!workOrderIdParam) return;
+    setPrefillWOId(workOrderIdParam);
+    fetch(`/api/work-orders/${workOrderIdParam}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((wo) => {
+        if (!wo) return;
+        setFormBuildingId(wo.buildingId || "");
+        setFormDescription(`Work Order #${workOrderIdParam.slice(0, 8)}: ${wo.title}\n\n${wo.description || ""}`);
+        setFormSource("MANUAL");
+      })
+      .catch(() => {});
+  }, [workOrderIdParam]);
+
+  function clearPrefill() {
+    setPrefillWOId(null);
+    setFormBuildingId("");
+    setFormDescription("");
+    setFormSource("MANUAL");
+  }
 
   async function loadIntakes() {
     setLoading(true);
@@ -350,6 +376,16 @@ export default function ThemisContent() {
 
           {/* Right: Submit Form */}
           <div className="lg:col-span-2 bg-atlas-navy-3 border border-border rounded-lg p-5">
+            {prefillWOId && (
+              <div className="flex items-center justify-between rounded-md px-3 py-2 mb-3 border bg-blue-500/10 border-blue-500/20">
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px' }} className="text-blue-400">
+                  Pre-filled from Work Order #{prefillWOId.slice(0, 8)}
+                </span>
+                <button onClick={clearPrefill} className="text-text-muted hover:text-text-primary transition-colors">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
             <h2 className="text-sm font-semibold text-text-primary mb-4">New Intake</h2>
             <div className="space-y-3">
               <div>
