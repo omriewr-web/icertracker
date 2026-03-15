@@ -56,7 +56,7 @@ export function getBuildingScope(user: ScopeUser, explicitBuildingId?: string | 
     if (assigned.length === 0 || !assigned.includes(explicitBuildingId)) {
       return EMPTY_SCOPE;
     }
-    return { buildingId: { in: [explicitBuildingId] } };
+    return { buildingId: { in: [explicitBuildingId] }, building: { organizationId: user.organizationId } };
   }
 
   if (user.role === "SUPER_ADMIN") return {};
@@ -67,7 +67,7 @@ export function getBuildingScope(user: ScopeUser, explicitBuildingId?: string | 
   const assigned = user.assignedProperties ?? [];
   if (assigned.length === 0) return EMPTY_SCOPE;
 
-  return { buildingId: { in: assigned } };
+  return { buildingId: { in: assigned }, building: { organizationId: user.organizationId } };
 }
 
 /**
@@ -86,7 +86,7 @@ export function getBuildingIdScope(user: ScopeUser, explicitBuildingId?: string 
     if (assigned.length === 0 || !assigned.includes(explicitBuildingId)) {
       return EMPTY_SCOPE;
     }
-    return { id: explicitBuildingId };
+    return { id: explicitBuildingId, organizationId: user.organizationId };
   }
 
   if (user.role === "SUPER_ADMIN") return {};
@@ -97,7 +97,7 @@ export function getBuildingIdScope(user: ScopeUser, explicitBuildingId?: string 
   const assigned = user.assignedProperties ?? [];
   if (assigned.length === 0) return EMPTY_SCOPE;
 
-  return { id: { in: assigned } };
+  return { id: { in: assigned }, organizationId: user.organizationId };
 }
 
 /**
@@ -116,7 +116,7 @@ export function getTenantScope(user: ScopeUser, explicitBuildingId?: string | nu
     if (assigned.length === 0 || !assigned.includes(explicitBuildingId)) {
       return EMPTY_SCOPE;
     }
-    return { unit: { buildingId: explicitBuildingId } };
+    return { unit: { buildingId: explicitBuildingId, building: { organizationId: user.organizationId } } };
   }
 
   if (user.role === "SUPER_ADMIN") return {};
@@ -127,7 +127,7 @@ export function getTenantScope(user: ScopeUser, explicitBuildingId?: string | nu
   const assigned = user.assignedProperties ?? [];
   if (assigned.length === 0) return EMPTY_SCOPE;
 
-  return { unit: { buildingId: { in: assigned } } };
+  return { unit: { buildingId: { in: assigned }, building: { organizationId: user.organizationId } } };
 }
 
 /**
@@ -146,7 +146,7 @@ export function getLeaseScope(user: ScopeUser, explicitBuildingId?: string | nul
     if (assigned.length === 0 || !assigned.includes(explicitBuildingId)) {
       return EMPTY_SCOPE;
     }
-    return { buildingId: explicitBuildingId };
+    return { buildingId: explicitBuildingId, organizationId: user.organizationId };
   }
 
   if (user.role === "SUPER_ADMIN") return {};
@@ -157,7 +157,7 @@ export function getLeaseScope(user: ScopeUser, explicitBuildingId?: string | nul
   const assigned = user.assignedProperties ?? [];
   if (assigned.length === 0) return EMPTY_SCOPE;
 
-  return { buildingId: { in: assigned } };
+  return { buildingId: { in: assigned }, organizationId: user.organizationId };
 }
 
 // ── Ownership verification helpers for detail routes ─────────────
