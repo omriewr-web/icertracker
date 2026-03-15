@@ -3,11 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { workOrderUpdateSchema } from "@/lib/validations";
 import { assertWorkOrderAccess } from "@/lib/data-scope";
+import { getDisplayAddress } from "@/lib/building-matching";
 
 export const dynamic = "force-dynamic";
 
 const include = {
-  building: { select: { address: true } },
+  building: { select: { address: true, altAddress: true } },
   unit: { select: { unitNumber: true } },
   tenant: { select: { name: true } },
   vendor: { select: { name: true } },
@@ -20,6 +21,49 @@ const include = {
   _count: { select: { comments: true } },
 };
 
+function mapWorkOrder(wo: any) {
+  return {
+    id: wo.id,
+    title: wo.title,
+    description: wo.description,
+    status: wo.status,
+    priority: wo.priority,
+    category: wo.category,
+    photos: wo.photos as string[] | null,
+    estimatedCost: wo.estimatedCost ? Number(wo.estimatedCost) : null,
+    actualCost: wo.actualCost ? Number(wo.actualCost) : null,
+    scheduledDate: wo.scheduledDate?.toISOString() ?? null,
+    completedDate: wo.completedDate?.toISOString() ?? null,
+    buildingId: wo.buildingId,
+    buildingAddress: wo.building ? getDisplayAddress(wo.building) : "",
+    unitId: wo.unitId,
+    unitNumber: wo.unit?.unitNumber ?? null,
+    tenantId: wo.tenantId,
+    tenantName: wo.tenant?.name ?? null,
+    vendorId: wo.vendorId,
+    vendorName: wo.vendor?.name ?? null,
+    assignedToId: wo.assignedToId,
+    assignedToName: wo.assignedTo?.name ?? null,
+    createdById: wo.createdById,
+    createdByName: wo.createdBy?.name ?? null,
+    commentCount: wo._count?.comments ?? 0,
+    createdAt: wo.createdAt?.toISOString(),
+    updatedAt: wo.updatedAt?.toISOString(),
+    dueDate: wo.dueDate?.toISOString() ?? null,
+    sourceType: wo.sourceType ?? null,
+    sourceId: wo.sourceId ?? null,
+    trade: wo.trade ?? null,
+    violationId: wo.violationId ?? null,
+    comments: wo.comments?.map((c: any) => ({
+      id: c.id,
+      text: c.text,
+      photos: c.photos ?? null,
+      author: c.author,
+      createdAt: c.createdAt?.toISOString(),
+    })) ?? [],
+  };
+}
+
 export const GET = withAuth(async (req, { user, params }) => {
   const { id } = await params;
   const denied = await assertWorkOrderAccess(user, id);
@@ -27,7 +71,7 @@ export const GET = withAuth(async (req, { user, params }) => {
 
   const wo = await prisma.workOrder.findUnique({ where: { id }, include });
   if (!wo) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(wo);
+  return NextResponse.json(mapWorkOrder(wo));
 }, "maintenance");
 
 export const PATCH = withAuth(async (req, { user, params }) => {
@@ -92,7 +136,7 @@ export const PATCH = withAuth(async (req, { user, params }) => {
     return updated;
   });
 
-  return NextResponse.json(wo);
+  return NextResponse.json(mapWorkOrder(wo));
 }, "maintenance");
 
 export const DELETE = withAuth(async (req, { user, params }) => {

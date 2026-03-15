@@ -179,11 +179,11 @@ export default function WorkOrderDetailModal({ workOrderId, onClose }: Props) {
               </div>
 
               <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
-                <Field label="Building" value={wo.building?.address} />
-                <Field label="Unit" value={wo.unit?.unitNumber || "—"} />
-                <Field label="Tenant" value={wo.tenant?.name || "—"} />
+                <Field label="Building" value={wo.buildingAddress} />
+                <Field label="Unit" value={wo.unitNumber || "—"} />
+                <Field label="Tenant" value={wo.tenantName || "—"} />
                 <Field label="Created" value={formatDate(wo.createdAt)} />
-                <Field label="Created By" value={wo.createdBy?.name || "—"} />
+                <Field label="Created By" value={wo.createdByName || "—"} />
                 {wo.completedDate && <Field label="Completed" value={formatDate(wo.completedDate)} />}
               </div>
 
