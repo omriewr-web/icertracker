@@ -6,7 +6,7 @@ import { importLegalCases } from "@/lib/services/legal-import.service";
 
 export const dynamic = "force-dynamic";
 
-export const POST = withAuth(async (req: NextRequest) => {
+export const POST = withAuth(async (req: NextRequest, { user }) => {
   const formData = await req.formData();
   const file = formData.get("file");
 
@@ -35,7 +35,7 @@ export const POST = withAuth(async (req: NextRequest) => {
     return NextResponse.json({ error: "Too many rows (max 5000)" }, { status: 413 });
   }
 
-  const result = await importLegalCases(rows);
+  const result = await importLegalCases(rows, user.organizationId!);
 
   return NextResponse.json({
     ...result,
