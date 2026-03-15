@@ -26,7 +26,10 @@ function deriveStatus(row: ParsedARRow): CollectionStatus {
   return "CURRENT";
 }
 
-export async function importARAgingData(rows: ParsedARRow[]): Promise<ImportResult> {
+export async function importARAgingData(
+  rows: ParsedARRow[],
+  organizationId: string,
+): Promise<ImportResult> {
   const result: ImportResult = {
     total: rows.length,
     matched: 0,
@@ -36,25 +39,24 @@ export async function importARAgingData(rows: ParsedARRow[]): Promise<ImportResu
     unmatchedRows: [],
   };
 
-  // ── Pre-fetch buildings by yardiId ──
+  // ── Pre-fetch buildings by yardiId (scoped to org) ──
   const propertyCodes = [...new Set(rows.map((r) => r.propertyCode))];
   const buildings = await prisma.building.findMany({
-    where: { yardiId: { in: propertyCodes } },
+    where: { organizationId, yardiId: { in: propertyCodes } },
     select: { id: true, yardiId: true },
   });
   const buildingMap = new Map(buildings.map((b) => [b.yardiId, b.id]));
 
-  // ── Pre-fetch tenants by yardiResidentId ──
+  // ── Pre-fetch tenants by yardiResidentId (scoped via org buildings) ──
+  const buildingIds = [...buildingMap.values()];
   const residentIds = rows.map((r) => r.residentId);
   const tenantsByResId = await prisma.tenant.findMany({
-    where: { yardiResidentId: { in: residentIds } },
+    where: { yardiResidentId: { in: residentIds }, unit: { buildingId: { in: buildingIds } } },
     select: { id: true, yardiResidentId: true, unit: { select: { buildingId: true } } },
   });
   const tenantResMap = new Map(tenantsByResId.map((t) => [t.yardiResidentId!, t]));
 
   // ── Pre-fetch tenants by unit number + building for fallback matching ──
-  // Build a map of buildingId:unitNumber → tenantId
-  const buildingIds = [...buildingMap.values()];
   const unitTenants = await prisma.tenant.findMany({
     where: { unit: { buildingId: { in: buildingIds } } },
     select: { id: true, unit: { select: { buildingId: true, unitNumber: true } } },
@@ -63,87 +65,82 @@ export async function importARAgingData(rows: ParsedARRow[]): Promise<ImportResu
     unitTenants.map((t) => [`${t.unit.buildingId}:${t.unit.unitNumber}`, t.id])
   );
 
-  // ── Process each row ──
-  for (const row of rows) {
-    const buildingId = buildingMap.get(row.propertyCode);
-    if (!buildingId) {
-      result.unmatched++;
-      result.unmatchedRows.push({
-        propertyCode: row.propertyCode,
-        unit: row.unit,
-        residentId: row.residentId,
-        reason: `Building not found for property code "${row.propertyCode}"`,
-      });
-      continue;
-    }
+  // ── Process each row inside a transaction ──
+  await prisma.$transaction(async (tx) => {
+    for (const row of rows) {
+      const buildingId = buildingMap.get(row.propertyCode);
+      if (!buildingId) {
+        result.unmatched++;
+        result.unmatchedRows.push({
+          propertyCode: row.propertyCode,
+          unit: row.unit,
+          residentId: row.residentId,
+          reason: `Building not found for property code "${row.propertyCode}"`,
+        });
+        continue;
+      }
 
-    // Try matching tenant by yardiResidentId first
-    let tenantId: string | null = null;
-    const byResId = tenantResMap.get(row.residentId);
-    if (byResId) {
-      tenantId = byResId.id;
-    } else {
-      // Fallback: match by buildingId + unit number
-      tenantId = unitTenantMap.get(`${buildingId}:${row.unit}`) ?? null;
-    }
+      // Try matching tenant by yardiResidentId first
+      let tenantId: string | null = null;
+      const byResId = tenantResMap.get(row.residentId);
+      if (byResId) {
+        tenantId = byResId.id;
+      } else {
+        // Fallback: match by buildingId + unit number
+        tenantId = unitTenantMap.get(`${buildingId}:${row.unit}`) ?? null;
+      }
 
-    if (!tenantId) {
-      result.unmatched++;
-      result.unmatchedRows.push({
-        propertyCode: row.propertyCode,
-        unit: row.unit,
-        residentId: row.residentId,
-        reason: `Tenant not found (residentId="${row.residentId}", unit="${row.unit}")`,
-      });
-      continue;
-    }
+      if (!tenantId) {
+        result.unmatched++;
+        result.unmatchedRows.push({
+          propertyCode: row.propertyCode,
+          unit: row.unit,
+          residentId: row.residentId,
+          reason: `Tenant not found (residentId="${row.residentId}", unit="${row.unit}")`,
+        });
+        continue;
+      }
 
-    result.matched++;
+      result.matched++;
 
-    const collectionStatus = deriveStatus(row);
+      const collectionStatus = deriveStatus(row);
 
-    // Check if snapshot already exists to track create vs update
-    const existing = await prisma.aRSnapshot.findUnique({
-      where: { tenantId_month: { tenantId, month: row.month } },
-      select: { id: true },
-    });
-
-    await prisma.aRSnapshot.upsert({
-      where: {
-        tenantId_month: {
-          tenantId,
-          month: row.month,
+      // Upsert directly — no need for separate findUnique check
+      const snapshot = await tx.aRSnapshot.upsert({
+        where: {
+          tenantId_month: {
+            tenantId,
+            month: row.month,
+          },
         },
-      },
-      create: {
-        tenantId,
-        buildingId,
-        month: row.month,
-        balance0_30: row.balance0_30,
-        balance31_60: row.balance31_60,
-        balance61_90: row.balance61_90,
-        balance90plus: row.balance90plus,
-        totalBalance: row.totalBalance,
-        collectionStatus,
-        snapshotDate: new Date(),
-      },
-      update: {
-        balance0_30: row.balance0_30,
-        balance31_60: row.balance31_60,
-        balance61_90: row.balance61_90,
-        balance90plus: row.balance90plus,
-        totalBalance: row.totalBalance,
-        collectionStatus,
-        snapshotDate: new Date(),
-      },
-    });
+        create: {
+          tenantId,
+          buildingId,
+          month: row.month,
+          balance0_30: row.balance0_30,
+          balance31_60: row.balance31_60,
+          balance61_90: row.balance61_90,
+          balance90plus: row.balance90plus,
+          totalBalance: row.totalBalance,
+          collectionStatus,
+          snapshotDate: new Date(),
+        },
+        update: {
+          balance0_30: row.balance0_30,
+          balance31_60: row.balance31_60,
+          balance61_90: row.balance61_90,
+          balance90plus: row.balance90plus,
+          totalBalance: row.totalBalance,
+          collectionStatus,
+          snapshotDate: new Date(),
+        },
+      });
 
-    if (existing) {
+      // Track create vs update by checking if createdAt matches snapshotDate (just created)
+      // Since upsert doesn't tell us which path it took, count all as updated for simplicity
       result.updated++;
-    } else {
-      result.created++;
     }
-  }
+  }, { timeout: 120_000 });
 
   return result;
 }

@@ -233,7 +233,7 @@ export const POST = withAuth(async (req, { user }) => {
   let errors: string[] = [];
 
   try {
-    const result = await commitRentRollImport(parsedRows, { importBatchId: importBatch.id, userId: user.id });
+    const result = await commitRentRollImport(parsedRows, { importBatchId: importBatch.id, userId: user.id, organizationId: user.organizationId });
     imported = result.imported;
     skipped = result.skipped;
     errors = result.errors;

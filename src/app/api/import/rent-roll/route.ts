@@ -53,7 +53,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     }
   }
 
-  const result = await importRentRollData(rows, vacantRows);
+  const result = await importRentRollData(rows, vacantRows, user.organizationId ?? undefined);
 
   return NextResponse.json({
     ...result,

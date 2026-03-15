@@ -58,223 +58,226 @@ export async function commitRentRollImport(
   const unmatchedCodes: string[] = [];
   const errors: string[] = [];
 
-  for (const row of rows) {
-    if (row.action === "skip") {
-      errors.push(`Row ${row.rowIndex + 1}: ${row.error}`);
-      skipped++;
-      continue;
-    }
-
-    const t = row.parsed;
-    try {
-      // ── Resolve building ──
-      const propKey = t.property || "Unknown";
-      const yardiMatch = propKey.match(/\(([^)]+)\)\s*$/);
-      const yardiCode = yardiMatch ? yardiMatch[1] : null;
-      const extractedAddr = extractAddressFromEntity(propKey);
-      const cacheKey = yardiCode || normalizeAddress(extractedAddr || propKey);
-      let buildingId = buildingCache.get(cacheKey);
-
-      if (buildingId === undefined) {
-        const match = findMatchingBuilding(
-          { address: extractedAddr || propKey, block: null, lot: null, entity: propKey, yardiId: yardiCode },
-          existingBuildings,
-        );
-        if (match) {
-          buildingId = match.id;
-          matchedBuildingIds.add(match.id);
-          const matchedBuilding = existingBuildings.find((b) => b.id === match.id);
-          console.log(`Matched building [${matchedBuilding?.address}] via ${match.matchedBy} [${yardiCode || extractedAddr || propKey}]`);
-        } else {
-          buildingId = null;
-          const code = yardiCode || extractedAddr || propKey;
-          unmatchedCodes.push(code);
-          console.log(`WARNING: No building match for yardiId [${yardiCode}] extractedAddr [${extractedAddr}] entity [${propKey}]`);
-        }
-        buildingCache.set(cacheKey, buildingId);
-      }
-
-      // If no building match, skip these rows — don't create Unknown buildings
-      if (!buildingId) {
-        const msg = `Row ${row.rowIndex + 1}: No matching building for "${propKey}" — skipping.`;
-        errors.push(msg);
-        await prisma.importRow.create({
-          data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: "SKIPPED", entityType: "tenant", errors: [msg] },
-        }).catch(() => {});
+  // Wrap all writes in a transaction
+  await prisma.$transaction(async (tx) => {
+    for (const row of rows) {
+      if (row.action === "skip") {
+        errors.push(`Row ${row.rowIndex + 1}: ${row.error}`);
         skipped++;
         continue;
       }
 
-      // ── Upsert unit ──
-      const unitRecord = await prisma.unit.upsert({
-        where: { buildingId_unitNumber: { buildingId, unitNumber: t.unit } },
-        create: { buildingId, unitNumber: t.unit, unitType: t.unitType, isVacant: t.isVacant },
-        update: { unitType: t.unitType, isVacant: t.isVacant },
-      });
+      const t = row.parsed;
+      try {
+        // ── Resolve building ──
+        const propKey = t.property || "Unknown";
+        const yardiMatch = propKey.match(/\(([^)]+)\)\s*$/);
+        const yardiCode = yardiMatch ? yardiMatch[1] : null;
+        const extractedAddr = extractAddressFromEntity(propKey);
+        const cacheKey = yardiCode || normalizeAddress(extractedAddr || propKey);
+        let buildingId = buildingCache.get(cacheKey);
 
-      if (t.isVacant) {
-        await prisma.vacancyInfo.upsert({
-          where: { unitId: unitRecord.id },
-          create: { unitId: unitRecord.id, proposedRent: t.marketRent },
-          update: { proposedRent: t.marketRent },
+        if (buildingId === undefined) {
+          const match = findMatchingBuilding(
+            { address: extractedAddr || propKey, block: null, lot: null, entity: propKey, yardiId: yardiCode },
+            existingBuildings,
+          );
+          if (match) {
+            buildingId = match.id;
+            matchedBuildingIds.add(match.id);
+            const matchedBuilding = existingBuildings.find((b) => b.id === match.id);
+            console.log(`Matched building [${matchedBuilding?.address}] via ${match.matchedBy} [${yardiCode || extractedAddr || propKey}]`);
+          } else {
+            buildingId = null;
+            const code = yardiCode || extractedAddr || propKey;
+            unmatchedCodes.push(code);
+            console.log(`WARNING: No building match for yardiId [${yardiCode}] extractedAddr [${extractedAddr}] entity [${propKey}]`);
+          }
+          buildingCache.set(cacheKey, buildingId);
+        }
+
+        // If no building match, skip these rows — don't create Unknown buildings
+        if (!buildingId) {
+          const msg = `Row ${row.rowIndex + 1}: No matching building for "${propKey}" — skipping.`;
+          errors.push(msg);
+          await tx.importRow.create({
+            data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: "SKIPPED", entityType: "tenant", errors: [msg] },
+          }).catch(() => {});
+          skipped++;
+          continue;
+        }
+
+        // ── Upsert unit ──
+        const unitRecord = await tx.unit.upsert({
+          where: { buildingId_unitNumber: { buildingId, unitNumber: t.unit } },
+          create: { buildingId, unitNumber: t.unit, unitType: t.unitType, isVacant: t.isVacant },
+          update: { unitType: t.unitType, isVacant: t.isVacant },
         });
-        await prisma.importRow.create({
-          data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: "UPDATED", entityType: "vacancy", entityId: unitRecord.id },
+
+        if (t.isVacant) {
+          await tx.vacancyInfo.upsert({
+            where: { unitId: unitRecord.id },
+            create: { unitId: unitRecord.id, proposedRent: t.marketRent },
+            update: { proposedRent: t.marketRent },
+          });
+          await tx.importRow.create({
+            data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: "UPDATED", entityType: "vacancy", entityId: unitRecord.id },
+          });
+          imported++;
+          continue;
+        }
+
+        // ── Guard: if name looks like a Yardi t-code, it's an ID not a name ──
+        let tenantName = t.name;
+        let residentId = t.residentId;
+        if (YARDI_CODE_RE.test(tenantName)) {
+          // Promote the t-code to residentId if we don't already have one
+          if (!residentId) residentId = tenantName;
+          tenantName = `[Needs Review] ${tenantName}`;
+          console.log(`WARNING: Row ${row.rowIndex + 1}: Name "${t.name}" looks like a Yardi code — marked for review`);
+        }
+
+        // ── Compute derived fields ──
+        const leaseExp = t.leaseExpiration ? new Date(t.leaseExpiration) : null;
+        const arrearsCategory = getArrearsCategory(t.balance, t.marketRent);
+        const arrearsDays = getArrearsDays(t.balance, t.marketRent);
+        const leaseStatus = getLeaseStatus(leaseExp);
+        const monthsOwed = t.marketRent > 0 ? t.balance / t.marketRent : 0;
+        const collectionScore = calcCollectionScore({
+          balance: t.balance, marketRent: t.marketRent, arrearsDays, leaseStatus,
+          legalFlag: false, legalRecommended: false, isVacant: false,
         });
-        imported++;
-        continue;
-      }
 
-      // ── Guard: if name looks like a Yardi t-code, it's an ID not a name ──
-      let tenantName = t.name;
-      let residentId = t.residentId;
-      if (YARDI_CODE_RE.test(tenantName)) {
-        // Promote the t-code to residentId if we don't already have one
-        if (!residentId) residentId = tenantName;
-        tenantName = `[Needs Review] ${tenantName}`;
-        console.log(`WARNING: Row ${row.rowIndex + 1}: Name "${t.name}" looks like a Yardi code — marked for review`);
-      }
+        const tenantData = {
+          name: tenantName,
+          marketRent: t.marketRent,
+          chargeCode: t.chargeCode,
+          actualRent: t.chargeAmount || t.marketRent,
+          deposit: t.deposit,
+          balance: t.balance,
+          moveInDate: t.moveIn ? new Date(t.moveIn) : null,
+          leaseExpiration: leaseExp,
+          moveOutDate: t.moveOut ? new Date(t.moveOut) : null,
+          arrearsCategory, arrearsDays, monthsOwed, leaseStatus, collectionScore,
+        };
 
-      // ── Compute derived fields ──
-      const leaseExp = t.leaseExpiration ? new Date(t.leaseExpiration) : null;
-      const arrearsCategory = getArrearsCategory(t.balance, t.marketRent);
-      const arrearsDays = getArrearsDays(t.balance, t.marketRent);
-      const leaseStatus = getLeaseStatus(leaseExp);
-      const monthsOwed = t.marketRent > 0 ? t.balance / t.marketRent : 0;
-      const collectionScore = calcCollectionScore({
-        balance: t.balance, marketRent: t.marketRent, arrearsDays, leaseStatus,
-        legalFlag: false, legalRecommended: false, isVacant: false,
-      });
+        let tenant;
+        let rowAction: "CREATED" | "UPDATED" | "SKIPPED";
 
-      const tenantData = {
-        name: tenantName,
-        marketRent: t.marketRent,
-        chargeCode: t.chargeCode,
-        actualRent: t.chargeAmount || t.marketRent,
-        deposit: t.deposit,
-        balance: t.balance,
-        moveInDate: t.moveIn ? new Date(t.moveIn) : null,
-        leaseExpiration: leaseExp,
-        moveOutDate: t.moveOut ? new Date(t.moveOut) : null,
-        arrearsCategory, arrearsDays, monthsOwed, leaseStatus, collectionScore,
-      };
+        // Tier 1: Match by yardiResidentId
+        if (residentId) {
+          const existing = await tx.tenant.findUnique({ where: { yardiResidentId: residentId } });
+          rowAction = existing ? "UPDATED" : "CREATED";
+          tenant = await tx.tenant.upsert({
+            where: { yardiResidentId: residentId },
+            create: { unitId: unitRecord.id, yardiResidentId: residentId, ...tenantData },
+            update: tenantData,
+          });
+        } else {
+          // Tier 2: Match by buildingId + unitNumber + name (case-insensitive)
+          const existing = await tx.tenant.findFirst({
+            where: {
+              unit: { buildingId, unitNumber: t.unit },
+              name: { equals: tenantName, mode: "insensitive" },
+            },
+          });
 
-      let tenant;
-      let rowAction: "CREATED" | "UPDATED" | "SKIPPED";
+          if (existing) {
+            rowAction = "UPDATED";
+            tenant = await tx.tenant.update({
+              where: { id: existing.id },
+              data: tenantData,
+            });
+          } else {
+            // NO unitId-only fallback — log a warning instead
+            const occupant = await tx.tenant.findUnique({ where: { unitId: unitRecord.id } });
+            if (occupant) {
+              const msg = `Row ${row.rowIndex + 1}: "${tenantName}" does not match existing tenant "${occupant.name}" in unit ${t.unit}. Skipped to prevent overwrite.`;
+              errors.push(msg);
+              await tx.importRow.create({
+                data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: "SKIPPED", entityType: "tenant", errors: [msg] },
+              });
+              skipped++;
+              continue;
+            }
 
-      // Tier 1: Match by yardiResidentId
-      if (residentId) {
-        const existing = await prisma.tenant.findUnique({ where: { yardiResidentId: residentId } });
-        rowAction = existing ? "UPDATED" : "CREATED";
-        tenant = await prisma.tenant.upsert({
-          where: { yardiResidentId: residentId },
-          create: { unitId: unitRecord.id, yardiResidentId: residentId, ...tenantData },
-          update: tenantData,
-        });
-      } else {
-        // Tier 2: Match by buildingId + unitNumber + name (case-insensitive)
-        const existing = await prisma.tenant.findFirst({
-          where: {
-            unit: { buildingId, unitNumber: t.unit },
-            name: { equals: tenantName, mode: "insensitive" },
+            rowAction = "CREATED";
+            tenant = await tx.tenant.create({
+              data: { unitId: unitRecord.id, ...tenantData },
+            });
+          }
+        }
+
+        // ── Dual-write: Lease + BalanceSnapshot ──
+        const normalizedLeaseStatus = leaseExp
+          ? (leaseExp < new Date() ? "EXPIRED" : "ACTIVE")
+          : "MONTH_TO_MONTH";
+        const leaseId = `${tenant.id}-lease`;
+
+        await tx.lease.upsert({
+          where: { id: leaseId },
+          create: {
+            id: leaseId,
+            organizationId: ctx.organizationId ?? null,
+            buildingId,
+            unitId: unitRecord.id,
+            tenantId: tenant.id,
+            isCurrent: true,
+            leaseStart: t.moveIn ? new Date(t.moveIn) : null,
+            leaseEnd: leaseExp,
+            moveInDate: t.moveIn ? new Date(t.moveIn) : null,
+            moveOutDate: t.moveOut ? new Date(t.moveOut) : null,
+            monthlyRent: t.marketRent,
+            legalRent: 0,
+            preferentialRent: 0,
+            securityDeposit: t.deposit,
+            currentBalance: t.balance,
+            chargeCode: t.chargeCode ?? null,
+            status: normalizedLeaseStatus as any,
+            isStabilized: false,
+          },
+          update: {
+            organizationId: ctx.organizationId ?? null,
+            buildingId,
+            isCurrent: true,
+            leaseStart: t.moveIn ? new Date(t.moveIn) : null,
+            leaseEnd: leaseExp,
+            moveInDate: t.moveIn ? new Date(t.moveIn) : null,
+            moveOutDate: t.moveOut ? new Date(t.moveOut) : null,
+            monthlyRent: t.marketRent,
+            securityDeposit: t.deposit,
+            currentBalance: t.balance,
+            chargeCode: t.chargeCode ?? null,
+            status: normalizedLeaseStatus as any,
           },
         });
 
-        if (existing) {
-          rowAction = "UPDATED";
-          tenant = await prisma.tenant.update({
-            where: { id: existing.id },
-            data: tenantData,
-          });
-        } else {
-          // NO unitId-only fallback — log a warning instead
-          const occupant = await prisma.tenant.findUnique({ where: { unitId: unitRecord.id } });
-          if (occupant) {
-            const msg = `Row ${row.rowIndex + 1}: "${tenantName}" does not match existing tenant "${occupant.name}" in unit ${t.unit}. Skipped to prevent overwrite.`;
-            errors.push(msg);
-            await prisma.importRow.create({
-              data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: "SKIPPED", entityType: "tenant", errors: [msg] },
-            });
-            skipped++;
-            continue;
-          }
+        await tx.balanceSnapshot.create({
+          data: {
+            tenantId: tenant.id, leaseId, importBatchId: ctx.importBatchId,
+            snapshotDate: new Date(),
+            currentCharges: t.chargeAmount || t.marketRent,
+            currentBalance: t.balance,
+            pastDueBalance: t.balance > 0 ? t.balance : 0,
+            arrearsStatus: arrearsCategory,
+          },
+        });
 
-          rowAction = "CREATED";
-          tenant = await prisma.tenant.create({
-            data: { unitId: unitRecord.id, ...tenantData },
-          });
-        }
+        await tx.importRow.create({
+          data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: rowAction, entityType: "tenant", entityId: tenant.id },
+        });
+
+        if (rowAction === "CREATED") tenantsCreated++;
+        imported++;
+      } catch (e: any) {
+        errors.push(`${t.unit} ${t.name}: ${e.message}`);
+        await tx.importRow.create({
+          data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: "ERROR", entityType: "tenant", errors: [e.message] },
+        }).catch(() => {});
+        skipped++;
       }
-
-      // ── Dual-write: Lease + BalanceSnapshot ──
-      const normalizedLeaseStatus = leaseExp
-        ? (leaseExp < new Date() ? "EXPIRED" : "ACTIVE")
-        : "MONTH_TO_MONTH";
-      const leaseId = `${tenant.id}-lease`;
-
-      await prisma.lease.upsert({
-        where: { id: leaseId },
-        create: {
-          id: leaseId,
-          organizationId: ctx.organizationId ?? null,
-          buildingId,
-          unitId: unitRecord.id,
-          tenantId: tenant.id,
-          isCurrent: true,
-          leaseStart: t.moveIn ? new Date(t.moveIn) : null,
-          leaseEnd: leaseExp,
-          moveInDate: t.moveIn ? new Date(t.moveIn) : null,
-          moveOutDate: t.moveOut ? new Date(t.moveOut) : null,
-          monthlyRent: t.marketRent,
-          legalRent: 0,
-          preferentialRent: 0,
-          securityDeposit: t.deposit,
-          currentBalance: t.balance,
-          chargeCode: t.chargeCode ?? null,
-          status: normalizedLeaseStatus as any,
-          isStabilized: false,
-        },
-        update: {
-          organizationId: ctx.organizationId ?? null,
-          buildingId,
-          isCurrent: true,
-          leaseStart: t.moveIn ? new Date(t.moveIn) : null,
-          leaseEnd: leaseExp,
-          moveInDate: t.moveIn ? new Date(t.moveIn) : null,
-          moveOutDate: t.moveOut ? new Date(t.moveOut) : null,
-          monthlyRent: t.marketRent,
-          securityDeposit: t.deposit,
-          currentBalance: t.balance,
-          chargeCode: t.chargeCode ?? null,
-          status: normalizedLeaseStatus as any,
-        },
-      });
-
-      await prisma.balanceSnapshot.create({
-        data: {
-          tenantId: tenant.id, leaseId, importBatchId: ctx.importBatchId,
-          snapshotDate: new Date(),
-          currentCharges: t.chargeAmount || t.marketRent,
-          currentBalance: t.balance,
-          pastDueBalance: t.balance > 0 ? t.balance : 0,
-          arrearsStatus: arrearsCategory,
-        },
-      });
-
-      await prisma.importRow.create({
-        data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: rowAction, entityType: "tenant", entityId: tenant.id },
-      });
-
-      if (rowAction === "CREATED") tenantsCreated++;
-      imported++;
-    } catch (e: any) {
-      errors.push(`${t.unit} ${t.name}: ${e.message}`);
-      await prisma.importRow.create({
-        data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: "ERROR", entityType: "tenant", errors: [e.message] },
-      }).catch(() => {});
-      skipped++;
     }
-  }
+  }, { timeout: 120_000 });
 
   console.log(`Import complete: ${imported} imported (${tenantsCreated} created), ${skipped} skipped, ${matchedBuildingIds.size} buildings matched, ${unmatchedCodes.length} unmatched codes: [${unmatchedCodes.join(", ")}]`);
   return { imported, skipped, errors, tenantsCreated, buildingsMatched: matchedBuildingIds.size, unmatchedCodes };

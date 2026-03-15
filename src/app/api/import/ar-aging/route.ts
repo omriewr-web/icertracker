@@ -54,7 +54,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   }
 
   // Import into database
-  const result = await importARAgingData(rows);
+  const result = await importARAgingData(rows, user.organizationId!);
 
   return NextResponse.json({
     ...result,
