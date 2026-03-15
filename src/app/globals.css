@@ -2,16 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Atlas Navy Scale */
+  --atlas-navy-1: #060c17;
+  --atlas-navy-2: #0a1628;
+  --atlas-navy-3: #0f2337;
+  --atlas-navy-4: #132238;
+  --atlas-navy-5: #1a2d45;
+
+  /* Borders */
+  --atlas-border: #1e3a5f;
+  --atlas-border-light: #2a4a6b;
+
+  /* Gold */
+  --atlas-gold: #c9a84c;
+  --atlas-gold-dim: #a08838;
+  --atlas-gold-bright: #d4b95e;
+
+  /* Text */
+  --atlas-text: #ffffff;
+  --atlas-text-secondary: #a0aec0;
+  --atlas-text-dim: #5a7a9a;
+
+  /* Status */
+  --atlas-red: #e05c5c;
+  --atlas-amber: #e09a3e;
+  --atlas-green: #4caf82;
+  --atlas-blue: #3b82f6;
+  --atlas-purple: #8b5cf6;
+
+  /* Surfaces */
+  --atlas-card: #0f2337;
+  --atlas-card-hover: #1a2d45;
+}
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #1E3A5F #0D1B2A;
+  scrollbar-color: var(--atlas-border) var(--atlas-navy-1);
 }
 
 body {
-  background-color: #0D1B2A;
-  color: #FFFFFF;
+  background-color: var(--atlas-navy-1);
+  color: var(--atlas-text);
+  font-family: "Space Grotesk", system-ui, sans-serif;
 }
 
 input[type="number"]::-webkit-inner-spin-button,
@@ -76,3 +111,37 @@ textarea:focus {
 .chart-container {
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15));
 }
+
+/* === TITAN ANIMATIONS === */
+
+@keyframes atlas-pulse-red {
+  0%, 100% { box-shadow: 0 0 4px rgba(224, 92, 92, 0.3); }
+  50% { box-shadow: 0 0 12px rgba(224, 92, 92, 0.6); }
+}
+
+@keyframes atlas-pulse-gold {
+  0%, 100% { box-shadow: 0 0 4px rgba(201, 168, 76, 0.2); }
+  50% { box-shadow: 0 0 14px rgba(201, 168, 76, 0.45); }
+}
+
+@keyframes atlas-live-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes atlas-ticker {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+@keyframes atlas-scan-line {
+  0% { transform: translateY(-100%); opacity: 0; }
+  50% { opacity: 0.5; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+
+.animate-atlas-pulse-red { animation: atlas-pulse-red 2s ease-in-out infinite; }
+.animate-atlas-pulse-gold { animation: atlas-pulse-gold 2.5s ease-in-out infinite; }
+.animate-atlas-live-blink { animation: atlas-live-blink 1.5s ease-in-out infinite; }
+.animate-atlas-ticker { animation: atlas-ticker 30s linear infinite; }
+.animate-atlas-scan-line { animation: atlas-scan-line 3s ease-in-out infinite; }

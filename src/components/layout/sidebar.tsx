@@ -28,32 +28,33 @@ import { hasPermission, UserRole } from "@/types";
 import PropertySelector from "./property-selector";
 import { useAppStore } from "@/stores/app-store";
 
-type Section = "MAIN" | "COLLECTIONS" | "OPERATIONS" | "SETTINGS";
+type Section = "INTELLIGENCE" | "FINANCIAL" | "OPERATIONS" | "LEGAL" | "SETTINGS";
 
 const navItems: { href: string; label: string; icon: typeof LayoutDashboard; perm: string; section: Section }[] = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, perm: "dash", section: "MAIN" },
-  { href: "/owner-dashboard", label: "Owner Dashboard", icon: Building2, perm: "owner", section: "MAIN" },
-  { href: "/coeus", label: "Coeus", icon: Radio, perm: "dash", section: "MAIN" },
-  { href: "/daily", label: "Daily Summary", icon: CalendarClock, perm: "dash", section: "MAIN" },
-  { href: "/alerts", label: "Arrears Alerts", icon: AlertTriangle, perm: "fin", section: "COLLECTIONS" },
-  { href: "/legal", label: "Legal Cases", icon: Scale, perm: "legal", section: "COLLECTIONS" },
-  { href: "/collections", label: "Collections", icon: DollarSign, perm: "collections", section: "COLLECTIONS" },
+  { href: "/", label: "Command Center", icon: LayoutDashboard, perm: "dash", section: "INTELLIGENCE" },
+  { href: "/owner-dashboard", label: "Owner View", icon: Building2, perm: "owner", section: "INTELLIGENCE" },
+  { href: "/coeus", label: "Coeus", icon: Radio, perm: "dash", section: "INTELLIGENCE" },
+  { href: "/daily", label: "Daily Briefing", icon: CalendarClock, perm: "dash", section: "INTELLIGENCE" },
+  { href: "/alerts", label: "Arrears Alerts", icon: AlertTriangle, perm: "fin", section: "FINANCIAL" },
+  { href: "/collections", label: "Collections", icon: DollarSign, perm: "collections", section: "FINANCIAL" },
   { href: "/vacancies", label: "Vacancies", icon: DoorOpen, perm: "vac", section: "OPERATIONS" },
   { href: "/turnovers", label: "Turnovers", icon: ClipboardList, perm: "vac", section: "OPERATIONS" },
   { href: "/leases", label: "Leases", icon: FileText, perm: "lease", section: "OPERATIONS" },
   { href: "/maintenance", label: "Work Orders", icon: Wrench, perm: "maintenance", section: "OPERATIONS" },
-  { href: "/themis", label: "Themis", icon: Scale, perm: "maintenance", section: "OPERATIONS" },
   { href: "/utilities", label: "Utilities", icon: Gauge, perm: "utilities", section: "OPERATIONS" },
   { href: "/compliance", label: "Compliance", icon: Shield, perm: "compliance", section: "OPERATIONS" },
+  { href: "/legal", label: "Legal Cases", icon: Scale, perm: "legal", section: "LEGAL" },
+  { href: "/themis", label: "Themis", icon: Scale, perm: "maintenance", section: "LEGAL" },
   { href: "/reports", label: "Reports", icon: BarChart3, perm: "reports", section: "SETTINGS" },
   { href: "/data", label: "Data Management", icon: Database, perm: "upload", section: "SETTINGS" },
   { href: "/users", label: "Users", icon: Users, perm: "users", section: "SETTINGS" },
 ];
 
 const sectionLabels: Record<Section, string> = {
-  MAIN: "Main",
-  COLLECTIONS: "Collections",
+  INTELLIGENCE: "Intelligence",
+  FINANCIAL: "Financial",
   OPERATIONS: "Operations",
+  LEGAL: "Legal",
   SETTINGS: "Settings",
 };
 
@@ -81,7 +82,7 @@ export default function Sidebar() {
   return (
     <aside
       className={cn(
-        "h-full bg-sidebar-gradient border-r border-border flex flex-col shrink-0 transition-all duration-200",
+        "h-full bg-atlas-navy-2 border-r border-border flex flex-col shrink-0 transition-all duration-200",
         sidebarCollapsed ? "w-16" : "w-56"
       )}
     >

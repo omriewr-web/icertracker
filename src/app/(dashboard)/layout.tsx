@@ -2,6 +2,7 @@
 
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
+import CityPulse from "@/components/layout/city-pulse";
 import GlobalModals from "@/components/layout/global-modals";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { useAppStore } from "@/stores/app-store";
@@ -29,10 +30,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         >
           <Sidebar />
         </div>
-        <main role="main" className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <main role="main" className="flex-1 overflow-y-auto p-4 sm:p-6 pb-[34px]">
           <ErrorBoundary>{children}</ErrorBoundary>
         </main>
       </div>
+      <CityPulse />
       <GlobalModals />
     </div>
   );

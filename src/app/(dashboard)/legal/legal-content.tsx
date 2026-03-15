@@ -7,7 +7,7 @@ import { useReviewQueue } from "@/hooks/use-legal-import";
 import { useCourtDates, useLegalStats, type CourtDateItem } from "@/hooks/use-legal";
 import { Gavel, CalendarClock, UserX as UserXIcon, UserMinus, ClipboardCheck } from "lucide-react";
 import Button from "@/components/ui/button";
-import StatCard from "@/components/ui/stat-card";
+import KpiCard from "@/components/ui/kpi-card";
 import { TablePageSkeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/empty-state";
 import StageBadge from "@/components/legal/stage-badge";
@@ -206,18 +206,18 @@ export default function LegalContent() {
         <div className="space-y-6">
           {/* Portfolio stat cards */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <StatCard label="Active Cases" value={legalStats?.activeCases ?? legalTenants.length} icon={Gavel} color="#8B5CF6" />
-            <StatCard label="Court This Week" value={legalStats?.courtThisWeek ?? 0} icon={CalendarClock} color="#E09A3E" />
-            <StatCard label="No Attorney" value={legalStats?.noAttorney ?? 0} icon={UserXIcon} color="#E05C5C" />
-            <StatCard label="No Assignee" value={legalStats?.noAssignee ?? 0} icon={UserMinus} color="#E09A3E" />
-            <StatCard label="Pending Review" value={legalStats?.pendingReview ?? 0} icon={ClipboardCheck} color="#C9A84C" />
+            <KpiCard label="Active Cases" value={legalStats?.activeCases ?? legalTenants.length} icon={Gavel} color="#8B5CF6" />
+            <KpiCard label="Court This Week" value={legalStats?.courtThisWeek ?? 0} icon={CalendarClock} color="#E09A3E" />
+            <KpiCard label="No Attorney" value={legalStats?.noAttorney ?? 0} icon={UserXIcon} color="#E05C5C" />
+            <KpiCard label="No Assignee" value={legalStats?.noAssignee ?? 0} icon={UserMinus} color="#E09A3E" />
+            <KpiCard label="Pending Review" value={legalStats?.pendingReview ?? 0} icon={ClipboardCheck} color="#C9A84C" />
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard label="Active Cases" value={legalTenants.length} icon={Scale} color="#8B5CF6" />
-            <StatCard label="Suggested Referrals" value={recommended.length} color="#F97316" />
-            <StatCard label="Total Balance (Legal)" value={fmt$(legalTenants.reduce((s, t) => s + t.balance, 0))} color="#EF4444" />
-            <StatCard label="In Court+" value={stageCounts.COURT_DATE + stageCounts.STIPULATION + stageCounts.JUDGMENT + stageCounts.WARRANT + stageCounts.EVICTION} color="#8B5CF6" />
+            <KpiCard label="Active Cases" value={legalTenants.length} icon={Scale} color="#8B5CF6" />
+            <KpiCard label="Suggested Referrals" value={recommended.length} color="#F97316" />
+            <KpiCard label="Total Balance (Legal)" value={fmt$(legalTenants.reduce((s, t) => s + t.balance, 0))} color="#EF4444" />
+            <KpiCard label="In Court+" value={stageCounts.COURT_DATE + stageCounts.STIPULATION + stageCounts.JUDGMENT + stageCounts.WARRANT + stageCounts.EVICTION} color="#8B5CF6" />
           </div>
 
           <div className="flex gap-2 flex-wrap">

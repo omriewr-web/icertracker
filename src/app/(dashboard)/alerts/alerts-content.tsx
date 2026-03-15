@@ -5,7 +5,7 @@ import { AlertTriangle, UserPlus, Clock, CalendarClock } from "lucide-react";
 import { useTenants } from "@/hooks/use-tenants";
 import { useMetrics } from "@/hooks/use-metrics";
 import { useAppStore } from "@/stores/app-store";
-import StatCard from "@/components/ui/stat-card";
+import KpiCard from "@/components/ui/kpi-card";
 import FilterBar from "@/components/ui/filter-bar";
 import TenantTable from "@/components/tenant/tenant-table";
 import TenantDetailModal from "@/components/tenant/tenant-detail-modal";
@@ -43,10 +43,10 @@ export default function AlertsContent() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Total in Arrears" value={arrearsTenants.length} icon={AlertTriangle} />
-        <StatCard label="Total Owed" value={fmt$(totalArrears)} color="#EF4444" />
-        <StatCard label="30 Day" value={arrears30Tenants.length} icon={Clock} color="#3B82F6" subtext={arrears30Total > 0 ? fmt$(arrears30Total) : undefined} />
-        <StatCard label="60 Day" value={arrears60Tenants.length} icon={CalendarClock} color="#F59E0B" subtext={arrears60Total > 0 ? fmt$(arrears60Total) : undefined} />
+        <KpiCard label="Total in Arrears" value={arrearsTenants.length} icon={AlertTriangle} />
+        <KpiCard label="Total Owed" value={fmt$(totalArrears)} color="#EF4444" />
+        <KpiCard label="30 Day" value={arrears30Tenants.length} icon={Clock} color="#3B82F6" subtext={arrears30Total > 0 ? fmt$(arrears30Total) : undefined} />
+        <KpiCard label="60 Day" value={arrears60Tenants.length} icon={CalendarClock} color="#F59E0B" subtext={arrears60Total > 0 ? fmt$(arrears60Total) : undefined} />
       </div>
 
       <FilterBar />

@@ -26,7 +26,7 @@ import {
   type CollectionFilters,
 } from "@/hooks/use-collections";
 import { useBuildings } from "@/hooks/use-buildings";
-import StatCard from "@/components/ui/stat-card";
+import KpiCard from "@/components/ui/kpi-card";
 import { TablePageSkeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/empty-state";
 import Button from "@/components/ui/button";
@@ -351,10 +351,10 @@ export default function CollectionsContent() {
 
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Total AR Balance" value={fmt$(dashboard?.totalBalance ?? 0)} icon={DollarSign} color="#e05c5c" />
-        <StatCard label="Non-Paying Tenants" value={dashboard?.tenantCount ?? 0} icon={AlertTriangle} color="#e09a3e" />
-        <StatCard label="In Legal" value={dashboard?.legalCount ?? 0} icon={Scale} color="#8B5CF6" />
-        <StatCard label="Follow-Ups Due" value={dashboard?.staleCount ?? 0} subtext="No notes in 30+ days" icon={Phone} color="#3B82F6" />
+        <KpiCard label="Total AR Balance" value={fmt$(dashboard?.totalBalance ?? 0)} icon={DollarSign} color="#e05c5c" />
+        <KpiCard label="Non-Paying Tenants" value={dashboard?.tenantCount ?? 0} icon={AlertTriangle} color="#e09a3e" />
+        <KpiCard label="In Legal" value={dashboard?.legalCount ?? 0} icon={Scale} color="#8B5CF6" />
+        <KpiCard label="Follow-Ups Due" value={dashboard?.staleCount ?? 0} subtext="No notes in 30+ days" icon={Phone} color="#3B82F6" />
       </div>
 
       {/* ── Stale Tenants Alert ── */}

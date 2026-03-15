@@ -6,7 +6,7 @@ import { Gauge, Plus, AlertTriangle, Eye, CheckCircle2, XCircle, MinusCircle, Ar
 import { useUtilityMeters, useUtilitySummary, useCreateMeter, type UtilityMeterView } from "@/hooks/use-utilities";
 import { useBuildings } from "@/hooks/use-buildings";
 import { useAppStore } from "@/stores/app-store";
-import StatCard from "@/components/ui/stat-card";
+import KpiCard from "@/components/ui/kpi-card";
 import Button from "@/components/ui/button";
 import Modal from "@/components/ui/modal";
 import { PageSkeleton } from "@/components/ui/skeleton";
@@ -198,12 +198,12 @@ export default function UtilitiesContent() {
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <StatCard label="Active Accounts" value={summary.activeAccounts} icon={Gauge} />
-          <StatCard label="Paid This Month" value={summary.paidThisMonth} color="#4caf82" />
-          <StatCard label="Unpaid This Month" value={summary.unpaidThisMonth} color={summary.unpaidThisMonth > 0 ? "#e05c5c" : undefined} />
-          <StatCard label="Not Recorded" value={summary.noCheckThisMonth} color={summary.noCheckThisMonth > 0 ? "#e09a3e" : undefined} />
-          <StatCard label="Transfer Needed" value={summary.transferNeeded} color={summary.transferNeeded > 0 ? "#e05c5c" : undefined} icon={ArrowRightLeft} />
-          <StatCard label="Risk Signals" value={summary.withRiskSignals} color={summary.withRiskSignals > 0 ? "#e05c5c" : undefined} icon={AlertTriangle} />
+          <KpiCard label="Active Accounts" value={summary.activeAccounts} icon={Gauge} />
+          <KpiCard label="Paid This Month" value={summary.paidThisMonth} color="#4caf82" />
+          <KpiCard label="Unpaid This Month" value={summary.unpaidThisMonth} color={summary.unpaidThisMonth > 0 ? "#e05c5c" : undefined} />
+          <KpiCard label="Not Recorded" value={summary.noCheckThisMonth} color={summary.noCheckThisMonth > 0 ? "#e09a3e" : undefined} />
+          <KpiCard label="Transfer Needed" value={summary.transferNeeded} color={summary.transferNeeded > 0 ? "#e05c5c" : undefined} icon={ArrowRightLeft} />
+          <KpiCard label="Risk Signals" value={summary.withRiskSignals} color={summary.withRiskSignals > 0 ? "#e05c5c" : undefined} icon={AlertTriangle} />
         </div>
       )}
 

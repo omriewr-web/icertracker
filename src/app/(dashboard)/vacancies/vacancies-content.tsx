@@ -8,7 +8,7 @@ import { useMetrics } from "@/hooks/use-metrics";
 import { useTurnovers, useCreateTurnover } from "@/hooks/use-turnovers";
 import { useUnits, useUpdateUnit } from "@/hooks/use-units";
 import { useLeasingActivities, useCreateLeasingActivity } from "@/hooks/use-leasing-activities";
-import StatCard from "@/components/ui/stat-card";
+import KpiCard from "@/components/ui/kpi-card";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/empty-state";
 import VacancyChart from "@/components/dashboard/vacancy-chart";
@@ -167,10 +167,10 @@ export default function VacanciesContent() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Vacant Units" value={metrics?.vacant || 0} icon={DoorOpen} color="#F59E0B" />
-        <StatCard label="Total Units" value={metrics?.totalUnits || 0} />
-        <StatCard label="Vacancy Rate" value={metrics?.totalUnits ? pct(((metrics?.vacant || 0) / metrics.totalUnits) * 100) : "0%"} color="#F59E0B" />
-        <StatCard label="Lost Rent/Mo" value={fmt$(totalVacantRent)} color="#EF4444" />
+        <KpiCard label="Vacant Units" value={metrics?.vacant || 0} icon={DoorOpen} color="#F59E0B" />
+        <KpiCard label="Total Units" value={metrics?.totalUnits || 0} />
+        <KpiCard label="Vacancy Rate" value={metrics?.totalUnits ? pct(((metrics?.vacant || 0) / metrics.totalUnits) * 100) : "0%"} color="#F59E0B" />
+        <KpiCard label="Lost Rent/Mo" value={fmt$(totalVacantRent)} color="#EF4444" />
       </div>
 
       {buildingsWithVacancies.length > 0 && (

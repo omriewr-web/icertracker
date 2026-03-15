@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Wrench, Plus, List, LayoutGrid, X } from "lucide-react";
 import { useWorkOrders, useBulkUpdateWorkOrders } from "@/hooks/use-work-orders";
 import { useVendors } from "@/hooks/use-vendors";
-import StatCard from "@/components/ui/stat-card";
+import KpiCard from "@/components/ui/kpi-card";
 import { TablePageSkeleton } from "@/components/ui/skeleton";
 import Button from "@/components/ui/button";
 import KanbanBoard from "@/components/maintenance/kanban-board";
@@ -173,11 +173,11 @@ export default function MaintenanceContent() {
       {tab === "orders" && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <StatCard label="Total" value={stats.total} icon={Wrench} />
-            <StatCard label="Open" value={stats.open} color="#3B82F6" />
-            <StatCard label="In Progress" value={stats.inProgress} color="#F59E0B" />
-            <StatCard label="Urgent" value={stats.urgent} color="#EF4444" />
-            <StatCard label="Costs (Completed)" value={fmt$(stats.totalCost)} color="#10B981" />
+            <KpiCard label="Total" value={stats.total} icon={Wrench} />
+            <KpiCard label="Open" value={stats.open} color="#3B82F6" />
+            <KpiCard label="In Progress" value={stats.inProgress} color="#F59E0B" />
+            <KpiCard label="Urgent" value={stats.urgent} color="#EF4444" />
+            <KpiCard label="Costs (Completed)" value={fmt$(stats.totalCost)} color="#10B981" />
           </div>
 
           {view === "list" && (

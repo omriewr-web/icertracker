@@ -7,7 +7,7 @@ import { useMetrics } from "@/hooks/use-metrics";
 import { useExportExcel } from "@/hooks/use-export";
 import { generateCollectionReport } from "@/lib/report-generator";
 import { PageSkeleton } from "@/components/ui/skeleton";
-import StatCard from "@/components/ui/stat-card";
+import KpiCard from "@/components/ui/kpi-card";
 import { fmt$ } from "@/lib/utils";
 
 export default function ReportsContent() {
@@ -48,10 +48,10 @@ export default function ReportsContent() {
       <h1 className="text-2xl font-bold text-text-primary">Reports</h1>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Total Tenants" value={tenants?.length || 0} icon={BarChart3} />
-        <StatCard label="In Arrears" value={arrearsTenants.length} color="#EF4444" />
-        <StatCard label="Total Owed" value={fmt$(metrics?.totalBalance || 0)} color="#EF4444" />
-        <StatCard label="Legal Cases" value={legalCount} color="#8B5CF6" />
+        <KpiCard label="Total Tenants" value={tenants?.length || 0} icon={BarChart3} />
+        <KpiCard label="In Arrears" value={arrearsTenants.length} color="#EF4444" />
+        <KpiCard label="Total Owed" value={fmt$(metrics?.totalBalance || 0)} color="#EF4444" />
+        <KpiCard label="Legal Cases" value={legalCount} color="#8B5CF6" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -9,7 +9,7 @@ import { useBuildings } from "@/hooks/use-buildings";
 import { useViolationStats } from "@/hooks/use-violations";
 import { useComplianceItems } from "@/hooks/use-compliance";
 import { useSignals } from "@/hooks/use-signals";
-import StatCard from "@/components/ui/stat-card";
+import KpiCard from "@/components/ui/kpi-card";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { fmt$, pct } from "@/lib/utils";
 import ArrearsChart from "./arrears-chart";
@@ -91,18 +91,18 @@ export default function DashboardContent() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatCard label="Total Units" value={metrics.totalUnits} icon={Building2} color="#C9A84C" subtext={`${pct(metrics.occupancyRate)} occupied`} href="/data" />
-        <StatCard
+        <KpiCard label="Total Units" value={metrics.totalUnits} icon={Building2} color="#C9A84C" subtext={`${pct(metrics.occupancyRate)} occupied`} href="/data" />
+        <KpiCard
           label="Occupied"
           value={metrics.occupied}
           icon={Users}
           color="#C9A84C"
           onClick={() => { setArrearsFilter("current"); router.push("/alerts"); }}
         />
-        <StatCard label="Vacant" value={metrics.vacant} icon={Building2} color="#C9A84C" subtext={metrics.lostRent > 0 ? `${fmt$(metrics.lostRent)} lost/mo` : undefined} href="/vacancies" />
-        <StatCard label="Total Balance" value={fmt$(metrics.totalBalance)} icon={DollarSign} color={metrics.totalBalance >= 500000 ? "#e05c5c" : "#C9A84C"} href="/collections" />
-        <StatCard label="Legal Cases" value={metrics.legalCaseCount} icon={Scale} color="#C9A84C" href="/legal" />
-        <StatCard
+        <KpiCard label="Vacant" value={metrics.vacant} icon={Building2} color="#C9A84C" subtext={metrics.lostRent > 0 ? `${fmt$(metrics.lostRent)} lost/mo` : undefined} href="/vacancies" />
+        <KpiCard label="Total Balance" value={fmt$(metrics.totalBalance)} icon={DollarSign} color={metrics.totalBalance >= 500000 ? "#e05c5c" : "#C9A84C"} href="/collections" />
+        <KpiCard label="Legal Cases" value={metrics.legalCaseCount} icon={Scale} color="#C9A84C" href="/legal" />
+        <KpiCard
           label="Expiring Leases"
           value={metrics.expiringSoon}
           icon={FileText}

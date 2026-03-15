@@ -2,7 +2,7 @@
 
 import { useTenants } from "@/hooks/use-tenants";
 import { useMetrics } from "@/hooks/use-metrics";
-import StatCard from "@/components/ui/stat-card";
+import KpiCard from "@/components/ui/kpi-card";
 import FilterBar from "@/components/ui/filter-bar";
 import TenantTable from "@/components/tenant/tenant-table";
 import TenantDetailModal from "@/components/tenant/tenant-detail-modal";
@@ -21,10 +21,10 @@ export default function LeasesContent() {
       <h1 className="text-2xl font-bold text-text-primary">Lease Management</h1>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Active Leases" value={(metrics?.occupied || 0) - (metrics?.noLease || 0) - (metrics?.expiredLease || 0) - (metrics?.expiringSoon || 0)} icon={FileText} color="#10B981" />
-        <StatCard label="Expiring Soon" value={metrics?.expiringSoon || 0} color="#F59E0B" />
-        <StatCard label="Expired" value={metrics?.expiredLease || 0} color="#EF4444" />
-        <StatCard label="No Lease" value={metrics?.noLease || 0} color="#6B7280" />
+        <KpiCard label="Active Leases" value={(metrics?.occupied || 0) - (metrics?.noLease || 0) - (metrics?.expiredLease || 0) - (metrics?.expiringSoon || 0)} icon={FileText} color="#10B981" />
+        <KpiCard label="Expiring Soon" value={metrics?.expiringSoon || 0} color="#F59E0B" />
+        <KpiCard label="Expired" value={metrics?.expiredLease || 0} color="#EF4444" />
+        <KpiCard label="No Lease" value={metrics?.noLease || 0} color="#6B7280" />
       </div>
 
       <FilterBar showLeaseFilter />

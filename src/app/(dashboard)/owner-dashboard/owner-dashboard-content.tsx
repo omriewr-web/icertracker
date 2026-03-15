@@ -8,7 +8,7 @@ import {
   CalendarClock, Activity,
 } from "lucide-react";
 import { useOwnerDashboard } from "@/hooks/use-owner-dashboard";
-import StatCard from "@/components/ui/stat-card";
+import KpiCard from "@/components/ui/kpi-card";
 import ExportButton from "@/components/ui/export-button";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { fmt$, pct } from "@/lib/utils";
@@ -123,12 +123,12 @@ export default function OwnerDashboardContent() {
 
       {/* KPI Row */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatCard label="Total Units" value={p.totalUnits} icon={Building2} color="#C9A84C" subtext={`${fmtRate(p.occupancyRate)} occupied`} />
-        <StatCard label="Occupied" value={p.occupiedUnits} icon={Users} color="#C9A84C" />
-        <StatCard label="Vacant" value={p.vacantUnits} icon={DoorOpen} color={p.vacantUnits > 0 ? "#e09a3e" : "#C9A84C"} subtext={p.vacantUnits > 0 ? `${fmt$(data.vacancies.estimatedLostRent)}/mo lost` : undefined} subtextColor="#e05c5c" />
-        <StatCard label="Monthly Rent" value={fmt$(p.totalMonthlyRent)} icon={DollarSign} color="#C9A84C" />
-        <StatCard label="Total Arrears" value={fmt$(p.totalArrears)} icon={DollarSign} color={p.totalArrears >= 100000 ? "#e05c5c" : "#C9A84C"} />
-        <StatCard label="Legal Cases" value={data.legal.totalActive} icon={Scale} color="#C9A84C" subtext={data.legal.totalBalance > 0 ? `${fmt$(data.legal.totalBalance)} in legal` : undefined} />
+        <KpiCard label="Total Units" value={p.totalUnits} icon={Building2} color="#C9A84C" subtext={`${fmtRate(p.occupancyRate)} occupied`} />
+        <KpiCard label="Occupied" value={p.occupiedUnits} icon={Users} color="#C9A84C" />
+        <KpiCard label="Vacant" value={p.vacantUnits} icon={DoorOpen} color={p.vacantUnits > 0 ? "#e09a3e" : "#C9A84C"} subtext={p.vacantUnits > 0 ? `${fmt$(data.vacancies.estimatedLostRent)}/mo lost` : undefined} subtextColor="#e05c5c" />
+        <KpiCard label="Monthly Rent" value={fmt$(p.totalMonthlyRent)} icon={DollarSign} color="#C9A84C" />
+        <KpiCard label="Total Arrears" value={fmt$(p.totalArrears)} icon={DollarSign} color={p.totalArrears >= 100000 ? "#e05c5c" : "#C9A84C"} />
+        <KpiCard label="Legal Cases" value={data.legal.totalActive} icon={Scale} color="#C9A84C" subtext={data.legal.totalBalance > 0 ? `${fmt$(data.legal.totalBalance)} in legal` : undefined} />
       </div>
 
       {/* Collections & Arrears + Vacancies */}

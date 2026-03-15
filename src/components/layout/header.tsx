@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
-import { LogOut, Building2, Brain, Menu } from "lucide-react";
+import { LogOut, Brain, Menu } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import OrgSwitcher from "./org-switcher";
 
@@ -10,8 +10,8 @@ export default function Header() {
   const { setAiPanelOpen, setSidebarOpen, sidebarOpen } = useAppStore();
 
   return (
-    <header role="banner" className="h-14 bg-card-gradient border-b border-border shadow-[0_1px_0_rgba(201,168,76,0.1)] flex items-center justify-between px-4 sm:px-6 shrink-0">
-      <div className="flex items-center gap-2 sm:gap-3">
+    <header role="banner" className="h-[52px] bg-atlas-navy-2 border-b border-border shadow-[0_1px_0_rgba(201,168,76,0.08)] flex items-center justify-between px-4 sm:px-6 shrink-0">
+      <div className="flex items-center gap-2 sm:gap-4">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           aria-label={sidebarOpen ? "Close menu" : "Open menu"}
@@ -21,9 +21,16 @@ export default function Header() {
         >
           <Menu className="w-5 h-5" />
         </button>
-        <Building2 className="w-5 h-5 text-accent" />
-        <h1 className="text-lg font-bold text-text-primary">AtlasPM</h1>
-        <span className="text-xs text-text-dim hidden sm:inline">Property Management</span>
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-bold tracking-wider text-accent">ATLASPM</h1>
+          <div className="hidden sm:flex items-center gap-3">
+            <span className="text-[10px] font-medium tracking-[0.2em] text-text-dim uppercase">Urban Intelligence Platform</span>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-atlas-green/10 border border-atlas-green/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-atlas-green animate-atlas-live-blink" />
+              <span className="text-[10px] font-medium tracking-wider text-atlas-green uppercase">Argus Active</span>
+            </div>
+          </div>
+        </div>
       </div>
       <div className="flex items-center gap-2 sm:gap-4">
         <OrgSwitcher />
