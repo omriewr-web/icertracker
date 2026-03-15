@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Building2, Users, AlertTriangle, DollarSign, Scale, FileText, Shield, Radio } from "lucide-react";
@@ -12,17 +12,21 @@ import { useSignals } from "@/hooks/use-signals";
 import KpiCard from "@/components/ui/kpi-card";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { fmt$, pct } from "@/lib/utils";
-import ArrearsChart from "./arrears-chart";
-import LeaseChart from "./lease-chart";
 import BalanceChart from "./balance-chart";
 import PropertiesTable from "./properties-table";
 import BuildingInfo from "./building-info";
 import { useAppStore } from "@/stores/app-store";
 import ExportButton from "@/components/ui/export-button";
+import { ArgusThreatMap, type RiskBuilding } from "./argus-threat-map";
+import { BuildingIntelPanel } from "./building-intel-panel";
+import { ArrearsBarPanel } from "./arrears-bar-panel";
+import { LegalPipelinePanel } from "./legal-pipeline-panel";
+import { LiveAlertsPanel } from "./live-alerts-panel";
 
 export default function DashboardContent() {
   const router = useRouter();
   const { selectedBuildingId, setSelectedBuildingId, selectedPortfolio, setSelectedPortfolio, setArrearsFilter, setLeaseFilter } = useAppStore();
+  const [mapBuilding, setMapBuilding] = useState<RiskBuilding | null>(null);
   const { data: metrics, isLoading } = useMetrics();
   const { data: buildings } = useBuildings();
   const selectedBuilding = buildings?.find((b) => b.id === selectedBuildingId);
@@ -118,29 +122,55 @@ export default function DashboardContent() {
 
       <CoeusWidget />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5 chart-container">
-          <h3 className="text-sm font-medium text-text-muted mb-4">Arrears Distribution</h3>
-          <ArrearsChart
-            current={metrics.totalUnits - metrics.arrears30 - metrics.arrears60 - metrics.arrears90Plus - metrics.vacant}
-            d30={metrics.arrears30}
-            d60={metrics.arrears60}
-            d90plus={metrics.arrears90Plus}
-            current$={metrics.current$ ?? 0}
-            d30$={metrics.arrears30$ ?? 0}
-            d60$={metrics.arrears60$ ?? 0}
-            d90plus$={metrics.arrears90Plus$ ?? 0}
-          />
+      {/* === WAR ROOM: MAP + INTEL === */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-3">
+        {/* Left: Argus map */}
+        <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-hidden">
+          <div className="px-3.5 pt-2.5 pb-2 flex items-center justify-between">
+            <div>
+              <div
+                style={{
+                  fontFamily: "JetBrains Mono, monospace",
+                  fontSize: "8px",
+                  letterSpacing: ".15em",
+                  textTransform: "uppercase",
+                }}
+                className="text-text-dim mb-0.5"
+              >
+                Argus Threat Map
+              </div>
+              <div className="text-xs font-semibold text-text-primary">NYC Portfolio — Live</div>
+            </div>
+            <Link
+              href="/coeus"
+              className="text-[9px] no-underline"
+              style={{
+                fontFamily: "JetBrains Mono, monospace",
+                letterSpacing: ".05em",
+                color: "#00b8d4",
+                border: "1px solid rgba(0,184,212,.3)",
+                background: "rgba(0,184,212,.08)",
+                borderRadius: "4px",
+                padding: "4px 10px",
+              }}
+            >
+              Run Argus Scan →
+            </Link>
+          </div>
+          <ArgusThreatMap onSelect={setMapBuilding} selected={mapBuilding} />
         </div>
-        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5 chart-container">
-          <h3 className="text-sm font-medium text-text-muted mb-4">Lease Status</h3>
-          <LeaseChart
-            active={metrics.occupied - metrics.noLease - metrics.expiredLease - metrics.expiringSoon}
-            expiringSoon={metrics.expiringSoon}
-            expired={metrics.expiredLease}
-            noLease={metrics.noLease}
-          />
+
+        {/* Right column: intel + alerts */}
+        <div className="flex flex-col gap-3">
+          <BuildingIntelPanel building={mapBuilding} />
+          <LiveAlertsPanel />
         </div>
+      </div>
+
+      {/* === BOTTOM ROW: ARREARS + LEGAL === */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <ArrearsBarPanel buildings={(buildings || []).map((b) => ({ address: b.address, totalBalance: b.totalBalance }))} />
+        <LegalPipelinePanel />
       </div>
 
       <ComplianceWidget />

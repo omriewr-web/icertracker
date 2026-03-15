@@ -198,6 +198,8 @@ model Building {
   leasingActivities    LeasingActivity[]
   riskScore            Float?
   riskCategory         String?
+  lat                  Float?
+  lng                  Float?
 
   leases                 Lease[]
   vendorAssignments      VendorAssignment[]
