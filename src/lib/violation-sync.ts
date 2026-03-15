@@ -94,42 +94,42 @@ export async function syncBuildingViolations(
         const mapped = mapper!(row, buildingId);
         if (!mapped.where.source_externalId.externalId) continue;
 
-        const existing = await prisma.violation.findUnique({ where: mapped.where });
+        const upserted = await prisma.violation.upsert({
+          where: mapped.where,
+          create: mapped.create,
+          update: mapped.update,
+        });
 
-        if (existing) {
-          await prisma.violation.update({ where: { id: existing.id }, data: mapped.update });
-          updatedCount++;
-
-          // Intercept: triage/dispatch via rule engine
-          if (mapped.update.class === "C" || mapped.update.severity === "IMMEDIATELY_HAZARDOUS") {
-            await interceptViolation(
-              {
-                id: existing.id, class: mapped.update.class ?? existing.class ?? null,
-                severity: mapped.update.severity ?? existing.severity ?? null,
-                description: mapped.update.description || existing.novDescription || "",
-                source: source as any, buildingId, externalId: existing.externalId,
-                orgId: building.organizationId,
-              },
-              buildingId, building.organizationId,
-            );
-          }
-        } else {
-          const created = await prisma.violation.create({ data: mapped.create });
+        // Determine if this was a new record or an update by checking createdAt vs updatedAt
+        const isNew = upserted.createdAt.getTime() === upserted.updatedAt.getTime();
+        if (isNew) {
           newCount++;
+        } else {
+          updatedCount++;
+        }
 
-          // Intercept: triage/dispatch via rule engine
-          if (mapped.create.class === "C" || mapped.create.severity === "IMMEDIATELY_HAZARDOUS") {
-            await interceptViolation(
-              {
-                id: created.id, class: mapped.create.class ?? null,
-                severity: mapped.create.severity ?? null,
-                description: mapped.create.description || mapped.create.novDescription || "",
-                source: source as any, buildingId, externalId: mapped.create.externalId,
-                orgId: building.organizationId,
-              },
-              buildingId, building.organizationId,
-            );
-          }
+        // Intercept: triage/dispatch via rule engine
+        const vClass = isNew ? mapped.create.class : mapped.update.class;
+        const vSeverity = isNew ? mapped.create.severity : mapped.update.severity;
+        const vDescription = isNew
+          ? (mapped.create.description || mapped.create.novDescription || "")
+          : (mapped.update.description || upserted.novDescription || "");
+
+        if (vClass === "C" || vSeverity === "IMMEDIATELY_HAZARDOUS") {
+          await interceptViolation(
+            {
+              id: upserted.id,
+              class: vClass ?? null,
+              severity: vSeverity ?? null,
+              description: vDescription,
+              source: source as any,
+              buildingId,
+              externalId: upserted.externalId,
+              orgId: building.organizationId,
+            },
+            buildingId,
+            building.organizationId,
+          );
         }
       }
 
@@ -183,6 +183,11 @@ export async function syncAllBuildings(
     const synced = Math.min(i + BATCH_SIZE, total);
     console.log(`[Sync] Progress: ${synced}/${total} buildings`);
     if (onProgress) onProgress(synced, total, flatResults);
+
+    // Throttle: avoid overwhelming the DB and external APIs
+    if (i + BATCH_SIZE < buildings.length) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
   }
 
   return allResults;
