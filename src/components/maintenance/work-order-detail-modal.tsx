@@ -283,7 +283,7 @@ export default function WorkOrderDetailModal({ workOrderId, onClose }: Props) {
                 {(wo.comments || []).length === 0 ? (
                   <p className="text-text-dim text-sm">No comments yet</p>
                 ) : (
-                  wo.comments.map((c: any) => (
+                  (wo.comments || []).map((c: any) => (
                     <div key={c.id} className="border-l-2 border-accent pl-3 py-1">
                       <p className="text-sm text-text-primary whitespace-pre-wrap">{c.text}</p>
                       {/* Render comment photos */}
@@ -315,7 +315,7 @@ export default function WorkOrderDetailModal({ workOrderId, onClose }: Props) {
               {!activity || activity.length === 0 ? (
                 <p className="text-text-dim text-sm">No activity logged yet</p>
               ) : (
-                activity.map((a: WorkOrderActivityEntry) => (
+                (activity || []).map((a: WorkOrderActivityEntry) => (
                   <div key={a.id} className="flex items-start gap-3 py-2 border-b border-border/50 last:border-0">
                     <div className="flex-1">
                       <p className="text-sm text-text-primary">

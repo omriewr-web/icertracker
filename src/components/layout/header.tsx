@@ -27,7 +27,7 @@ export default function Header() {
             <span className="text-[10px] font-medium tracking-[0.2em] text-text-dim uppercase">Urban Intelligence Platform</span>
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-atlas-green/10 border border-atlas-green/20">
               <span className="w-1.5 h-1.5 rounded-full bg-atlas-green animate-atlas-live-blink" />
-              <span className="text-[10px] font-medium tracking-wider text-atlas-green uppercase">Argus Active</span>
+              <span className="text-[10px] font-medium tracking-wider text-atlas-green uppercase">ARGUS ACTIVE · 921 UNITS</span>
             </div>
           </div>
         </div>

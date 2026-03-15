@@ -259,7 +259,7 @@ export default function CoeusContent() {
             }}
           />
           <TitanAction
-            label={scan.isPending ? "Analyzing..." : "Run Analysis"}
+            label={scan.isPending ? "Scanning..." : "Run Argus Scan"}
             icon={RefreshCw}
             onClick={() => scan.mutate()}
             loading={scan.isPending}
@@ -274,7 +274,7 @@ export default function CoeusContent() {
         <div className="flex items-center gap-3 text-xs text-text-dim bg-atlas-navy-3 border border-border rounded-lg px-4 py-2">
           <Clock className="w-3.5 h-3.5" />
           <span>
-            Last {lastScan.scanType} scan: {timeAgo(lastScan.startedAt)}
+            Last Argus scan: {timeAgo(lastScan.startedAt)}
             {lastScan.durationMs != null && ` (${lastScan.durationMs}ms)`}
           </span>
           {lastScan.success ? (
