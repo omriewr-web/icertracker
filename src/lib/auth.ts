@@ -3,6 +3,21 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 
+// ── In-memory login rate limiter ────────────────────────────────
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(key: string, max: number, windowMs: number): boolean {
+  const now = Date.now();
+  const record = loginAttempts.get(key);
+  if (!record || now > record.resetAt) {
+    loginAttempts.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (record.count >= max) return false;
+  record.count++;
+  return true;
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -14,12 +29,44 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) return null;
 
+        const username = (credentials.username as string).toLowerCase().trim();
+
+        // Rate limit: 10 attempts per 15 minutes per username
+        if (!checkRateLimit(`user:${username}`, 10, 15 * 60 * 1000)) {
+          throw new Error("Too many login attempts. Try again in 15 minutes.");
+        }
+
         const user = await prisma.user.findUnique({
-          where: { username: credentials.username },
+          where: { username },
         });
-        if (!user || !user.passwordHash) return null;
+
+        if (!user || !user.passwordHash) {
+          // Audit log — never let this crash the login flow
+          try {
+            await prisma.loginAttempt.create({
+              data: {
+                username,
+                success: false,
+                failReason: "user_not_found",
+              },
+            });
+          } catch {}
+          return null;
+        }
 
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
+
+        // Audit log — never let this crash the login flow
+        try {
+          await prisma.loginAttempt.create({
+            data: {
+              username,
+              success: valid,
+              failReason: valid ? null : "invalid_password",
+            },
+          });
+        } catch {}
+
         if (!valid) return null;
 
         // Load properties separately for session

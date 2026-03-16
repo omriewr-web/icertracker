@@ -2054,3 +2054,19 @@ model BuildingVendor {
   @@index([vendorId])
   @@map("building_vendors")
 }
+
+// ── Login Audit Log ─────────────────────────────────────────────
+
+model LoginAttempt {
+  id          String   @id @default(cuid())
+  username    String
+  ipAddress   String?
+  success     Boolean
+  failReason  String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([username, createdAt])
+  @@index([ipAddress, createdAt])
+  @@map("login_attempts")
+}
