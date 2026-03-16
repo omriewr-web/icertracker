@@ -201,6 +201,16 @@ export const POST = withAuth(async (req, { user }) => {
       },
     });
 
+    // One-active-lease constraint: ensure no other active lease on this unit
+    const existingActiveLease = await tx.lease.findFirst({
+      where: { unitId: unit.id, isCurrent: true, status: "ACTIVE" },
+    });
+    if (existingActiveLease) {
+      const err: any = new Error("Unit already has an active lease");
+      err.status = 409;
+      throw err;
+    }
+
     // Dual-write: create Lease record
     const buildingInfo = await tx.building.findUnique({
       where: { id: data.buildingId },

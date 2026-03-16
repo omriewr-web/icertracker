@@ -30,6 +30,15 @@ export const GET = withCronAuth(async () => {
   const errors: string[] = [];
 
   try {
+    // Idempotency guard: skip if already ran in last 23 hours
+    const lastRun = await prisma.cronLog.findFirst({
+      where: { jobName: "maintenance", status: "COMPLETED" },
+      orderBy: { startedAt: "desc" },
+    });
+    if (lastRun && Date.now() - lastRun.startedAt.getTime() < 23 * 60 * 60 * 1000) {
+      return NextResponse.json({ skipped: true, reason: "already ran today" });
+    }
+    const log = await prisma.cronLog.create({ data: { jobName: "maintenance", status: "RUNNING" } });
     const schedules = await prisma.maintenanceSchedule.findMany({
       where: {
         autoCreateWorkOrder: true,
@@ -96,6 +105,8 @@ export const GET = withCronAuth(async () => {
       }
     }
 
+    await prisma.cronLog.update({ where: { id: log.id }, data: { status: "COMPLETED", completedAt: new Date() } });
+
     return NextResponse.json({
       ok: true,
       schedulesProcessed: schedules.length,
@@ -104,6 +115,7 @@ export const GET = withCronAuth(async () => {
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (err: any) {
+    try { await prisma.cronLog.updateMany({ where: { jobName: "maintenance", status: "RUNNING" }, data: { status: "FAILED", completedAt: new Date(), error: err.message } }); } catch {}
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 });

@@ -2092,3 +2092,17 @@ model ImportLog {
   @@index([startedAt])
   @@map("import_logs")
 }
+
+// ── Cron Job Log ────────────────────────────────────────────────
+
+model CronLog {
+  id          String    @id @default(cuid())
+  jobName     String
+  status      String
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  error       String?
+
+  @@index([jobName, startedAt])
+  @@map("cron_logs")
+}
