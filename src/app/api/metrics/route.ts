@@ -68,26 +68,29 @@ export const GET = withAuth(async (req, { user }) => {
   // Query vacant units directly (tenants are usually absent on vacant units)
   const vacantUnitsForRent = await prisma.unit.findMany({
     where: { ...unitWhere, isResidential: true, isVacant: true },
-    select: {
-      legalRent: true,
-      askingRent: true,
-      leases: {
-        where: { isCurrent: false },
-        orderBy: { leaseEnd: "desc" },
-        take: 1,
-        select: { monthlyRent: true, legalRent: true, preferentialRent: true },
-      },
-    },
+    select: { id: true, legalRent: true, askingRent: true },
   });
+  // Fetch last lease rent for units missing both askingRent and legalRent
+  const unitsNeedingLease = vacantUnitsForRent.filter(
+    (u) => !toNumber(u.askingRent) && !toNumber(u.legalRent)
+  );
+  const leaseRentMap = new Map<string, number>();
+  if (unitsNeedingLease.length > 0) {
+    const leases = await prisma.lease.findMany({
+      where: { unitId: { in: unitsNeedingLease.map((u) => u.id) } },
+      orderBy: { leaseEnd: "desc" },
+      distinct: ["unitId"],
+      select: { unitId: true, monthlyRent: true, legalRent: true, preferentialRent: true },
+    });
+    for (const l of leases) {
+      const rent = toNumber(l.monthlyRent) || toNumber(l.legalRent) || toNumber(l.preferentialRent);
+      if (rent > 0) leaseRentMap.set(l.unitId, rent);
+    }
+  }
   const lostRent = vacantUnitsForRent.reduce((s, u) => {
     const unitRent = toNumber(u.askingRent) || toNumber(u.legalRent);
     if (unitRent > 0) return s + unitRent;
-    const lease = u.leases[0];
-    if (lease) {
-      const leaseRent = toNumber(lease.monthlyRent) || toNumber(lease.legalRent) || toNumber(lease.preferentialRent);
-      return s + leaseRent;
-    }
-    return s;
+    return s + (leaseRentMap.get(u.id) || 0);
   }, 0);
 
   const metrics: PortfolioMetrics = {
