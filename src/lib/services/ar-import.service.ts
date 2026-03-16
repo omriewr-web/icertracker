@@ -28,7 +28,7 @@ function deriveStatus(row: ParsedARRow): CollectionStatus {
 
 export async function importARAgingData(
   rows: ParsedARRow[],
-  organizationId: string,
+  organizationId: string | null,
 ): Promise<ImportResult> {
   const result: ImportResult = {
     total: rows.length,
@@ -42,7 +42,7 @@ export async function importARAgingData(
   // ── Pre-fetch buildings by yardiId (scoped to org) ──
   const propertyCodes = [...new Set(rows.map((r) => r.propertyCode))];
   const buildings = await prisma.building.findMany({
-    where: { organizationId, yardiId: { in: propertyCodes } },
+    where: { ...(organizationId ? { organizationId } : {}), yardiId: { in: propertyCodes } },
     select: { id: true, yardiId: true },
   });
   const buildingMap = new Map(buildings.map((b) => [b.yardiId, b.id]));

@@ -37,10 +37,16 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   }
 
   // Verify all building references belong to user's org
+  const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
+  const orgId = user.organizationId ?? null;
+
   const allPropertyCodes = [...new Set(rows.map((r) => r.propertyCode).filter(Boolean))];
-  if (allPropertyCodes.length > 0 && user.role !== "SUPER_ADMIN") {
+  if (allPropertyCodes.length > 0 && !isAdmin) {
+    if (!orgId) {
+      return NextResponse.json({ error: "No organization assigned" }, { status: 403 });
+    }
     const orgBuildings = await prisma.building.findMany({
-      where: { organizationId: user.organizationId, yardiId: { in: allPropertyCodes } },
+      where: { organizationId: orgId, yardiId: { in: allPropertyCodes } },
       select: { yardiId: true },
     });
     const orgYardiIds = new Set(orgBuildings.map((b) => b.yardiId));
@@ -54,7 +60,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   }
 
   // Import into database
-  const result = await importARAgingData(rows, user.organizationId!);
+  const result = await importARAgingData(rows, orgId);
 
   return NextResponse.json({
     ...result,
