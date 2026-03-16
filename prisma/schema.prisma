@@ -208,6 +208,7 @@ model Building {
   prometheusIntakes      PrometheusIntake[]
   workOrderDrafts        WorkOrderDraft[]
   buildingVendors        BuildingVendor[]
+  projects               Project[]
 
   @@index([organizationId])
   @@index([ownerId])
@@ -2105,4 +2106,185 @@ model CronLog {
 
   @@index([jobName, startedAt])
   @@map("cron_logs")
+}
+
+// ── Project Tracker ─────────────────────────────────────────────
+
+enum ProjectCategory {
+  TURNOVER
+  CAPITAL_IMPROVEMENT
+  VIOLATION_REMEDIATION
+  LOCAL_LAW
+  FACADE
+  ROOF
+  BOILER
+  PLUMBING
+  ELECTRICAL
+  APARTMENT_RENO
+  COMMON_AREA
+  EMERGENCY
+  OTHER
+}
+
+enum ProjectStatus {
+  PLANNED
+  ESTIMATING
+  PENDING_APPROVAL
+  APPROVED
+  IN_PROGRESS
+  PAUSED
+  SUBSTANTIALLY_COMPLETE
+  COMPLETED
+  CLOSED
+  CANCELLED
+}
+
+enum ProjectPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ProjectHealth {
+  ON_TRACK
+  AT_RISK
+  DELAYED
+  OVER_BUDGET
+  BLOCKED
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+}
+
+enum ChangeOrderStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+model Project {
+  id               String            @id @default(cuid())
+  orgId            String
+  buildingId       String
+  unitId           String?
+  createdById      String
+  managerId        String?
+  vendorId         String?
+  approvedById     String?
+  code             String?
+  name             String
+  description      String?           @db.Text
+  category         ProjectCategory
+  status           ProjectStatus     @default(PLANNED)
+  priority         ProjectPriority   @default(MEDIUM)
+  health           ProjectHealth     @default(ON_TRACK)
+  scopeOfWork      String?           @db.Text
+  percentComplete  Int               @default(0)
+  estimatedBudget  Decimal?          @db.Decimal(12, 2)
+  approvedBudget   Decimal?          @db.Decimal(12, 2)
+  actualCost       Decimal?          @db.Decimal(12, 2)
+  contingency      Decimal?          @db.Decimal(12, 2)
+  ownerVisible     Boolean           @default(false)
+  requiresApproval Boolean           @default(false)
+  approvedAt       DateTime?
+  startDate        DateTime?
+  targetEndDate    DateTime?
+  actualEndDate    DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  building         Building          @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  milestones       ProjectMilestone[]
+  budgetLines      ProjectBudgetLine[]
+  changeOrders     ProjectChangeOrder[]
+  activity         ProjectActivity[]
+  workOrders       ProjectWorkOrder[]
+  violations       ProjectViolation[]
+
+  @@index([orgId, status])
+  @@index([orgId, buildingId])
+  @@index([orgId, category])
+  @@map("projects")
+}
+
+model ProjectMilestone {
+  id          String          @id @default(cuid())
+  projectId   String
+  name        String
+  description String?         @db.Text
+  status      MilestoneStatus @default(PENDING)
+  dueDate     DateTime?
+  completedAt DateTime?
+  createdAt   DateTime        @default(now())
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_milestones")
+}
+
+model ProjectBudgetLine {
+  id          String   @id @default(cuid())
+  projectId   String
+  category    String
+  description String?
+  estimated   Decimal  @db.Decimal(12, 2)
+  actual      Decimal? @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_budget_lines")
+}
+
+model ProjectChangeOrder {
+  id          String            @id @default(cuid())
+  projectId   String
+  title       String
+  description String?           @db.Text
+  amount      Decimal           @db.Decimal(12, 2)
+  status      ChangeOrderStatus @default(DRAFT)
+  requestedAt DateTime          @default(now())
+  approvedAt  DateTime?
+  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_change_orders")
+}
+
+model ProjectActivity {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String?
+  action    String
+  detail    String?  @db.Text
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@map("project_activities")
+}
+
+model ProjectWorkOrder {
+  projectId   String
+  workOrderId String
+  linkedAt    DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, workOrderId])
+  @@map("project_work_orders")
+}
+
+model ProjectViolation {
+  projectId   String
+  violationId String
+  linkedAt    DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, violationId])
+  @@map("project_violations")
 }
