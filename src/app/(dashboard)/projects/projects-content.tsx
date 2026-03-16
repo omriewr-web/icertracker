@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { FolderKanban, Plus } from "lucide-react";
 import { useProjects } from "@/hooks/use-projects";
+import { useBuildings } from "@/hooks/use-buildings";
 import KpiCard from "@/components/ui/kpi-card";
 import { TablePageSkeleton } from "@/components/ui/skeleton";
 import Button from "@/components/ui/button";
@@ -51,7 +52,9 @@ function label(s: string) {
 
 export default function ProjectsContent() {
   const { data: projects, isLoading } = useProjects();
+  const { data: buildings } = useBuildings();
   const [showCreate, setShowCreate] = useState(false);
+  const [filterBuilding, setFilterBuilding] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
@@ -69,12 +72,13 @@ export default function ProjectsContent() {
 
   const filtered = useMemo(() => {
     let ps = projects || [];
+    if (filterBuilding !== "all") ps = ps.filter((p: any) => p.buildingId === filterBuilding);
     if (filterStatus !== "all") ps = ps.filter((p: any) => p.status === filterStatus);
     if (filterCategory !== "all") ps = ps.filter((p: any) => p.category === filterCategory);
     if (filterPriority !== "all") ps = ps.filter((p: any) => p.priority === filterPriority);
     if (filterHealth !== "all") ps = ps.filter((p: any) => p.health === filterHealth);
     return ps;
-  }, [projects, filterStatus, filterCategory, filterPriority, filterHealth]);
+  }, [projects, filterBuilding, filterStatus, filterCategory, filterPriority, filterHealth]);
 
   if (isLoading) return <TablePageSkeleton />;
 
@@ -85,7 +89,7 @@ export default function ProjectsContent() {
           <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Projects</h1>
           <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">// Building Project Command Center</span>
         </div>
-        <Button onClick={() => setShowCreate(true)}>
+        <Button onClick={() => setShowCreate(true)} className="bg-[#c9a84c] text-[#060c17] hover:bg-[#d4b95e]">
           <Plus className="w-4 h-4" /> New Project
         </Button>
       </div>
@@ -98,6 +102,10 @@ export default function ProjectsContent() {
       </div>
 
       <div className="flex gap-3 flex-wrap">
+        <select value={filterBuilding} onChange={(e) => setFilterBuilding(e.target.value)} className="bg-bg border border-border rounded-lg px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent">
+          <option value="all">All Buildings</option>
+          {buildings?.map((b: any) => <option key={b.id} value={b.id}>{b.address}</option>)}
+        </select>
         <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="bg-bg border border-border rounded-lg px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent">
           <option value="all">All Status</option>
           {STATUSES.map((s) => <option key={s} value={s}>{label(s)}</option>)}

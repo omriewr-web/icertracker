@@ -115,7 +115,7 @@ export default function ProjectDetailContent() {
           <p className="text-xs text-text-dim mt-1">{p.building?.address || ""} — {label(p.category)}</p>
         </div>
         <div className="flex items-center gap-2">
-          {p.status === "PENDING_APPROVAL" && <Button onClick={handleApprove}><CheckCircle className="w-4 h-4" /> Approve</Button>}
+          {p.status === "PENDING_APPROVAL" && <Button onClick={handleApprove} className="bg-[#c9a84c] text-[#060c17] hover:bg-[#d4b95e]"><CheckCircle className="w-4 h-4" /> Approve</Button>}
           {!["COMPLETED", "CLOSED", "CANCELLED"].includes(p.status) && <Button variant="outline" onClick={handleMarkComplete}>Mark Complete</Button>}
         </div>
       </div>
