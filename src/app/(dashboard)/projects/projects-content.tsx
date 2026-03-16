@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { FolderKanban, Plus } from "lucide-react";
 import { useProjects } from "@/hooks/use-projects";
 import { useBuildings } from "@/hooks/use-buildings";
@@ -51,9 +52,26 @@ function label(s: string) {
 }
 
 export default function ProjectsContent() {
+  const searchParams = useSearchParams();
   const { data: projects, isLoading } = useProjects();
   const { data: buildings } = useBuildings();
   const [showCreate, setShowCreate] = useState(false);
+  const [prefill, setPrefill] = useState<{ name?: string; buildingId?: string; category?: string; fromWO?: string; fromViolation?: string } | undefined>();
+
+  useEffect(() => {
+    const fromWO = searchParams.get("fromWO");
+    const fromViolation = searchParams.get("fromViolation");
+    if (fromWO || fromViolation) {
+      setPrefill({
+        name: searchParams.get("name") || undefined,
+        buildingId: searchParams.get("buildingId") || undefined,
+        category: searchParams.get("category") || undefined,
+        fromWO: fromWO || undefined,
+        fromViolation: fromViolation || undefined,
+      });
+      setShowCreate(true);
+    }
+  }, [searchParams]);
   const [filterBuilding, setFilterBuilding] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
@@ -188,7 +206,7 @@ export default function ProjectsContent() {
         </table>
       </div>
 
-      <CreateProjectModal open={showCreate} onClose={() => setShowCreate(false)} />
+      <CreateProjectModal open={showCreate} onClose={() => { setShowCreate(false); setPrefill(undefined); }} prefill={prefill} />
     </div>
   );
 }

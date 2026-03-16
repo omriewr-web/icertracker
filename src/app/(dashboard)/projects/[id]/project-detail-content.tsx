@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle, Plus, Link2 } from "lucide-react";
+import { ArrowLeft, CheckCircle, Plus, Link2, Eye, EyeOff } from "lucide-react";
 import { useProject, useUpdateProject, useLinkWorkOrder, useLinkViolation } from "@/hooks/use-projects";
 import KpiCard from "@/components/ui/kpi-card";
 import Button from "@/components/ui/button";
@@ -149,8 +149,14 @@ export default function ProjectDetailContent() {
             <div><p className="text-xs text-text-dim">Actual End</p><p className="text-sm text-text-primary">{formatDate(p.actualEndDate)}</p></div>
             <div><p className="text-xs text-text-dim">Code</p><p className="text-sm text-text-primary">{p.code || "—"}</p></div>
           </div>
-          <div className="flex gap-3 pt-2">
-            {p.ownerVisible && <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent/20 text-accent uppercase">Owner Visible</span>}
+          <div className="flex gap-3 pt-2 items-center">
+            <button
+              onClick={() => updateProject.mutate({ id, data: { ownerVisible: !p.ownerVisible } }, { onSuccess: () => refetch() })}
+              className={cn("flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full uppercase font-medium transition-colors cursor-pointer", p.ownerVisible ? "bg-[#c9a84c]/20 text-[#c9a84c]" : "bg-gray-500/20 text-gray-400 hover:bg-gray-500/30")}
+            >
+              {p.ownerVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+              {p.ownerVisible ? "Owner Visible" : "Hidden from Owner"}
+            </button>
             {p.requiresApproval && <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400 uppercase">Requires Approval</span>}
             {p.approvedAt && <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 uppercase">Approved {formatDate(p.approvedAt)}</span>}
           </div>

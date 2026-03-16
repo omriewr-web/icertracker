@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Modal from "@/components/ui/modal";
 import Button from "@/components/ui/button";
-import { useCreateProject } from "@/hooks/use-projects";
+import { useCreateProject, useLinkWorkOrder, useLinkViolation } from "@/hooks/use-projects";
 import { useBuildings } from "@/hooks/use-buildings";
 import { useVendors } from "@/hooks/use-vendors";
 
@@ -18,12 +18,15 @@ const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 interface Props {
   open: boolean;
   onClose: () => void;
+  prefill?: { name?: string; buildingId?: string; category?: string; fromWO?: string; fromViolation?: string };
 }
 
 function label(s: string) { return s.replace(/_/g, " "); }
 
-export default function CreateProjectModal({ open, onClose }: Props) {
+export default function CreateProjectModal({ open, onClose, prefill }: Props) {
   const createProject = useCreateProject();
+  const linkWO = useLinkWorkOrder();
+  const linkViol = useLinkViolation();
   const { data: buildings } = useBuildings();
   const { data: vendors } = useVendors();
 
@@ -44,6 +47,20 @@ export default function CreateProjectModal({ open, onClose }: Props) {
     requiresApproval: false,
     ownerVisible: false,
   });
+
+  useEffect(() => {
+    if (prefill && open) {
+      setForm((prev) => ({
+        ...prev,
+        name: prefill.name || prev.name,
+        buildingId: prefill.buildingId || prev.buildingId,
+        category: prefill.category || prev.category,
+      }));
+      if (prefill.buildingId) {
+        fetch(`/api/units?buildingId=${prefill.buildingId}`).then((r) => r.ok ? r.json() : []).then((data) => setUnits(data.map((u: any) => ({ id: u.id, unitNumber: u.unitNumber })))).catch(() => {});
+      }
+    }
+  }, [prefill, open]);
 
   async function handleBuildingChange(buildingId: string) {
     setForm({ ...form, buildingId, unitId: "" });
@@ -77,7 +94,14 @@ export default function CreateProjectModal({ open, onClose }: Props) {
         ownerVisible: form.ownerVisible,
       },
       {
-        onSuccess: () => {
+        onSuccess: (data: any) => {
+          // Auto-link work order or violation if creating from one
+          if (prefill?.fromWO && data?.id) {
+            linkWO.mutate({ projectId: data.id, workOrderId: prefill.fromWO });
+          }
+          if (prefill?.fromViolation && data?.id) {
+            linkViol.mutate({ projectId: data.id, violationId: prefill.fromViolation });
+          }
           setForm({ name: "", buildingId: "", unitId: "", category: "OTHER", priority: "MEDIUM", description: "", scopeOfWork: "", estimatedBudget: "", startDate: "", targetEndDate: "", managerId: "", vendorId: "", requiresApproval: false, ownerVisible: false });
           setUnits([]);
           onClose();
@@ -166,7 +190,7 @@ export default function CreateProjectModal({ open, onClose }: Props) {
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleCreate} disabled={!form.name || !form.buildingId || createProject.isPending}>
+          <Button onClick={handleCreate} disabled={!form.name || !form.buildingId || createProject.isPending} className="bg-[#c9a84c] text-[#060c17] hover:bg-[#d4b95e]">
             {createProject.isPending ? "Creating..." : "Create Project"}
           </Button>
         </div>

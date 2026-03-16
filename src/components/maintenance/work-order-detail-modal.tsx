@@ -13,7 +13,7 @@ import DueDateBadge from "./due-date-badge";
 import SourceBadge from "./source-badge";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { formatDate } from "@/lib/utils";
-import { Trash2, Upload, ImageIcon } from "lucide-react";
+import { Trash2, Upload, ImageIcon, FolderKanban } from "lucide-react";
 import type { WorkOrderActivityEntry } from "@/hooks/use-work-orders";
 
 const STATUSES = ["OPEN", "IN_PROGRESS", "ON_HOLD", "COMPLETED"] as const;
@@ -257,9 +257,14 @@ export default function WorkOrderDetailModal({ workOrderId, onClose }: Props) {
               </div>
 
               <div className="flex items-center justify-between pt-2">
-                <Button variant="danger" size="sm" onClick={handleDelete}>
-                  <Trash2 className="w-3.5 h-3.5" /> Delete
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="danger" size="sm" onClick={handleDelete}>
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => { onClose(); router.push(`/projects?fromWO=${workOrderId}&buildingId=${wo.buildingId}&name=${encodeURIComponent(wo.title)}&category=OTHER`); }}>
+                    <FolderKanban className="w-3.5 h-3.5" /> Create Project
+                  </Button>
+                </div>
                 <Button onClick={handleSave} disabled={updateWO.isPending}>
                   {updateWO.isPending ? "Saving..." : "Save Changes"}
                 </Button>

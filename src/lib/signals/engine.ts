@@ -63,6 +63,7 @@ export async function runSignalScan(
       detectLeaseExpiringNoAskingRent(),
       detectVacancyNoLeasingActivity(),
       detectLeaseExpiringSoonNoRenewal(),
+      detectProjectRisks(),
     ]);
 
     // Collect all detected signals
@@ -2022,6 +2023,77 @@ async function detectLeaseExpiringSoonNoRenewal(): Promise<DetectedSignal[]> {
       tenantId: t.id,
       recommendedAction: "Send renewal offer or begin vacancy preparation. No renewal lease on file.",
     });
+  }
+
+  return signals;
+}
+
+// ── Detection: Project Risks ─────────────────────────────────
+
+async function detectProjectRisks(): Promise<DetectedSignal[]> {
+  const signals: DetectedSignal[] = [];
+
+  const projects = await prisma.project.findMany({
+    where: { status: { notIn: ["COMPLETED", "CLOSED", "CANCELLED"] } },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      health: true,
+      buildingId: true,
+      orgId: true,
+      approvedBudget: true,
+      actualCost: true,
+      targetEndDate: true,
+    },
+  });
+
+  for (const p of projects) {
+    // Delayed
+    if (p.health === "DELAYED" || (p.targetEndDate && new Date() > p.targetEndDate)) {
+      signals.push({
+        deduplicationKey: `project-delayed-${p.id}`,
+        type: "project_delayed",
+        severity: "high",
+        title: `Project "${p.name}" is past target end date`,
+        description: `Target was ${p.targetEndDate?.toISOString().split("T")[0]}. Status: ${p.status}.`,
+        entityType: "project",
+        entityId: p.id,
+        buildingId: p.buildingId,
+        recommendedAction: "Review project timeline and update target end date or escalate.",
+      });
+    }
+
+    // Over budget
+    if (p.approvedBudget && p.actualCost && Number(p.actualCost) > Number(p.approvedBudget) * 1.05) {
+      const overBy = Number(p.actualCost) - Number(p.approvedBudget);
+      signals.push({
+        deduplicationKey: `project-over-budget-${p.id}`,
+        type: "project_over_budget",
+        severity: "high",
+        title: `Project "${p.name}" is over budget`,
+        description: `Actual $${Number(p.actualCost).toLocaleString()} exceeds approved $${Number(p.approvedBudget).toLocaleString()} by $${overBy.toLocaleString()}.`,
+        entityType: "project",
+        entityId: p.id,
+        buildingId: p.buildingId,
+        recommendedAction: "Review change orders and cost overruns. Consider submitting a change order.",
+      });
+    }
+
+    // Pending approval
+    if (p.status === "PENDING_APPROVAL") {
+      signals.push({
+        deduplicationKey: `project-pending-approval-${p.id}`,
+        type: "project_pending_approval",
+        severity: "medium",
+        title: `Project "${p.name}" is waiting for approval`,
+        description: `Project has been submitted for approval. Review and approve or reject.`,
+        entityType: "project",
+        entityId: p.id,
+        buildingId: p.buildingId,
+        recommendedAction: "Review project scope, budget, and timeline. Approve or send back for revisions.",
+      });
+    }
   }
 
   return signals;

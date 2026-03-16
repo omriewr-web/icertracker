@@ -18,7 +18,9 @@ export const GET = withAuth(async (req, { user }) => {
   const scope = getBuildingScope(user, buildingId);
   if (scope === EMPTY_SCOPE) return NextResponse.json([]);
 
+  const isOwner = user.role === "OWNER";
   const where: any = { ...scope };
+  if (isOwner) where.ownerVisible = true;
   if (status) where.status = status;
   if (category) where.category = category;
   if (priority) where.priority = priority;
@@ -34,8 +36,22 @@ export const GET = withAuth(async (req, { user }) => {
     orderBy: { updatedAt: "desc" },
   });
 
-  return NextResponse.json(
-    projects.map((p) => ({
+  const mapped = projects.map((p) => {
+    if (isOwner) {
+      return {
+        id: p.id,
+        name: p.name,
+        buildingId: p.buildingId,
+        buildingAddress: getDisplayAddress(p.building),
+        status: p.status,
+        health: p.health,
+        approvedBudget: toNumber(p.approvedBudget),
+        actualCost: toNumber(p.actualCost),
+        percentComplete: p.percentComplete,
+        targetEndDate: p.targetEndDate?.toISOString() ?? null,
+      };
+    }
+    return {
       id: p.id,
       code: p.code,
       name: p.name,
@@ -58,8 +74,10 @@ export const GET = withAuth(async (req, { user }) => {
       violationCount: p._count.violations,
       createdAt: p.createdAt.toISOString(),
       updatedAt: p.updatedAt.toISOString(),
-    })),
-  );
+    };
+  });
+
+  return NextResponse.json(mapped);
 }, "maintenance");
 
 export const POST = withAuth(async (req, { user }) => {

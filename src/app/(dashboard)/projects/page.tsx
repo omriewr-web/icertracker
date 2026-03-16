@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import ProjectsContent from "./projects-content";
 
 export default function ProjectsPage() {
-  return <ProjectsContent />;
+  return (
+    <Suspense>
+      <ProjectsContent />
+    </Suspense>
+  );
 }
