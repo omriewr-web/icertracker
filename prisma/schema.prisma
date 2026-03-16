@@ -207,6 +207,7 @@ model Building {
   certificationPackets   CertificationPacket[]
   prometheusIntakes      PrometheusIntake[]
   workOrderDrafts        WorkOrderDraft[]
+  buildingVendors        BuildingVendor[]
 
   @@index([organizationId])
   @@index([ownerId])
@@ -225,6 +226,11 @@ model Unit {
   unitNumber           String
   unitType             String?
   unitCategory         String? // "residential", "commercial", "parking", "laundry", "super", "other"
+  bedroomCount         Int?
+  bathroomCount        Int?
+  squareFeet           Int?
+  legalRent            Decimal?              @db.Decimal(10, 2) // DHCR registered rent
+  rentStabilized       Boolean               @default(false)
   askingRent           Decimal?              @db.Decimal(10, 2)
   isVacant             Boolean               @default(false)
   isResidential        Boolean               @default(true)
@@ -257,6 +263,8 @@ model Tenant {
   unitId             String              @unique
   yardiResidentId    String?             @unique
   name               String
+  firstName          String?
+  lastName           String?
   email              String?
   phone              String?
   marketRent         Decimal             @default(0) @db.Decimal(10, 2)
@@ -619,6 +627,7 @@ model Vendor {
   turnoverAssignments  TurnoverVendorAssignment[]
   trades               VendorTrade[]
   buildingAssignments  VendorAssignment[]
+  buildingVendors      BuildingVendor[]    @relation("BuildingVendorVendor")
 
   @@index([contactType])
   @@index([organizationId])
@@ -2023,4 +2032,25 @@ model WorkOrderDraft {
   @@index([buildingId, status])
   @@index([organizationId])
   @@map("work_order_drafts")
+}
+
+// ── Building Vendors (Phase 1) ──────────────────────────────────
+
+model BuildingVendor {
+  id          String   @id @default(cuid())
+  buildingId  String
+  vendorId    String?  // nullable — can store contact info without a full vendor record
+  role        String   // superintendent, elevator_company, fire_alarm_company, plumber, etc.
+  name        String?  // inline name if no vendor record
+  phone       String?
+  email       String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  building    Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  vendor      Vendor?  @relation("BuildingVendorVendor", fields: [vendorId], references: [id])
+
+  @@unique([buildingId, role])
+  @@index([vendorId])
+  @@map("building_vendors")
 }
