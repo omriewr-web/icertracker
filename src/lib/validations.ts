@@ -476,6 +476,14 @@ export const unitUpdateSchema = z.object({
   isVacant: z.boolean().optional(),
   askingRent: z.number().min(0).nullable().optional(),
   vacancyStatus: z.enum(["VACANT", "PRE_TURNOVER", "TURNOVER", "READY_TO_SHOW", "RENT_PROPOSED", "RENT_APPROVED", "LISTED", "LEASED", "OCCUPIED"]).nullable().optional(),
+  bedroomCount: z.number().int().min(0).max(20).nullable().optional(),
+  bathroomCount: z.number().int().min(0).max(20).nullable().optional(),
+  squareFeet: z.number().int().min(0).nullable().optional(),
+  legalRent: z.number().min(0).nullable().optional(),
+  accessType: z.enum(["MASTER_KEY", "SUPER", "LOCKBOX", "COMBINATION"]).nullable().optional(),
+  accessNotes: z.string().nullable().optional(),
+  superName: z.string().nullable().optional(),
+  superPhone: z.string().nullable().optional(),
 });
 
 // ── Signal Schema ───────────────────────────────────────────

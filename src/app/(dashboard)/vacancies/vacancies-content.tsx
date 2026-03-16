@@ -1,13 +1,16 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   DoorOpen, Wrench, CheckCircle, Clock, Tag, AlertTriangle,
-  ChevronDown, MoreHorizontal, Key, User, Package, HelpCircle,
-  ArrowRight, Hammer, ClipboardList, DollarSign,
+  MoreHorizontal, Key, User, Package, HelpCircle, Hash,
+  ArrowRight, Hammer, DollarSign, Loader2,
 } from "lucide-react";
-import { useVacancies, useUpdateVacancyStatus, useVacancyRent, VacancyUnitView } from "@/hooks/use-vacancies";
+import {
+  useVacancies, useUpdateVacancyStatus, useVacancyRent,
+  useUpdateVacancyUnit, VacancyUnitView,
+} from "@/hooks/use-vacancies";
 import { useBuildings } from "@/hooks/use-buildings";
 import { useMetrics } from "@/hooks/use-metrics";
 import KpiCard from "@/components/ui/kpi-card";
@@ -42,14 +45,22 @@ function getDaysColor(days: number | null): string {
   return "text-text-dim";
 }
 
-const ACCESS_ICONS: Record<string, typeof Key> = {
-  MASTER_KEY: Key,
-  SUPER: User,
-  LOCKBOX: Package,
-  COMBINATION: Package,
+const ACCESS_ICON_MAP: Record<string, { icon: typeof Key; color: string }> = {
+  MASTER_KEY:  { icon: Key,     color: "text-accent" },
+  SUPER:       { icon: User,    color: "text-blue-400" },
+  LOCKBOX:     { icon: Package, color: "text-orange-400" },
+  COMBINATION: { icon: Hash,    color: "text-text-muted" },
 };
 
-// ── Dropdown wrapper ──────────────────────────────────────────
+const ACCESS_OPTIONS = [
+  { value: "", label: "Not Set" },
+  { value: "MASTER_KEY", label: "Master Key" },
+  { value: "SUPER", label: "Super" },
+  { value: "LOCKBOX", label: "Lockbox" },
+  { value: "COMBINATION", label: "Combination" },
+];
+
+// ── Helpers ───────────────────────────────────────────────────
 
 function useClickOutside(ref: React.RefObject<HTMLDivElement | null>, onClose: () => void) {
   useEffect(() => {
@@ -59,6 +70,139 @@ function useClickOutside(ref: React.RefObject<HTMLDivElement | null>, onClose: (
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [ref, onClose]);
+}
+
+// ── Inline Number Editor ──────────────────────────────────────
+
+function InlineNumberCell({
+  unitId, field, value, width, suffix, prefix, min, max, isDecimal, align,
+}: {
+  unitId: string;
+  field: string;
+  value: number | null;
+  width: string;
+  suffix?: string;
+  prefix?: string;
+  min?: number;
+  max?: number;
+  isDecimal?: boolean;
+  align?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [inputVal, setInputVal] = useState("");
+  const [saved, setSaved] = useState(false);
+  const updateUnit = useUpdateVacancyUnit();
+
+  const display = value != null
+    ? (prefix || "") + (isDecimal ? fmt$(value) : value) + (suffix || "")
+    : "—";
+
+  const handleSave = useCallback(() => {
+    const raw = inputVal.trim();
+    if (raw === "") {
+      // Clear value
+      updateUnit.mutate({ unitId, data: { [field]: null } }, {
+        onSuccess: () => { setSaved(true); setTimeout(() => setSaved(false), 800); },
+      });
+    } else {
+      const num = isDecimal ? parseFloat(raw) : parseInt(raw, 10);
+      if (!isNaN(num) && (min === undefined || num >= min) && (max === undefined || num <= max)) {
+        updateUnit.mutate({ unitId, data: { [field]: num } }, {
+          onSuccess: () => { setSaved(true); setTimeout(() => setSaved(false), 800); },
+        });
+      }
+    }
+    setEditing(false);
+  }, [inputVal, unitId, field, isDecimal, min, max, updateUnit]);
+
+  if (editing) {
+    return (
+      <input
+        type="number"
+        value={inputVal}
+        onChange={(e) => setInputVal(e.target.value)}
+        onBlur={handleSave}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          if (e.key === "Escape") setEditing(false);
+        }}
+        autoFocus
+        min={min}
+        max={max}
+        step={isDecimal ? "0.01" : "1"}
+        className={`${width} px-1 py-0.5 text-sm font-mono bg-card-hover border border-accent/50 rounded text-text-primary outline-none ${align === "center" ? "text-center" : "text-right"}`}
+      />
+    );
+  }
+
+  return (
+    <button
+      onClick={() => { setInputVal(value?.toString() || ""); setEditing(true); }}
+      className={`cursor-pointer transition-colors font-mono text-xs tabular-nums ${
+        saved ? "text-green-400" : value != null ? "text-text-muted hover:text-accent" : "text-text-dim hover:text-accent"
+      } ${updateUnit.isPending ? "opacity-50" : ""}`}
+    >
+      {updateUnit.isPending ? <Loader2 className="w-3 h-3 animate-spin inline" /> : (isDecimal && value != null ? fmt$(value) : display)}
+    </button>
+  );
+}
+
+// ── Inline Proposed Rent ──────────────────────────────────────
+
+function InlineProposedRent({ unit }: { unit: VacancyUnitView }) {
+  const [editing, setEditing] = useState(false);
+  const [inputVal, setInputVal] = useState("");
+  const [saved, setSaved] = useState(false);
+  const rentMutation = useVacancyRent();
+
+  if (unit.proposedRent && !editing) {
+    return (
+      <button
+        onClick={() => { setInputVal(unit.proposedRent!.toString()); setEditing(true); }}
+        className={`font-mono tabular-nums cursor-pointer hover:opacity-80 ${saved ? "text-green-400" : ""}`}
+      >
+        <span className={unit.approvedRent ? "text-green-400" : "text-accent"}>{fmt$(unit.proposedRent)}</span>
+        {!unit.approvedRent && (
+          <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-400 uppercase">Pending</span>
+        )}
+      </button>
+    );
+  }
+
+  if (editing) {
+    return (
+      <input
+        type="number"
+        value={inputVal}
+        onChange={(e) => setInputVal(e.target.value)}
+        onBlur={() => {
+          const num = parseFloat(inputVal);
+          if (!isNaN(num) && num >= 0) {
+            rentMutation.mutate({ unitId: unit.id, action: "propose", rent: num }, {
+              onSuccess: () => { setSaved(true); setTimeout(() => setSaved(false), 800); },
+            });
+          }
+          setEditing(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          if (e.key === "Escape") setEditing(false);
+        }}
+        autoFocus
+        step="0.01"
+        className="w-[90px] px-1 py-0.5 text-sm font-mono bg-card-hover border border-accent/50 rounded text-text-primary outline-none text-right"
+      />
+    );
+  }
+
+  return (
+    <button
+      onClick={() => { setInputVal(unit.bestRent?.toString() || ""); setEditing(true); }}
+      className="text-text-dim hover:text-accent cursor-pointer transition-colors text-xs"
+    >
+      —
+    </button>
+  );
 }
 
 // ── Status Badge ──────────────────────────────────────────────
@@ -93,9 +237,7 @@ function StatusSelector({ unitId, currentStatus }: { unitId: string; currentStat
             <button
               key={s.value}
               onClick={() => {
-                if (s.value !== currentStatus) {
-                  updateStatus.mutate({ unitId, status: s.value });
-                }
+                if (s.value !== currentStatus) updateStatus.mutate({ unitId, status: s.value });
                 setOpen(false);
               }}
               className={`w-full text-left px-3 py-1.5 text-xs hover:bg-card-hover transition-colors flex items-center gap-2 ${s.value === currentStatus ? "font-bold" : ""}`}
@@ -110,7 +252,105 @@ function StatusSelector({ unitId, currentStatus }: { unitId: string; currentStat
   );
 }
 
-// ── Rent Modal ────────────────────────────────────────────────
+// ── Access Popover (editable) ─────────────────────────────────
+
+function AccessPopover({ unit }: { unit: VacancyUnitView }) {
+  const [open, setOpen] = useState(false);
+  const [accessType, setAccessType] = useState(unit.accessType || "");
+  const [accessNotes, setAccessNotes] = useState(unit.accessNotes || "");
+  const [superName, setSuperName] = useState(unit.superName || "");
+  const [superPhone, setSuperPhone] = useState(unit.superPhone || "");
+  const ref = useRef<HTMLDivElement>(null);
+  const updateUnit = useUpdateVacancyUnit();
+
+  useClickOutside(ref, () => setOpen(false));
+
+  const iconCfg = ACCESS_ICON_MAP[unit.accessType || ""];
+  const Icon = iconCfg?.icon || HelpCircle;
+  const iconColor = iconCfg?.color || "text-text-dim";
+
+  const handleOpen = () => {
+    setAccessType(unit.accessType || "");
+    setAccessNotes(unit.accessNotes || "");
+    setSuperName(unit.superName || "");
+    setSuperPhone(unit.superPhone || "");
+    setOpen(true);
+  };
+
+  const handleSave = () => {
+    updateUnit.mutate({
+      unitId: unit.id,
+      data: {
+        accessType: accessType || null,
+        accessNotes: accessNotes || null,
+        superName: superName || null,
+        superPhone: superPhone || null,
+      },
+    });
+    setOpen(false);
+  };
+
+  return (
+    <div ref={ref} className="relative inline-block">
+      <button onClick={handleOpen} className={`${iconColor} hover:opacity-80 p-1 transition-colors`}>
+        <Icon className="w-3.5 h-3.5" />
+      </button>
+      {open && (
+        <div className="absolute z-40 bottom-full mb-1 right-0 bg-card border border-border rounded-lg shadow-xl p-3 min-w-[220px] space-y-2">
+          <p className="text-xs font-medium text-text-primary mb-2">Unit Access</p>
+          <select
+            value={accessType}
+            onChange={(e) => setAccessType(e.target.value)}
+            className="w-full px-2 py-1.5 rounded bg-card-hover border border-border text-text-primary text-xs focus:outline-none focus:border-accent"
+          >
+            {ACCESS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+
+          {accessType === "SUPER" && (
+            <>
+              <input
+                value={superName}
+                onChange={(e) => setSuperName(e.target.value)}
+                placeholder="Super name"
+                className="w-full px-2 py-1.5 rounded bg-card-hover border border-border text-text-primary text-xs focus:outline-none focus:border-accent"
+              />
+              <input
+                value={superPhone}
+                onChange={(e) => setSuperPhone(e.target.value)}
+                placeholder="Super phone"
+                className="w-full px-2 py-1.5 rounded bg-card-hover border border-border text-text-primary text-xs focus:outline-none focus:border-accent"
+              />
+            </>
+          )}
+
+          {(accessType === "LOCKBOX" || accessType === "COMBINATION" || accessType === "MASTER_KEY") && (
+            <input
+              value={accessNotes}
+              onChange={(e) => setAccessNotes(e.target.value)}
+              placeholder={accessType === "MASTER_KEY" ? "Notes (optional)" : "Code / instructions"}
+              className="w-full px-2 py-1.5 rounded bg-card-hover border border-border text-text-primary text-xs focus:outline-none focus:border-accent"
+            />
+          )}
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={() => setOpen(false)} className="px-2 py-1 text-[10px] text-text-muted hover:text-text-primary">Cancel</button>
+            <button
+              onClick={handleSave}
+              disabled={updateUnit.isPending}
+              className="px-2 py-1 text-[10px] bg-accent text-white rounded hover:bg-accent-light disabled:opacity-50"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Rent Modal (for approve only) ─────────────────────────────
 
 function RentModal({ unitId, action, currentRent, onClose }: {
   unitId: string;
@@ -159,39 +399,10 @@ function RentModal({ unitId, action, currentRent, onClose }: {
   );
 }
 
-// ── Access Tooltip ─────────────────────────────────────────────
-
-function AccessCell({ unit }: { unit: VacancyUnitView }) {
-  const [show, setShow] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const Icon = ACCESS_ICONS[unit.accessType || ""] || HelpCircle;
-
-  return (
-    <div ref={ref} className="relative inline-block">
-      <button
-        onMouseEnter={() => setShow(true)}
-        onMouseLeave={() => setShow(false)}
-        className="text-text-dim hover:text-text-muted p-1 transition-colors"
-      >
-        <Icon className="w-3.5 h-3.5" />
-      </button>
-      {show && (
-        <div className="absolute z-30 bottom-full mb-1 right-0 bg-card border border-border rounded-lg shadow-xl p-3 min-w-[180px] text-xs space-y-1">
-          <p className="text-text-primary font-medium">{unit.accessType || "Unknown"}</p>
-          {unit.accessNotes && <p className="text-text-dim">{unit.accessNotes}</p>}
-          {unit.superName && <p className="text-text-muted">Super: {unit.superName}</p>}
-          {unit.superPhone && <p className="text-text-muted">Phone: {unit.superPhone}</p>}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Actions Dropdown ──────────────────────────────────────────
 
-function ActionsMenu({ unit, onProposeRent, onApproveRent }: {
+function ActionsMenu({ unit, onApproveRent }: {
   unit: VacancyUnitView;
-  onProposeRent: () => void;
   onApproveRent: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -208,13 +419,6 @@ function ActionsMenu({ unit, onProposeRent, onApproveRent }: {
       </button>
       {open && (
         <div className="absolute z-30 top-full mt-1 right-0 bg-card border border-border rounded-lg shadow-xl py-1 min-w-[210px]">
-          <button
-            onClick={() => { onProposeRent(); setOpen(false); }}
-            className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors"
-          >
-            <DollarSign className="w-3.5 h-3.5" />
-            Propose Rent
-          </button>
           {unit.proposedRent && (
             <button
               onClick={() => { onApproveRent(); setOpen(false); }}
@@ -272,14 +476,12 @@ export default function VacanciesContent() {
 
   const [rentModal, setRentModal] = useState<{ unitId: string; action: "propose" | "approve"; currentRent: number | null } | null>(null);
 
-  // Apply local building filter (global selector already applies via API, this is for the additional dropdown)
   const filtered = useMemo(() => {
     if (!vacancies) return [];
     if (!filterBuilding) return vacancies;
     return vacancies.filter((u) => u.buildingId === filterBuilding);
   }, [vacancies, filterBuilding]);
 
-  // KPI counts from filtered data
   const kpis = useMemo(() => {
     const all = vacancies || [];
     return {
@@ -308,6 +510,9 @@ export default function VacanciesContent() {
           data={filtered.map((u) => ({
             address: u.buildingAddress,
             unit: u.unitNumber,
+            br: u.bedroomCount ?? "—",
+            ba: u.bathroomCount ?? "—",
+            sf: u.squareFeet ?? "—",
             status: getStatusConfig(u.vacancyStatus).label,
             daysVacant: u.daysVacant ?? "—",
             legalRent: u.legalRent ?? "—",
@@ -315,11 +520,15 @@ export default function VacanciesContent() {
             approvedRent: u.approvedRent ?? "—",
             assigned: u.turnover?.assignedToName ?? "—",
             cost: u.turnover?.estimatedCost ?? "—",
+            access: u.accessType ?? "—",
           }))}
           filename="vacancy-command-center"
           columns={[
             { key: "address", label: "Property" },
             { key: "unit", label: "Unit" },
+            { key: "br", label: "BR" },
+            { key: "ba", label: "BA" },
+            { key: "sf", label: "SF" },
             { key: "status", label: "Status" },
             { key: "daysVacant", label: "Days Vacant" },
             { key: "legalRent", label: "Legal Rent" },
@@ -327,6 +536,7 @@ export default function VacanciesContent() {
             { key: "approvedRent", label: "Approved" },
             { key: "assigned", label: "Assigned" },
             { key: "cost", label: "Est. Cost" },
+            { key: "access", label: "Access" },
           ]}
           pdfConfig={{
             title: "Vacancy Command Center",
@@ -425,14 +635,14 @@ export default function VacanciesContent() {
                     {u.buildingAddress}
                   </td>
                   <td className="px-3 py-2 text-text-primary font-mono font-bold">{u.unitNumber}</td>
-                  <td className="px-2 py-2 text-center text-text-dim text-xs">
-                    {u.bedroomCount != null ? `${u.bedroomCount}BR` : "—"}
+                  <td className="px-2 py-2 text-center">
+                    <InlineNumberCell unitId={u.id} field="bedroomCount" value={u.bedroomCount} width="w-[50px]" min={0} max={20} align="center" />
                   </td>
-                  <td className="px-2 py-2 text-center text-text-dim text-xs">
-                    {u.bathroomCount != null ? `${u.bathroomCount}BA` : "—"}
+                  <td className="px-2 py-2 text-center">
+                    <InlineNumberCell unitId={u.id} field="bathroomCount" value={u.bathroomCount} width="w-[50px]" min={0} max={20} align="center" />
                   </td>
-                  <td className="px-2 py-2 text-right text-text-dim text-xs font-mono">
-                    {u.squareFeet ? `${u.squareFeet} sf` : "—"}
+                  <td className="px-2 py-2 text-right">
+                    <InlineNumberCell unitId={u.id} field="squareFeet" value={u.squareFeet} width="w-[70px]" min={0} />
                   </td>
                   <td className="px-3 py-2">
                     <StatusSelector unitId={u.id} currentStatus={u.vacancyStatus} />
@@ -443,20 +653,11 @@ export default function VacanciesContent() {
                   <td className={`px-3 py-2 text-right font-mono tabular-nums ${getDaysColor(u.daysSinceReady)}`}>
                     {u.daysSinceReady !== null ? `${u.daysSinceReady}d` : "—"}
                   </td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums text-text-muted">
-                    {u.legalRent ? fmt$(u.legalRent) : "—"}
+                  <td className="px-3 py-2 text-right">
+                    <InlineNumberCell unitId={u.id} field="legalRent" value={u.legalRent} width="w-[90px]" min={0} isDecimal />
                   </td>
                   <td className="px-3 py-2 text-right">
-                    {u.proposedRent ? (
-                      <span className="font-mono tabular-nums">
-                        <span className={u.approvedRent ? "text-green-400" : "text-accent"}>{fmt$(u.proposedRent)}</span>
-                        {!u.approvedRent && (
-                          <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-400 uppercase">Pending</span>
-                        )}
-                      </span>
-                    ) : (
-                      <span className="text-text-dim">—</span>
-                    )}
+                    <InlineProposedRent unit={u} />
                   </td>
                   <td className="px-3 py-2 text-right">
                     {u.approvedRent ? (
@@ -475,12 +676,11 @@ export default function VacanciesContent() {
                     {u.turnover?.estimatedCost ? fmt$(u.turnover.estimatedCost) : "—"}
                   </td>
                   <td className="px-2 py-2 text-center">
-                    <AccessCell unit={u} />
+                    <AccessPopover unit={u} />
                   </td>
                   <td className="px-2 py-2">
                     <ActionsMenu
                       unit={u}
-                      onProposeRent={() => setRentModal({ unitId: u.id, action: "propose", currentRent: u.proposedRent || u.bestRent || null })}
                       onApproveRent={() => setRentModal({ unitId: u.id, action: "approve", currentRent: u.proposedRent })}
                     />
                   </td>
@@ -497,7 +697,7 @@ export default function VacanciesContent() {
         />
       )}
 
-      {/* Rent Modal */}
+      {/* Rent Modal (for approve action from actions menu) */}
       {rentModal && (
         <RentModal
           unitId={rentModal.unitId}

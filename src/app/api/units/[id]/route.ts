@@ -19,6 +19,14 @@ export const PATCH = withAuth(async (req, { user, params }) => {
       ...(body.isVacant !== undefined && { isVacant: body.isVacant }),
       ...(body.askingRent !== undefined && { askingRent: body.askingRent }),
       ...(body.vacancyStatus !== undefined && { vacancyStatus: body.vacancyStatus }),
+      ...(body.bedroomCount !== undefined && { bedroomCount: body.bedroomCount }),
+      ...(body.bathroomCount !== undefined && { bathroomCount: body.bathroomCount }),
+      ...(body.squareFeet !== undefined && { squareFeet: body.squareFeet }),
+      ...(body.legalRent !== undefined && { legalRent: body.legalRent }),
+      ...(body.accessType !== undefined && { accessType: body.accessType }),
+      ...(body.accessNotes !== undefined && { accessNotes: body.accessNotes }),
+      ...(body.superName !== undefined && { superName: body.superName }),
+      ...(body.superPhone !== undefined && { superPhone: body.superPhone }),
     },
   });
   return NextResponse.json(unit);

@@ -88,6 +88,30 @@ export function useUpdateVacancyStatus() {
   });
 }
 
+export function useUpdateVacancyUnit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ unitId, data }: { unitId: string; data: Record<string, unknown> }) => {
+      const res = await fetch(`/api/units/${unitId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to update unit");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["vacancies"] });
+      qc.invalidateQueries({ queryKey: ["units"] });
+      qc.invalidateQueries({ queryKey: ["metrics"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 export function useVacancyRent() {
   const qc = useQueryClient();
   return useMutation({
