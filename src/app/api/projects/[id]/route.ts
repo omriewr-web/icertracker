@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { assertBuildingAccess } from "@/lib/data-scope";
-import { calculateHealth, calculatePercentComplete } from "@/lib/project-health";
+import { calculateHealth, calculatePercentComplete, computeProjectStats } from "@/lib/project-health";
 import { toNumber } from "@/lib/utils/decimal";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,19 @@ export const GET = withAuth(async (req, { user, params }) => {
   const denied = await assertBuildingAccess(user, project.buildingId);
   if (denied) return denied;
 
-  return NextResponse.json(project);
+  const stats = computeProjectStats({
+    status: project.status,
+    approvedBudget: project.approvedBudget,
+    estimatedBudget: project.estimatedBudget,
+    actualCost: project.actualCost,
+    targetEndDate: project.targetEndDate,
+    startDate: project.startDate,
+    requiresApproval: project.requiresApproval,
+    percentComplete: project.percentComplete,
+    milestones: project.milestones.map(m => ({ status: m.status, dueDate: m.dueDate, name: m.name })),
+  });
+
+  return NextResponse.json({ ...project, stats });
 });
 
 export const PATCH = withAuth(async (req, { user, params }) => {

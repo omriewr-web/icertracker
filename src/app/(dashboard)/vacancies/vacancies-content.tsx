@@ -2,143 +2,106 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { DoorOpen, ArrowRight, ClipboardList, Plus, MessageSquare, ChevronDown, AlertTriangle, Wrench, Hammer } from "lucide-react";
+import {
+  DoorOpen, Wrench, CheckCircle, Clock, Tag, AlertTriangle,
+  ChevronDown, MoreHorizontal, Key, User, Package, HelpCircle,
+  ArrowRight, Hammer, ClipboardList, DollarSign,
+} from "lucide-react";
+import { useVacancies, useUpdateVacancyStatus, useVacancyRent, VacancyUnitView } from "@/hooks/use-vacancies";
 import { useBuildings } from "@/hooks/use-buildings";
 import { useMetrics } from "@/hooks/use-metrics";
-import { useTurnovers, useCreateTurnover } from "@/hooks/use-turnovers";
-import { useUnits, useUpdateUnit } from "@/hooks/use-units";
-import { useLeasingActivities, useCreateLeasingActivity } from "@/hooks/use-leasing-activities";
 import KpiCard from "@/components/ui/kpi-card";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/empty-state";
-import VacancyChart from "@/components/dashboard/vacancy-chart";
 import { fmt$, pct } from "@/lib/utils";
 import ExportButton from "@/components/ui/export-button";
 
-const TURNOVER_STATUS_LABELS: Record<string, string> = {
-  PENDING_INSPECTION: "Pending Inspection",
-  INSPECTION_DONE: "Inspection Done",
-  SCOPE_CREATED: "Scope Created",
-  VENDORS_ASSIGNED: "Vendors Assigned",
-  READY_TO_LIST: "Ready to List",
-  LISTED: "Listed",
-  COMPLETE: "Complete",
-};
-
-const ACTIVITY_TYPES = [
-  { value: "showing", label: "Showing" },
-  { value: "inquiry", label: "Inquiry" },
-  { value: "application", label: "Application" },
-  { value: "offer_sent", label: "Offer Sent" },
-  { value: "follow_up", label: "Follow Up" },
-  { value: "lease_signed", label: "Lease Signed" },
-  { value: "note", label: "Note" },
-];
+// ── Status Config ─────────────────────────────────────────────
 
 const VACANCY_STATUSES = [
-  { value: "VACANT", label: "Vacant", color: "text-text-dim bg-white/5" },
-  { value: "MAKE_READY", label: "Make-Ready", color: "text-amber-400 bg-amber-400/10" },
-  { value: "READY_TO_SHOW", label: "Ready to Show", color: "text-blue-400 bg-blue-400/10" },
-  { value: "LEASED", label: "Leased", color: "text-green-400 bg-green-400/10" },
+  { value: "VACANT",        label: "Vacant",         bg: "bg-white/5",        text: "text-text-dim",   icon: DoorOpen },
+  { value: "PRE_TURNOVER",  label: "Pre-Turnover",   bg: "bg-amber-500/10",   text: "text-amber-400",  icon: Clock },
+  { value: "TURNOVER",      label: "Turnover",       bg: "bg-blue-500/10",    text: "text-blue-400",   icon: Wrench },
+  { value: "READY_TO_SHOW", label: "Ready to Show",  bg: "bg-teal-500/10",    text: "text-teal-400",   icon: CheckCircle },
+  { value: "RENT_PROPOSED", label: "Rent Proposed",   bg: "bg-amber-500/10",   text: "text-amber-400",  icon: Clock },
+  { value: "RENT_APPROVED", label: "Rent Approved",   bg: "bg-green-500/10",   text: "text-green-400",  icon: CheckCircle },
+  { value: "LISTED",        label: "Listed",          bg: "bg-purple-500/10",  text: "text-purple-400", icon: Tag },
+  { value: "LEASED",        label: "Leased",          bg: "bg-accent/10",      text: "text-accent",     icon: Key },
+  { value: "OCCUPIED",      label: "Occupied",        bg: "bg-green-500/10",   text: "text-green-400",  icon: CheckCircle },
 ];
 
-function getBestRent(u: { askingRent: number | null; legalRent: number | null; lastLeaseRent: number | null; marketRent: number | null }): number | null {
-  if (u.marketRent && u.marketRent > 0) return u.marketRent;
-  if (u.askingRent && u.askingRent > 0) return u.askingRent;
-  if (u.legalRent && u.legalRent > 0) return u.legalRent;
-  if (u.lastLeaseRent && u.lastLeaseRent > 0) return u.lastLeaseRent;
-  return null;
+function getStatusConfig(status: string) {
+  return VACANCY_STATUSES.find((s) => s.value === status) || VACANCY_STATUSES[0];
 }
 
-function getDaysVacant(vacantSince: string | null): number | null {
-  if (!vacantSince) return null;
-  const diff = Date.now() - new Date(vacantSince).getTime();
-  return Math.max(0, Math.floor(diff / 86400000));
-}
-
-function getDaysVacantColor(days: number | null): string {
+function getDaysColor(days: number | null): string {
   if (days === null) return "text-text-dim";
-  if (days > 90) return "text-red-400";
+  if (days > 90) return "text-red-400 font-bold";
   if (days > 60) return "text-orange-400";
   if (days > 30) return "text-amber-400";
   return "text-text-dim";
 }
 
-function InlineRentEditor({ unitId, currentRent }: { unitId: string; currentRent: number | null }) {
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(currentRent?.toString() || "");
-  const updateUnit = useUpdateUnit();
+const ACCESS_ICONS: Record<string, typeof Key> = {
+  MASTER_KEY: Key,
+  SUPER: User,
+  LOCKBOX: Package,
+  COMBINATION: Package,
+};
 
-  if (!editing) {
-    return (
-      <button
-        onClick={() => { setValue(currentRent?.toString() || ""); setEditing(true); }}
-        className="text-right font-mono tabular-nums text-text-muted hover:text-accent transition-colors cursor-pointer"
-      >
-        {currentRent ? fmt$(currentRent) : "Set rent"}
-      </button>
-    );
-  }
+// ── Dropdown wrapper ──────────────────────────────────────────
 
-  return (
-    <input
-      type="number"
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={() => {
-        const num = parseFloat(value);
-        if (!isNaN(num) && num >= 0) {
-          updateUnit.mutate({ id: unitId, data: { askingRent: num } });
-        }
-        setEditing(false);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-        if (e.key === "Escape") setEditing(false);
-      }}
-      autoFocus
-      className="w-24 px-1.5 py-0.5 text-right font-mono text-sm bg-card-hover border border-accent/50 rounded text-text-primary outline-none"
-    />
-  );
-}
-
-function InlineStatusEditor({ unitId, currentStatus }: { unitId: string; currentStatus: string | null }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const updateUnit = useUpdateUnit();
-
-  const status = VACANCY_STATUSES.find((s) => s.value === currentStatus) || VACANCY_STATUSES[0];
-
+function useClickOutside(ref: React.RefObject<HTMLDivElement | null>, onClose: () => void) {
   useEffect(() => {
-    if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+  }, [ref, onClose]);
+}
+
+// ── Status Badge ──────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: string }) {
+  const cfg = getStatusConfig(status);
+  const Icon = cfg.icon;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}>
+      <Icon className="w-3 h-3" />
+      {cfg.label}
+    </span>
+  );
+}
+
+// ── Status Selector ───────────────────────────────────────────
+
+function StatusSelector({ unitId, currentStatus }: { unitId: string; currentStatus: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const updateStatus = useUpdateVacancyStatus();
+  useClickOutside(ref, () => setOpen(false));
 
   return (
     <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className={`px-1.5 py-0.5 rounded text-xs font-medium ${status.color} hover:opacity-80 transition-opacity flex items-center gap-1`}
-      >
-        {status.label}
-        <ChevronDown className="w-3 h-3" />
+      <button onClick={() => setOpen(!open)} className="hover:opacity-80 transition-opacity">
+        <StatusBadge status={currentStatus} />
       </button>
       {open && (
-        <div className="absolute z-20 top-full mt-1 left-0 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[140px]">
+        <div className="absolute z-30 top-full mt-1 left-0 bg-card border border-border rounded-lg shadow-xl py-1 min-w-[160px]">
           {VACANCY_STATUSES.map((s) => (
             <button
               key={s.value}
               onClick={() => {
-                updateUnit.mutate({ id: unitId, data: { vacancyStatus: s.value } });
+                if (s.value !== currentStatus) {
+                  updateStatus.mutate({ unitId, status: s.value });
+                }
                 setOpen(false);
               }}
-              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-card-hover transition-colors ${s.value === currentStatus ? "font-bold" : ""}`}
+              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-card-hover transition-colors flex items-center gap-2 ${s.value === currentStatus ? "font-bold" : ""}`}
             >
-              <span className={s.color.split(" ")[0]}>{s.label}</span>
+              <s.icon className={`w-3 h-3 ${s.text}`} />
+              <span className={s.text}>{s.label}</span>
             </button>
           ))}
         </div>
@@ -147,396 +110,401 @@ function InlineStatusEditor({ unitId, currentStatus }: { unitId: string; current
   );
 }
 
-function ActionsDropdown({ unitId, buildingId }: { unitId: string; buildingId: string }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+// ── Rent Modal ────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+function RentModal({ unitId, action, currentRent, onClose }: {
+  unitId: string;
+  action: "propose" | "approve";
+  currentRent: number | null;
+  onClose: () => void;
+}) {
+  const [value, setValue] = useState(currentRent?.toString() || "");
+  const rentMutation = useVacancyRent();
 
   return (
-    <div ref={ref} className="relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="bg-card border border-border rounded-xl p-5 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-sm font-medium text-text-primary">
+          {action === "propose" ? "Propose Rent" : "Approve Rent"}
+        </h3>
+        <div>
+          <label className="text-xs text-text-dim block mb-1">Monthly Rent ($)</label>
+          <input
+            type="number"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            autoFocus
+            className="w-full px-3 py-2 rounded-lg bg-card-hover border border-border text-text-primary text-sm font-mono"
+            placeholder="0.00"
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-3 py-1.5 text-sm text-text-muted hover:text-text-primary">Cancel</button>
+          <button
+            onClick={() => {
+              const num = parseFloat(value);
+              if (!isNaN(num) && num >= 0) {
+                rentMutation.mutate({ unitId, action, rent: num });
+                onClose();
+              }
+            }}
+            disabled={rentMutation.isPending}
+            className="px-3 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-accent-light disabled:opacity-50"
+          >
+            {action === "propose" ? "Propose" : "Approve"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Access Tooltip ─────────────────────────────────────────────
+
+function AccessCell({ unit }: { unit: VacancyUnitView }) {
+  const [show, setShow] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const Icon = ACCESS_ICONS[unit.accessType || ""] || HelpCircle;
+
+  return (
+    <div ref={ref} className="relative inline-block">
       <button
-        onClick={() => setOpen(!open)}
-        className="text-accent hover:text-accent-light p-1 rounded hover:bg-accent/10 transition-colors"
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        className="text-text-dim hover:text-text-muted p-1 transition-colors"
       >
-        <ChevronDown className="w-4 h-4" />
+        <Icon className="w-3.5 h-3.5" />
       </button>
-      {open && (
-        <div className="absolute z-20 top-full mt-1 right-0 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[200px]">
-          <Link
-            href={`/projects/new?unitId=${unitId}&category=TURNOVER`}
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors"
-          >
-            <Hammer className="w-3.5 h-3.5" />
-            Create Make-Ready Project
-          </Link>
-          <Link
-            href={`/maintenance?unitId=${unitId}`}
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors"
-          >
-            <Wrench className="w-3.5 h-3.5" />
-            Create Work Order
-          </Link>
+      {show && (
+        <div className="absolute z-30 bottom-full mb-1 right-0 bg-card border border-border rounded-lg shadow-xl p-3 min-w-[180px] text-xs space-y-1">
+          <p className="text-text-primary font-medium">{unit.accessType || "Unknown"}</p>
+          {unit.accessNotes && <p className="text-text-dim">{unit.accessNotes}</p>}
+          {unit.superName && <p className="text-text-muted">Super: {unit.superName}</p>}
+          {unit.superPhone && <p className="text-text-muted">Phone: {unit.superPhone}</p>}
         </div>
       )}
     </div>
   );
 }
 
+// ── Actions Dropdown ──────────────────────────────────────────
+
+function ActionsMenu({ unit, onProposeRent, onApproveRent }: {
+  unit: VacancyUnitView;
+  onProposeRent: () => void;
+  onApproveRent: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useClickOutside(ref, () => setOpen(false));
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="text-text-dim hover:text-text-muted p-1 rounded hover:bg-card-hover transition-colors"
+      >
+        <MoreHorizontal className="w-4 h-4" />
+      </button>
+      {open && (
+        <div className="absolute z-30 top-full mt-1 right-0 bg-card border border-border rounded-lg shadow-xl py-1 min-w-[210px]">
+          <button
+            onClick={() => { onProposeRent(); setOpen(false); }}
+            className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors"
+          >
+            <DollarSign className="w-3.5 h-3.5" />
+            Propose Rent
+          </button>
+          {unit.proposedRent && (
+            <button
+              onClick={() => { onApproveRent(); setOpen(false); }}
+              className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors"
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              Approve Rent
+            </button>
+          )}
+          <Link
+            href={`/maintenance?unitId=${unit.id}&buildingId=${unit.buildingId}`}
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors"
+          >
+            <Wrench className="w-3.5 h-3.5" />
+            Create Work Order
+          </Link>
+          <Link
+            href={`/projects?unitId=${unit.id}&buildingId=${unit.buildingId}&category=TURNOVER`}
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors"
+          >
+            <Hammer className="w-3.5 h-3.5" />
+            Create Project
+          </Link>
+          {unit.turnover && (
+            <Link
+              href={`/turnovers/${unit.turnover.id}`}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors"
+            >
+              <ArrowRight className="w-3.5 h-3.5" />
+              View Turnover Detail
+            </Link>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────
+
 export default function VacanciesContent() {
-  const { data: buildings, isLoading } = useBuildings();
+  const [filterStatus, setFilterStatus] = useState<string>("");
+  const [filterDays, setFilterDays] = useState<string>("");
+  const [filterBuilding, setFilterBuilding] = useState<string>("");
+
+  const { data: vacancies, isLoading } = useVacancies({
+    status: filterStatus || undefined,
+    daysVacant: filterDays || undefined,
+  });
+  const { data: buildings } = useBuildings();
   const { data: metrics } = useMetrics();
-  const { data: turnovers } = useTurnovers();
-  const createTurnover = useCreateTurnover();
-  const { data: allUnits } = useUnits();
-  const { data: activities } = useLeasingActivities();
-  const createActivity = useCreateLeasingActivity();
 
-  const [activityForm, setActivityForm] = useState<{ unitId: string; buildingId: string } | null>(null);
-  const [actType, setActType] = useState("showing");
-  const [actDesc, setActDesc] = useState("");
-  const [actContact, setActContact] = useState("");
+  const [rentModal, setRentModal] = useState<{ unitId: string; action: "propose" | "approve"; currentRent: number | null } | null>(null);
 
-  const buildingsWithVacancies = useMemo(
-    () => (buildings || []).filter((b) => b.vacant > 0).sort((a, b) => b.vacant - a.vacant),
-    [buildings]
-  );
+  // Apply local building filter (global selector already applies via API, this is for the additional dropdown)
+  const filtered = useMemo(() => {
+    if (!vacancies) return [];
+    if (!filterBuilding) return vacancies;
+    return vacancies.filter((u) => u.buildingId === filterBuilding);
+  }, [vacancies, filterBuilding]);
 
-  const vacantUnits = useMemo(
-    () => (allUnits || []).filter((u) => u.isVacant),
-    [allUnits]
-  );
+  // KPI counts from filtered data
+  const kpis = useMemo(() => {
+    const all = vacancies || [];
+    return {
+      total: all.length,
+      inTurnover: all.filter((u) => u.vacancyStatus === "TURNOVER" || u.vacancyStatus === "PRE_TURNOVER").length,
+      readyToShow: all.filter((u) => u.vacancyStatus === "READY_TO_SHOW").length,
+      pendingApproval: all.filter((u) => u.vacancyStatus === "RENT_PROPOSED").length,
+      listed: all.filter((u) => u.vacancyStatus === "LISTED").length,
+      critical90: all.filter((u) => u.daysVacant !== null && u.daysVacant > 90).length,
+    };
+  }, [vacancies]);
 
-  const totalVacantRent = useMemo(
-    () => metrics?.lostRent || 0,
-    [metrics]
-  );
-
-  const critical90PlusCount = useMemo(() => {
-    return vacantUnits.filter((u) => {
-      const days = getDaysVacant(u.vacantSince);
-      return days !== null && days > 90;
-    }).length;
-  }, [vacantUnits]);
-
-  // Build a map of unitId → turnover for quick lookup
-  const turnoverByUnit = useMemo(() => {
-    const map = new Map<string, (typeof turnovers extends (infer T)[] | undefined ? T : never)>();
-    for (const t of turnovers || []) {
-      map.set(t.unitId, t);
-    }
-    return map;
-  }, [turnovers]);
-
-  // Count activities per unit
-  const activityCountByUnit = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const a of activities || []) {
-      map.set(a.unitId, (map.get(a.unitId) || 0) + 1);
-    }
-    return map;
-  }, [activities]);
-
-  const activeTurnoverCount = turnovers?.filter((t) => t.status !== "COMPLETE").length || 0;
+  const lostRent = metrics?.lostRent || 0;
 
   if (isLoading) return <PageSkeleton />;
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Vacancy Tracking</h1>
-          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Operations — Vacancy Tracking</span>
+          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Vacancies</h1>
+          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">// Vacancy & Turnover Command Center</span>
         </div>
-        <div className="flex items-center gap-2">
-          <ExportButton
-            data={buildingsWithVacancies.map((b) => ({
-              address: b.address,
-              totalUnits: b.totalUnits,
-              occupied: b.occupied,
-              vacant: b.vacant,
-              vacancyRate: b.totalUnits > 0 ? ((b.vacant / b.totalUnits) * 100).toFixed(1) + "%" : "0%",
-              totalMarketRent: b.totalMarketRent,
-            }))}
-            filename="vacancy-report"
-            columns={[
-              { key: "address", label: "Property" },
-              { key: "totalUnits", label: "Total Units" },
-              { key: "occupied", label: "Occupied" },
-              { key: "vacant", label: "Vacant" },
-              { key: "vacancyRate", label: "Vacancy Rate" },
-              { key: "totalMarketRent", label: "Market Rent" },
-            ]}
-            pdfConfig={{
-              title: "Vacancy Report",
-              stats: [
-                { label: "Vacant Units", value: String(metrics?.vacant || 0) },
-                { label: "Vacancy Rate", value: metrics?.totalUnits ? pct(((metrics?.vacant || 0) / metrics.totalUnits) * 100) : "0%" },
-                { label: "Lost Rent/Mo", value: fmt$(totalVacantRent) },
-              ],
-            }}
-          />
-          <Link
-            href="/turnovers"
-            className="flex items-center gap-1.5 text-sm text-accent hover:text-accent-light transition-colors bg-accent/10 px-3 py-1.5 rounded-lg"
+        <ExportButton
+          data={filtered.map((u) => ({
+            address: u.buildingAddress,
+            unit: u.unitNumber,
+            status: getStatusConfig(u.vacancyStatus).label,
+            daysVacant: u.daysVacant ?? "—",
+            legalRent: u.legalRent ?? "—",
+            proposedRent: u.proposedRent ?? "—",
+            approvedRent: u.approvedRent ?? "—",
+            assigned: u.turnover?.assignedToName ?? "—",
+            cost: u.turnover?.estimatedCost ?? "—",
+          }))}
+          filename="vacancy-command-center"
+          columns={[
+            { key: "address", label: "Property" },
+            { key: "unit", label: "Unit" },
+            { key: "status", label: "Status" },
+            { key: "daysVacant", label: "Days Vacant" },
+            { key: "legalRent", label: "Legal Rent" },
+            { key: "proposedRent", label: "Proposed" },
+            { key: "approvedRent", label: "Approved" },
+            { key: "assigned", label: "Assigned" },
+            { key: "cost", label: "Est. Cost" },
+          ]}
+          pdfConfig={{
+            title: "Vacancy Command Center",
+            stats: [
+              { label: "Total Vacant", value: String(kpis.total) },
+              { label: "In Turnover", value: String(kpis.inTurnover) },
+              { label: "90+ Days", value: String(kpis.critical90) },
+              { label: "Lost Rent/Mo", value: fmt$(lostRent) },
+            ],
+          }}
+        />
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <KpiCard label="Total Vacant" value={kpis.total} icon={DoorOpen} color="#F59E0B" />
+        <KpiCard label="In Turnover" value={kpis.inTurnover} icon={Wrench} color="#3B82F6" />
+        <KpiCard label="Ready to Show" value={kpis.readyToShow} icon={CheckCircle} color="#14B8A6" />
+        <KpiCard label="Pending Approval" value={kpis.pendingApproval} icon={Clock} color="#EAB308" />
+        <KpiCard label="Listed" value={kpis.listed} icon={Tag} color="#A855F7" />
+        <KpiCard label="90+ Days" value={kpis.critical90} icon={AlertTriangle} color="#EF4444" />
+      </div>
+
+      {/* Filter Bar */}
+      <div className="flex flex-wrap items-center gap-3">
+        {buildings && buildings.length > 1 && (
+          <select
+            value={filterBuilding}
+            onChange={(e) => setFilterBuilding(e.target.value)}
+            className="bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent"
           >
-            <ClipboardList className="w-4 h-4" />
-            {activeTurnoverCount > 0 ? `${activeTurnoverCount} Active Turnovers` : "Turnovers"}
-          </Link>
-        </div>
+            <option value="">All Properties</option>
+            {buildings.filter((b) => b.vacant > 0).map((b) => (
+              <option key={b.id} value={b.id}>{b.address}</option>
+            ))}
+          </select>
+        )}
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent"
+        >
+          <option value="">All Statuses</option>
+          {VACANCY_STATUSES.filter((s) => s.value !== "OCCUPIED").map((s) => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
+        </select>
+        <select
+          value={filterDays}
+          onChange={(e) => setFilterDays(e.target.value)}
+          className="bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent"
+        >
+          <option value="">All Days</option>
+          <option value="30">0–30 days</option>
+          <option value="60">31–60 days</option>
+          <option value="90">61–90 days</option>
+          <option value="90plus">90+ days</option>
+        </select>
+        {(filterStatus || filterDays || filterBuilding) && (
+          <button
+            onClick={() => { setFilterStatus(""); setFilterDays(""); setFilterBuilding(""); }}
+            className="text-xs text-accent hover:text-accent-light transition-colors"
+          >
+            Clear filters
+          </button>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <KpiCard label="Vacant Units" value={metrics?.vacant || 0} icon={DoorOpen} color="#F59E0B" />
-        <KpiCard label="Total Units" value={metrics?.totalUnits || 0} />
-        <KpiCard label="Vacancy Rate" value={metrics?.totalUnits ? pct(((metrics?.vacant || 0) / metrics.totalUnits) * 100) : "0%"} color="#F59E0B" />
-        <KpiCard label="Lost Rent/Mo" value={fmt$(totalVacantRent)} color="#EF4444" />
-        <KpiCard label="90+ Days" value={critical90PlusCount} icon={AlertTriangle} color="#EF4444" />
-      </div>
-
-      {buildingsWithVacancies.length > 0 && (
-        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
-          <h3 className="text-sm font-medium text-text-muted mb-4">Vacancies by Property</h3>
-          <VacancyChart buildings={buildingsWithVacancies} />
-        </div>
-      )}
-
-      {/* Vacant Units Detail Table */}
-      {vacantUnits.length > 0 && (
+      {/* Main Table */}
+      {filtered.length > 0 ? (
         <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-x-auto">
-          <div className="px-3 py-2 border-b border-border">
-            <h3 className="text-sm font-medium text-text-muted">Vacant Units</h3>
-          </div>
-          <table className="w-full text-sm min-w-[900px]">
+          <table className="w-full text-sm min-w-[1200px]">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Property</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Unit</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Type</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Status</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase">Asking Rent</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase">Days Vacant</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase">Activity</th>
-                <th className="px-3 py-2 w-10"></th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase sticky top-0 bg-atlas-navy-3">Address</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase sticky top-0 bg-atlas-navy-3">Unit</th>
+                <th className="px-2 py-2 text-center text-xs font-medium text-text-dim uppercase sticky top-0 bg-atlas-navy-3">BR</th>
+                <th className="px-2 py-2 text-center text-xs font-medium text-text-dim uppercase sticky top-0 bg-atlas-navy-3">BA</th>
+                <th className="px-2 py-2 text-right text-xs font-medium text-text-dim uppercase sticky top-0 bg-atlas-navy-3">SF</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase sticky top-0 bg-atlas-navy-3">Status</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase sticky top-0 bg-atlas-navy-3">Days Vacant</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase sticky top-0 bg-atlas-navy-3">Days Ready</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase sticky top-0 bg-atlas-navy-3">Legal Rent</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase sticky top-0 bg-atlas-navy-3">Proposed</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase sticky top-0 bg-atlas-navy-3">Approved</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase sticky top-0 bg-atlas-navy-3">Assigned</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase sticky top-0 bg-atlas-navy-3">Cost</th>
+                <th className="px-2 py-2 text-center text-xs font-medium text-text-dim uppercase sticky top-0 bg-atlas-navy-3">Access</th>
+                <th className="px-2 py-2 w-8 sticky top-0 bg-atlas-navy-3"></th>
               </tr>
             </thead>
             <tbody>
-              {vacantUnits.map((u, i) => {
-                const displayRent = getBestRent(u);
-                const daysVacant = getDaysVacant(u.vacantSince);
-                const daysColor = getDaysVacantColor(daysVacant);
-                return (
-                  <tr key={u.id} className={`border-b border-border/50 last:border-0 hover:bg-card-hover transition-colors ${i % 2 === 1 ? "bg-white/[0.02]" : ""}`}>
-                    <td className="px-3 py-2 text-text-primary">{u.buildingAddress}</td>
-                    <td className="px-3 py-2 text-text-muted font-mono">{u.unitNumber}</td>
-                    <td className="px-3 py-2 text-text-dim text-xs">{u.unitType || "—"}</td>
-                    <td className="px-3 py-2">
-                      <InlineStatusEditor unitId={u.id} currentStatus={u.vacancyStatus} />
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <InlineRentEditor unitId={u.id} currentRent={displayRent} />
-                    </td>
-                    <td className={`px-3 py-2 text-right font-mono tabular-nums ${daysColor}`}>
-                      {daysVacant !== null ? daysVacant : "—"}
-                    </td>
-                    <td className="px-3 py-2 text-right text-text-muted font-mono tabular-nums">
-                      {activityCountByUnit.get(u.id) || 0}
-                    </td>
-                    <td className="px-3 py-2 flex items-center gap-1">
-                      <button
-                        onClick={() => setActivityForm({ unitId: u.id, buildingId: u.buildingId })}
-                        className="text-accent hover:text-accent-light p-1 rounded hover:bg-accent/10 transition-colors"
-                        title="Log activity"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                      <ActionsDropdown unitId={u.id} buildingId={u.buildingId} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Activity Form Modal */}
-      {activityForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setActivityForm(null)}>
-          <div className="bg-card border border-border rounded-xl p-5 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-medium text-text-primary">Log Leasing Activity</h3>
-            <select
-              value={actType}
-              onChange={(e) => setActType(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-card-hover border border-border text-text-primary text-sm"
-            >
-              {ACTIVITY_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-            <input
-              placeholder="Contact name (optional)"
-              value={actContact}
-              onChange={(e) => setActContact(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-card-hover border border-border text-text-primary text-sm"
-            />
-            <textarea
-              placeholder="Notes (optional)"
-              value={actDesc}
-              onChange={(e) => setActDesc(e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 rounded-lg bg-card-hover border border-border text-text-primary text-sm resize-none"
-            />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setActivityForm(null)} className="px-3 py-1.5 text-sm text-text-muted hover:text-text-primary">
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  createActivity.mutate({
-                    unitId: activityForm.unitId,
-                    buildingId: activityForm.buildingId,
-                    type: actType,
-                    description: actDesc || undefined,
-                    contactName: actContact || undefined,
-                  });
-                  setActivityForm(null);
-                  setActType("showing");
-                  setActDesc("");
-                  setActContact("");
-                }}
-                className="px-3 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-accent-light"
-              >
-                Log Activity
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Recent Leasing Activity */}
-      {activities && activities.length > 0 && (
-        <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-x-auto">
-          <div className="px-3 py-2 border-b border-border">
-            <h3 className="text-sm font-medium text-text-muted flex items-center gap-2">
-              <MessageSquare className="w-4 h-4" />
-              Recent Leasing Activity
-            </h3>
-          </div>
-          <table className="w-full text-sm min-w-[650px]">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Date</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Property</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Unit</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Type</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Contact</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Notes</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">By</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activities.slice(0, 20).map((a, i) => (
-                <tr key={a.id} className={`border-b border-border/50 last:border-0 hover:bg-card-hover transition-colors ${i % 2 === 1 ? "bg-white/[0.02]" : ""}`}>
-                  <td className="px-3 py-2 text-text-dim text-xs whitespace-nowrap">{new Date(a.createdAt).toLocaleDateString()}</td>
-                  <td className="px-3 py-2 text-text-primary">{a.buildingAddress}</td>
-                  <td className="px-3 py-2 text-text-muted font-mono">{a.unitNumber}</td>
-                  <td className="px-3 py-2 text-xs">
-                    <span className="px-1.5 py-0.5 rounded bg-accent/10 text-accent">
-                      {ACTIVITY_TYPES.find((t) => t.value === a.type)?.label || a.type}
-                    </span>
+              {filtered.map((u, i) => (
+                <tr key={u.id} className={`border-b border-border/50 last:border-0 hover:bg-card-hover transition-colors ${i % 2 === 1 ? "bg-white/[0.02]" : ""}`}>
+                  <td className="px-3 py-2 text-text-primary max-w-[180px] truncate" title={u.buildingAddress}>
+                    {u.buildingAddress}
                   </td>
-                  <td className="px-3 py-2 text-text-muted text-xs">{a.contactName || "—"}</td>
-                  <td className="px-3 py-2 text-text-dim text-xs max-w-[200px] truncate">{a.description || "—"}</td>
-                  <td className="px-3 py-2 text-text-dim text-xs">{a.userName}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Active turnovers summary */}
-      {turnovers && turnovers.length > 0 && (
-        <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-x-auto">
-          <div className="px-3 py-2 border-b border-border">
-            <h3 className="text-sm font-medium text-text-muted">Active Turnover Workflows</h3>
-          </div>
-          <table className="w-full text-sm min-w-[650px]">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Property</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Unit</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Status</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase">Days</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase">Est. Cost</th>
-                <th className="px-3 py-2 w-8"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {turnovers.filter((t) => t.status !== "COMPLETE").slice(0, 10).map((t, i) => {
-                const days = Math.ceil((Date.now() - new Date(t.createdAt).getTime()) / 86400000);
-                const urgencyColor = days >= 60 ? "text-red-400" : days >= 30 ? "text-orange-400" : "text-amber-400";
-                return (
-                  <tr key={t.id} className={`border-b border-border/50 last:border-0 hover:bg-card-hover transition-colors ${i % 2 === 1 ? "bg-white/[0.02]" : ""}`}>
-                    <td className="px-3 py-2 text-text-primary">{t.building.address}</td>
-                    <td className="px-3 py-2 text-text-muted font-mono">{t.unit.unitNumber}</td>
-                    <td className="px-3 py-2 text-xs text-text-muted">{TURNOVER_STATUS_LABELS[t.status] || t.status}</td>
-                    <td className={`px-3 py-2 text-right font-mono tabular-nums ${urgencyColor}`}>{days}</td>
-                    <td className="px-3 py-2 text-right text-text-muted font-mono tabular-nums">{t.estimatedCost ? fmt$(t.estimatedCost) : "—"}</td>
-                    <td className="px-3 py-2">
-                      <Link href={`/turnovers/${t.id}`} className="text-accent hover:text-accent-light">
-                        <ArrowRight className="w-4 h-4" />
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {buildingsWithVacancies.length > 0 ? (
-        <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-x-auto">
-          <table className="w-full text-sm min-w-[600px]">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Property</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase">Total</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase">Occupied</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase">Vacant</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase">Vacancy Rate</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase">Market Rent</th>
-              </tr>
-            </thead>
-            <tbody>
-              {buildingsWithVacancies.map((b) => (
-                <tr key={b.id} className="border-b border-border/50 hover:bg-card-hover transition-colors">
-                  <td className="px-3 py-2 text-text-primary">{b.address}</td>
-                  <td className="px-3 py-2 text-right text-text-muted font-mono">{b.totalUnits}</td>
-                  <td className="px-3 py-2 text-right text-green-400 font-mono">{b.occupied}</td>
-                  <td className="px-3 py-2 text-right text-amber-400 font-bold font-mono">{b.vacant}</td>
-                  <td className="px-3 py-2 text-right text-amber-400 font-mono">
-                    {b.totalUnits > 0 ? pct((b.vacant / b.totalUnits) * 100) : "—"}
+                  <td className="px-3 py-2 text-text-primary font-mono font-bold">{u.unitNumber}</td>
+                  <td className="px-2 py-2 text-center text-text-dim text-xs">
+                    {u.bedroomCount != null ? `${u.bedroomCount}BR` : "—"}
                   </td>
-                  <td className="px-3 py-2 text-right text-text-muted font-mono">{fmt$(b.totalMarketRent)}</td>
+                  <td className="px-2 py-2 text-center text-text-dim text-xs">
+                    {u.bathroomCount != null ? `${u.bathroomCount}BA` : "—"}
+                  </td>
+                  <td className="px-2 py-2 text-right text-text-dim text-xs font-mono">
+                    {u.squareFeet ? `${u.squareFeet} sf` : "—"}
+                  </td>
+                  <td className="px-3 py-2">
+                    <StatusSelector unitId={u.id} currentStatus={u.vacancyStatus} />
+                  </td>
+                  <td className={`px-3 py-2 text-right font-mono tabular-nums ${getDaysColor(u.daysVacant)}`}>
+                    {u.daysVacant !== null ? `${u.daysVacant}d` : "—"}
+                  </td>
+                  <td className={`px-3 py-2 text-right font-mono tabular-nums ${getDaysColor(u.daysSinceReady)}`}>
+                    {u.daysSinceReady !== null ? `${u.daysSinceReady}d` : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono tabular-nums text-text-muted">
+                    {u.legalRent ? fmt$(u.legalRent) : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {u.proposedRent ? (
+                      <span className="font-mono tabular-nums">
+                        <span className={u.approvedRent ? "text-green-400" : "text-accent"}>{fmt$(u.proposedRent)}</span>
+                        {!u.approvedRent && (
+                          <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-400 uppercase">Pending</span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-text-dim">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {u.approvedRent ? (
+                      <span className="font-mono tabular-nums text-green-400 flex items-center justify-end gap-1">
+                        {fmt$(u.approvedRent)}
+                        <CheckCircle className="w-3 h-3" />
+                      </span>
+                    ) : (
+                      <span className="text-text-dim">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-text-muted text-xs">
+                    {u.turnover?.assignedToName || <span className="text-text-dim">Unassigned</span>}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono tabular-nums text-text-muted">
+                    {u.turnover?.estimatedCost ? fmt$(u.turnover.estimatedCost) : "—"}
+                  </td>
+                  <td className="px-2 py-2 text-center">
+                    <AccessCell unit={u} />
+                  </td>
+                  <td className="px-2 py-2">
+                    <ActionsMenu
+                      unit={u}
+                      onProposeRent={() => setRentModal({ unitId: u.id, action: "propose", currentRent: u.proposedRent || u.bestRent || null })}
+                      onApproveRent={() => setRentModal({ unitId: u.id, action: "approve", currentRent: u.proposedRent })}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       ) : (
-        <EmptyState title="No vacancies" description="All units are currently occupied" icon={DoorOpen} />
+        <EmptyState
+          title="No vacancies"
+          description={filterStatus || filterDays ? "No units match the selected filters" : "All units are currently occupied"}
+          icon={DoorOpen}
+        />
+      )}
+
+      {/* Rent Modal */}
+      {rentModal && (
+        <RentModal
+          unitId={rentModal.unitId}
+          action={rentModal.action}
+          currentRent={rentModal.currentRent}
+          onClose={() => setRentModal(null)}
+        />
       )}
     </div>
   );

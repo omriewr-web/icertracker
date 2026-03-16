@@ -235,7 +235,19 @@ model Unit {
   askingRent           Decimal?              @db.Decimal(10, 2)
   isVacant             Boolean               @default(false)
   vacantSince          DateTime?
-  vacancyStatus        String?               // VACANT, MAKE_READY, READY_TO_SHOW, LEASED
+  vacancyStatus        VacancyStatus?
+  statusChangedAt      DateTime?
+  readyDate            DateTime?
+  proposedRent         Decimal?              @db.Decimal(10, 2)
+  approvedRent         Decimal?              @db.Decimal(10, 2)
+  rentProposedBy       String?
+  rentApprovedBy       String?
+  rentProposedAt       DateTime?
+  rentApprovedAt       DateTime?
+  accessType           String?               // MASTER_KEY | SUPER | LOCKBOX | COMBINATION
+  accessNotes          String?
+  superName            String?
+  superPhone           String?
   isResidential        Boolean               @default(true)
   building             Building              @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   tenant               Tenant?
@@ -1689,6 +1701,20 @@ model SignalScanLog {
   @@index([organizationId])
   @@index([startedAt])
   @@map("signal_scan_logs")
+}
+
+// ── Vacancy Lifecycle ────────────────────────────────────────
+
+enum VacancyStatus {
+  VACANT
+  PRE_TURNOVER
+  TURNOVER
+  READY_TO_SHOW
+  RENT_PROPOSED
+  RENT_APPROVED
+  LISTED
+  LEASED
+  OCCUPIED
 }
 
 // ── Turnover Workflow ────────────────────────────────────────

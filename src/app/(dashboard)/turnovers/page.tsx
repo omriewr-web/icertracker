@@ -1,7 +1,5 @@
-import TurnoversContent from "./turnovers-content";
-
-export const metadata = { title: "Turnovers — AtlasPM" };
+import { redirect } from "next/navigation";
 
 export default function TurnoversPage() {
-  return <TurnoversContent />;
+  redirect("/vacancies");
 }
