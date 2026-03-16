@@ -7,6 +7,7 @@ import { normalizeAddress } from "@/lib/building-matching";
 import { matchLegalCase, type LegalCaseRow, type TenantRecord, type MatchResult } from "@/lib/legal-matching";
 import { LegalStage } from "@prisma/client";
 import { toNumber } from "@/lib/utils/decimal";
+import { startImportLog, completeImportLog } from "@/lib/utils/import-log";
 
 export const dynamic = "force-dynamic";
 
@@ -220,6 +221,8 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     },
   });
 
+  const logId = await startImportLog({ userId: user.id, organizationId: user.organizationId, importType: "legal-cases", fileName: file.name });
+
   let imported = 0;
   let skipped = 0;
   let duplicatesSkipped = 0;
@@ -352,6 +355,8 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       errors: errors.length > 0 ? errors : undefined,
     },
   });
+
+  await completeImportLog(logId, errors.length > 0 ? "COMPLETED_WITH_ERRORS" : "COMPLETED", { rowsInserted: imported, rowsFailed: skipped + duplicatesSkipped, rowErrors: errors });
 
   return NextResponse.json({
     imported,

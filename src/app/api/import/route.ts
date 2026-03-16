@@ -6,6 +6,7 @@ import { fetchBuildingsForMatching, findMatchingBuilding, normalizeAddress, extr
 import { commitRentRollImport } from "@/lib/importer/commit";
 import { parsedTenantRowSchema } from "@/lib/validations";
 import * as XLSX from "xlsx";
+import { startImportLog, completeImportLog } from "@/lib/utils/import-log";
 
 export const dynamic = "force-dynamic";
 
@@ -228,6 +229,8 @@ export const POST = withAuth(async (req, { user }) => {
     data: { filename: file.name, format: analysis.aiUsed ? "ai-mapped" : "auto-detect", recordCount: 0, status: "processing" },
   });
 
+  const logId = await startImportLog({ userId: user.id, organizationId: user.organizationId, importType: "auto-detect", fileName: file.name });
+
   let imported = 0;
   let skipped = 0;
   let errors: string[] = [];
@@ -242,11 +245,14 @@ export const POST = withAuth(async (req, { user }) => {
       where: { id: importBatch.id },
       data: { recordCount: imported, status: errors.length > 0 ? "completed_with_errors" : "completed", errors: errors.length > 0 ? errors : undefined },
     });
+
+    await completeImportLog(logId, errors.length > 0 ? "COMPLETED_WITH_ERRORS" : "COMPLETED", { rowsInserted: imported, rowsFailed: skipped, rowErrors: errors });
   } catch (err) {
     await prisma.importBatch.update({
       where: { id: importBatch.id },
       data: { status: "failed", errors: [err instanceof Error ? err.message : "Unknown error"] },
     });
+    await completeImportLog(logId, "FAILED", { rowErrors: [err instanceof Error ? err.message : "Unknown error"] });
     return NextResponse.json({ error: "Import failed", detail: err instanceof Error ? err.message : "Unknown error" }, { status: 500 });
   }
 

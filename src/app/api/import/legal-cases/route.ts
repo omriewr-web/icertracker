@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/api-helpers";
 import { parseLegalCasesExcel } from "@/lib/parsers/legal-cases.parser";
 import { importLegalCases } from "@/lib/services/legal-import.service";
+import { startImportLog, completeImportLog } from "@/lib/utils/import-log";
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +36,18 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     return NextResponse.json({ error: "Too many rows (max 5000)" }, { status: 413 });
   }
 
-  const result = await importLegalCases(rows, user.organizationId!);
+  const logId = await startImportLog({ userId: user.id, organizationId: user.organizationId, importType: "legal-cases-v2", fileName: file instanceof File ? file.name : undefined });
 
-  return NextResponse.json({
-    ...result,
-    parseErrors,
-  });
+  try {
+    const result = await importLegalCases(rows, user.organizationId!);
+    await completeImportLog(logId, result.errors?.length ? "COMPLETED_WITH_ERRORS" : "COMPLETED", { rowsInserted: result.imported ?? 0, rowsFailed: result.errors?.length ?? 0, rowErrors: result.errors });
+
+    return NextResponse.json({
+      ...result,
+      parseErrors,
+    });
+  } catch (err) {
+    await completeImportLog(logId, "FAILED", { rowErrors: [err instanceof Error ? err.message : "Unknown error"] });
+    throw err;
+  }
 }, "legal");

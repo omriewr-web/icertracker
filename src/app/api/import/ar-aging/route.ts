@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { parseARAgingExcel } from "@/lib/parsers/ar-aging.parser";
 import { importARAgingData } from "@/lib/services/ar-import.service";
+import { startImportLog, completeImportLog } from "@/lib/utils/import-log";
 
 export const dynamic = "force-dynamic";
 
@@ -60,10 +61,18 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   }
 
   // Import into database
-  const result = await importARAgingData(rows, orgId);
+  const logId = await startImportLog({ userId: user.id, organizationId: user.organizationId, importType: "ar-aging", fileName: file instanceof File ? file.name : undefined });
 
-  return NextResponse.json({
-    ...result,
-    parseErrors,
-  });
+  try {
+    const result = await importARAgingData(rows, orgId);
+    await completeImportLog(logId, result.unmatchedRows?.length ? "COMPLETED_WITH_ERRORS" : "COMPLETED", { rowsInserted: result.created ?? 0, rowsUpdated: result.updated ?? 0, rowsFailed: result.unmatched ?? 0 });
+
+    return NextResponse.json({
+      ...result,
+      parseErrors,
+    });
+  } catch (err) {
+    await completeImportLog(logId, "FAILED", { rowErrors: [err instanceof Error ? err.message : "Unknown error"] });
+    throw err;
+  }
 }, "upload");

@@ -10,6 +10,7 @@ import { buildFingerprint } from "@/lib/importer/buildFingerprint";
 import { commitRentRollImport } from "@/lib/importer/commit";
 import { getImportContract } from "@/lib/importer/importContracts";
 import * as XLSX from "xlsx";
+import { startImportLog, completeImportLog } from "@/lib/utils/import-log";
 
 export const dynamic = "force-dynamic";
 
@@ -388,6 +389,8 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     data: { filename: file.name, format: aiUsed ? "ai-mapped" : "rule-mapped", recordCount: 0, status: "processing" },
   });
 
+  const logId = await startImportLog({ userId: user.id, organizationId: user.organizationId, importType: fileType ?? "tenant_list", fileName: file.name });
+
   let importRunId: string | undefined;
   try {
     const importRun = await prisma.importRun.create({
@@ -438,6 +441,8 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       } catch { /* non-blocking */ }
     }
 
+    await completeImportLog(logId, errors.length > 0 ? "COMPLETED_WITH_ERRORS" : "COMPLETED", { rowsInserted: imported, rowsFailed: skipped, rowErrors: errors });
+
     // Save import profile
     if (imported > 0) {
       try {
@@ -476,6 +481,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       } catch { /* non-blocking */ }
     }
 
+    await completeImportLog(logId, "FAILED", { rowErrors: [err instanceof Error ? err.message : "Unknown error"] });
     return NextResponse.json({ error: "Import failed", detail: err instanceof Error ? err.message : "Unknown error" }, { status: 500 });
   }
 

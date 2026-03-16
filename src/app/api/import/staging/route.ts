@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { commitRentRollImport } from "@/lib/importer/commit";
+import { startImportLog, completeImportLog } from "@/lib/utils/import-log";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,8 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     data: { filename: batch.fileName, format: "staged", recordCount: 0, status: "processing" },
   });
 
+  const logId = await startImportLog({ userId: user.id, organizationId: user.organizationId, importType: "staged-approval", fileName: batch.fileName });
+
   const rows = batch.rowsJson as any[];
 
   let imported = 0;
@@ -114,6 +117,8 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
         importBatchId: importBatch.id,
       },
     });
+
+    await completeImportLog(logId, errors.length > 0 ? "COMPLETED_WITH_ERRORS" : "COMPLETED", { rowsInserted: imported, rowsFailed: skipped, rowErrors: errors });
   } catch (err) {
     await prisma.importBatch.update({
       where: { id: importBatch.id },
@@ -125,6 +130,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       data: { status: "failed", reviewedById: user.id, reviewedAt: new Date(), reviewNotes: notes },
     });
 
+    await completeImportLog(logId, "FAILED", { rowErrors: [err instanceof Error ? err.message : "Unknown error"] });
     return NextResponse.json({ error: "Import failed", detail: err instanceof Error ? err.message : "Unknown error" }, { status: 500 });
   }
 

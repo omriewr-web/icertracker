@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { parseBuildingDataExcel, buildingRowToPrismaData } from "@/lib/parsers/buildingParser";
 import { matchBuildingByRow, generateYardiId, generatePropertyId } from "@/lib/building-matching";
+import { startImportLog, completeImportLog } from "@/lib/utils/import-log";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +93,8 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   }
 
   // ── Confirm mode: actually import (wrapped in transaction) ──
+  const logId = await startImportLog({ userId: user.id, organizationId: user.organizationId, importType: "building-data", fileName: file.name });
+
   let created = 0;
   let updated = 0;
   const importErrors: string[] = [...result.errors];
@@ -141,6 +144,8 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       errors: importErrors.length > 0 ? importErrors : undefined,
     },
   });
+
+  await completeImportLog(logId, importErrors.length > 0 ? "COMPLETED_WITH_ERRORS" : "COMPLETED", { rowsInserted: created, rowsUpdated: updated, rowsFailed: importErrors.length, rowErrors: importErrors });
 
   return NextResponse.json({
     format: "building-data",

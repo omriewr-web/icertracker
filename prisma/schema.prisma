@@ -2070,3 +2070,25 @@ model LoginAttempt {
   @@index([ipAddress, createdAt])
   @@map("login_attempts")
 }
+
+// ── Import Audit Log ────────────────────────────────────────────
+
+model ImportLog {
+  id             String    @id @default(cuid())
+  organizationId String?
+  userId         String
+  importType     String
+  fileName       String?
+  rowsInserted   Int       @default(0)
+  rowsUpdated    Int       @default(0)
+  rowsFailed     Int       @default(0)
+  rowErrors      Json?
+  status         String    @default("RUNNING")
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  @@index([userId])
+  @@index([importType])
+  @@index([startedAt])
+  @@map("import_logs")
+}

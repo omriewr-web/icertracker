@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { parseRentRollExcel } from "@/lib/parsers/rent-roll.parser";
 import { importRentRollData } from "@/lib/services/rent-roll-import.service";
+import { startImportLog, completeImportLog } from "@/lib/utils/import-log";
 
 export const dynamic = "force-dynamic";
 
@@ -53,11 +54,19 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     }
   }
 
-  const result = await importRentRollData(rows, vacantRows, user.organizationId ?? undefined);
+  const logId = await startImportLog({ userId: user.id, organizationId: user.organizationId, importType: "rent-roll", fileName: file instanceof File ? file.name : undefined });
 
-  return NextResponse.json({
-    ...result,
-    parseErrors,
-    propertyCodes,
-  });
+  try {
+    const result = await importRentRollData(rows, vacantRows, user.organizationId ?? undefined);
+    await completeImportLog(logId, result.unmatched > 0 ? "COMPLETED_WITH_ERRORS" : "COMPLETED", { rowsUpdated: result.updated, rowsFailed: result.unmatched });
+
+    return NextResponse.json({
+      ...result,
+      parseErrors,
+      propertyCodes,
+    });
+  } catch (err) {
+    await completeImportLog(logId, "FAILED", { rowErrors: [err instanceof Error ? err.message : "Unknown error"] });
+    throw err;
+  }
 }, "upload");
