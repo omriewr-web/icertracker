@@ -1,3 +1,5 @@
+// AI_GUARDRAIL: This service returns recommendations only.
+// It must never directly mutate financial records.
 import type { AIImportAnalyzer, AIImportPayload, AIImportResult } from "./types";
 import { AI_MODEL } from "@/lib/ai-config";
 

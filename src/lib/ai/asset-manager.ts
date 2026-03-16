@@ -1,3 +1,5 @@
+// AI_GUARDRAIL: This service returns recommendations only.
+// It must never directly mutate financial records.
 import { prisma } from "@/lib/prisma";
 import { demandLetter, lateNotice, type EmailContext } from "@/lib/email-templates";
 

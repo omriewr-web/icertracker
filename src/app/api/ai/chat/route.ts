@@ -1,3 +1,5 @@
+// AI_GUARDRAIL: This service returns recommendations only.
+// It must never directly mutate financial records.
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/api-helpers";
 import Anthropic from "@anthropic-ai/sdk";
