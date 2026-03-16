@@ -1,5 +1,7 @@
-import DailyContent from "./daily-content";
+import DailyBriefingContent from "./daily-content";
 
-export default function DailyPage() {
-  return <DailyContent />;
+export const metadata = { title: "Daily Briefing — AtlasPM" };
+
+export default function DailyBriefingPage() {
+  return <DailyBriefingContent />;
 }

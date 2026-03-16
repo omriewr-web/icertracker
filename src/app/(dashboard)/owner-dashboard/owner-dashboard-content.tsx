@@ -1,90 +1,217 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import {
-  Building2, Users, DollarSign, TrendingUp, TrendingDown, Minus,
-  AlertTriangle, Scale, DoorOpen, ChevronUp, ChevronDown,
-  CalendarClock, Activity,
+  Building2, Users, DollarSign, Scale, DoorOpen, FolderKanban,
+  AlertTriangle, Shield, ChevronUp, ChevronDown, ExternalLink,
 } from "lucide-react";
-import { useOwnerDashboard } from "@/hooks/use-owner-dashboard";
 import KpiCard from "@/components/ui/kpi-card";
 import ExportButton from "@/components/ui/export-button";
-import { PageSkeleton } from "@/components/ui/skeleton";
-import { fmt$, pct } from "@/lib/utils";
-import type { OwnerDashboardDTO } from "@/types";
+import { Skeleton, StatCardSkeleton } from "@/components/ui/skeleton";
+import { fmt$, formatDate } from "@/lib/utils";
+import type { PortfolioMetrics, BuildingView, ViolationStats } from "@/types";
+import type { UserRole } from "@/types";
 
 // ── Helpers ───────────────────────────────────────────────────
 
-function fmtRate(val: number | null): string {
-  if (val === null) return "N/A";
-  return `${val.toFixed(1)}%`;
+function pctColor(rate: number): string {
+  if (rate > 95) return "#22c55e";
+  if (rate >= 90) return "#f59e0b";
+  return "#ef4444";
 }
 
-type SortKey = "address" | "totalUnits" | "occupancyRate" | "arrears" | "openViolations" | "activeLegalCases";
+function daysSince(dateStr: string | null): number {
+  if (!dateStr) return 0;
+  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+}
 
-// ── Component ─────────────────────────────────────────────────
+function isOwnerRole(role: string): boolean {
+  return role === "OWNER";
+}
+
+function isAdminOrPM(role: string): boolean {
+  return ["SUPER_ADMIN", "ADMIN", "ACCOUNT_ADMIN", "PM", "APM"].includes(role);
+}
+
+// ── Section wrapper ──────────────────────────────────────────
+
+function SectionCard({
+  title, icon: Icon, children, className,
+}: {
+  title: string; icon?: React.ElementType; children: React.ReactNode; className?: string;
+}) {
+  return (
+    <div className={`bg-atlas-navy-3 border border-border rounded-xl ${className || ""}`}>
+      <div className="flex items-center gap-2 px-5 py-3 border-b border-border">
+        {Icon && <Icon className="w-4 h-4 text-accent" />}
+        <h3 className="text-sm font-medium text-text-muted">{title}</h3>
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
+}
+
+function SectionError({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 text-sm text-red-400 py-4">
+      <AlertTriangle className="w-4 h-4 shrink-0" />
+      <span>Unable to load {label}</span>
+    </div>
+  );
+}
+
+function SectionSkeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: rows }).map((_, i) => (
+        <Skeleton key={i} className="h-10 w-full" />
+      ))}
+    </div>
+  );
+}
+
+// ── Main Component ───────────────────────────────────────────
 
 export default function OwnerDashboardContent() {
-  const { data, isLoading, isError } = useOwnerDashboard();
-  const router = useRouter();
-  const [sortKey, setSortKey] = useState<SortKey>("arrears");
+  const { data: session } = useSession();
+  const role = (session?.user?.role || "OWNER") as UserRole;
+  const isOwner = isOwnerRole(role);
+
+  // Independent data sections
+  const [metrics, setMetrics] = useState<PortfolioMetrics | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(true);
+  const [metricsError, setMetricsError] = useState(false);
+
+  const [buildings, setBuildings] = useState<BuildingView[]>([]);
+  const [buildingsLoading, setBuildingsLoading] = useState(true);
+  const [buildingsError, setBuildingsError] = useState(false);
+
+  const [projects, setProjects] = useState<any[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
+  const [projectsError, setProjectsError] = useState(false);
+
+  const [vacancies, setVacancies] = useState<any[]>([]);
+  const [vacanciesLoading, setVacanciesLoading] = useState(true);
+  const [vacanciesError, setVacanciesError] = useState(false);
+
+  const [collDash, setCollDash] = useState<any>(null);
+  const [collLoading, setCollLoading] = useState(true);
+  const [collError, setCollError] = useState(false);
+
+  const [violStats, setViolStats] = useState<ViolationStats | null>(null);
+  const [violLoading, setViolLoading] = useState(true);
+  const [violError, setViolError] = useState(false);
+
+  useEffect(() => {
+    // Metrics
+    setMetricsLoading(true);
+    fetch("/api/metrics")
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((d) => { setMetrics(d); setMetricsError(false); })
+      .catch(() => setMetricsError(true))
+      .finally(() => setMetricsLoading(false));
+
+    // Buildings
+    setBuildingsLoading(true);
+    fetch("/api/buildings?limit=200")
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((d) => { setBuildings(Array.isArray(d) ? d : []); setBuildingsError(false); })
+      .catch(() => setBuildingsError(true))
+      .finally(() => setBuildingsLoading(false));
+
+    // Projects (owner-visible for OWNER, all for admin/PM)
+    setProjectsLoading(true);
+    const projectUrl = isOwner ? "/api/projects" : "/api/projects";
+    fetch(projectUrl)
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((d) => {
+        const list = Array.isArray(d) ? d : [];
+        // Client-side filter for owner-visible if needed (API already filters for OWNER role)
+        setProjects(list);
+        setProjectsError(false);
+      })
+      .catch(() => setProjectsError(true))
+      .finally(() => setProjectsLoading(false));
+
+    // Vacancies — use units API with isVacant filter
+    setVacanciesLoading(true);
+    fetch("/api/units?isVacant=true")
+      .then(async (r) => {
+        if (!r.ok) {
+          // Fallback: try building data for vacancy info
+          return [];
+        }
+        return r.json();
+      })
+      .then((d) => { setVacancies(Array.isArray(d) ? d : []); setVacanciesError(false); })
+      .catch(() => setVacanciesError(true))
+      .finally(() => setVacanciesLoading(false));
+
+    // Collections dashboard
+    setCollLoading(true);
+    fetch("/api/collections/dashboard")
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((d) => { setCollDash(d); setCollError(false); })
+      .catch(() => setCollError(true))
+      .finally(() => setCollLoading(false));
+
+    // Violation stats
+    setViolLoading(true);
+    fetch("/api/violations/stats")
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((d) => { setViolStats(d); setViolError(false); })
+      .catch(() => setViolError(true))
+      .finally(() => setViolLoading(false));
+  }, [isOwner]);
+
+  // Sort buildings by issues
+  const [sortKey, setSortKey] = useState<string>("totalBalance");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const sortedBuildings = useMemo(() => {
-    if (!data) return [];
-    return [...data.buildings].sort((a, b) => {
-      const aVal = a[sortKey];
-      const bVal = b[sortKey];
-      if (typeof aVal === "string" && typeof bVal === "string") {
-        return sortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-      }
-      return sortDir === "asc" ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
+    return [...buildings].sort((a: any, b: any) => {
+      const aVal = a[sortKey] ?? 0;
+      const bVal = b[sortKey] ?? 0;
+      if (typeof aVal === "string") return sortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      return sortDir === "asc" ? aVal - bVal : bVal - aVal;
     });
-  }, [data, sortKey, sortDir]);
+  }, [buildings, sortKey, sortDir]);
 
-  if (isLoading) return <PageSkeleton />;
-  if (isError || !data) return (
-    <div className="flex flex-col items-center justify-center py-20 text-text-muted">
-      <AlertTriangle className="w-10 h-10 mb-3 text-red-400" />
-      <p className="text-lg font-medium">Failed to load dashboard</p>
-      <p className="text-sm mt-1">Please try refreshing the page.</p>
-    </div>
-  );
-
-  const p = data.portfolio;
-  const trendIcon = p.arrearsTrend === "improving"
-    ? <TrendingDown className="w-4 h-4 text-green-400" />
-    : p.arrearsTrend === "worsening"
-      ? <TrendingUp className="w-4 h-4 text-red-400" />
-      : p.arrearsTrend === "flat"
-        ? <Minus className="w-4 h-4 text-text-muted" />
-        : null;
-
-  const trendLabel = p.arrearsTrend === "improving" ? "Improving"
-    : p.arrearsTrend === "worsening" ? "Worsening"
-      : p.arrearsTrend === "flat" ? "Flat" : "N/A";
-
-  function toggleSort(key: SortKey) {
+  function toggleSort(key: string) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setSortKey(key); setSortDir("desc"); }
   }
 
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return null;
-    return sortDir === "asc"
-      ? <ChevronUp className="w-3 h-3 inline ml-0.5" />
-      : <ChevronDown className="w-3 h-3 inline ml-0.5" />;
-  };
+  const m = metrics;
+
+  // Aggregate vacancy data from buildings if direct vacancy API failed
+  const vacancySummary = useMemo(() => {
+    if (vacancies.length > 0) {
+      return {
+        total: vacancies.length,
+        topLongest: vacancies
+          .sort((a: any, b: any) => (Number(b.daysVacant ?? 0)) - (Number(a.daysVacant ?? 0)))
+          .slice(0, 5),
+      };
+    }
+    // Fallback from buildings
+    const totalVacant = buildings.reduce((s, b) => s + (b.vacant || 0), 0);
+    return { total: totalVacant, topLongest: [] };
+  }, [vacancies, buildings]);
+
+  const projectCount = projects.length;
 
   return (
     <div className="space-y-6 animate-fade-in print:space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between print:mb-2">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Owner Dashboard</h1>
-          <p className="text-xs text-text-dim mt-0.5">
-            Portfolio performance report — {new Date(data.generatedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">
+            Owner Dashboard
+          </h1>
+          <p className="text-xs text-text-dim tracking-[0.15em] mt-1 font-mono">
+            // PORTFOLIO PERFORMANCE OVERVIEW
           </p>
         </div>
         <div className="print:hidden">
@@ -92,316 +219,396 @@ export default function OwnerDashboardContent() {
             data={sortedBuildings.map((b) => ({
               address: b.address,
               totalUnits: b.totalUnits,
-              occupancy: `${b.occupancyRate}%`,
-              arrears: fmt$(b.arrears),
-              violations: b.openViolations,
-              legalCases: b.activeLegalCases,
+              occupied: b.occupied,
+              vacant: b.vacant,
+              occupancy: b.totalUnits > 0 ? `${((b.occupied / b.totalUnits) * 100).toFixed(1)}%` : "N/A",
+              arrears: fmt$(b.totalBalance),
+              legalCases: b.legalCount,
             }))}
             filename="owner-portfolio-report"
             columns={[
               { key: "address", label: "Property" },
               { key: "totalUnits", label: "Units" },
-              { key: "occupancy", label: "Occupancy" },
+              { key: "occupied", label: "Occupied" },
+              { key: "vacant", label: "Vacant" },
+              { key: "occupancy", label: "Occupancy %" },
               { key: "arrears", label: "Arrears" },
-              { key: "violations", label: "Violations" },
-              { key: "legalCases", label: "Legal Cases" },
+              { key: "legalCases", label: "Legal" },
             ]}
             pdfConfig={{
               title: "Owner Portfolio Report",
-              stats: [
-                { label: "Total Units", value: String(p.totalUnits) },
-                { label: "Occupancy", value: fmtRate(p.occupancyRate) },
-                { label: "Monthly Rent", value: fmt$(p.totalMonthlyRent) },
-                { label: "Total Arrears", value: fmt$(p.totalArrears) },
-                { label: "Vacant Units", value: String(p.vacantUnits) },
-                { label: "Legal Cases", value: String(data.legal.totalActive) },
-              ],
+              subtitle: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+              stats: m
+                ? [
+                    { label: "Total Units", value: String(m.totalUnits) },
+                    { label: "Occupancy", value: `${Number(m.occupancyRate).toFixed(1)}%` },
+                    { label: "Total AR", value: fmt$(m.totalBalance) },
+                    { label: "Legal Cases", value: String(m.legalCaseCount) },
+                  ]
+                : [],
             }}
           />
         </div>
       </div>
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <KpiCard label="Total Units" value={p.totalUnits} icon={Building2} color="#C9A84C" subtext={`${fmtRate(p.occupancyRate)} occupied`} />
-        <KpiCard label="Occupied" value={p.occupiedUnits} icon={Users} color="#C9A84C" />
-        <KpiCard label="Vacant" value={p.vacantUnits} icon={DoorOpen} color={p.vacantUnits > 0 ? "#e09a3e" : "#C9A84C"} subtext={p.vacantUnits > 0 ? `${fmt$(data.vacancies.estimatedLostRent)}/mo lost` : undefined} subtextColor="#e05c5c" />
-        <KpiCard label="Monthly Rent" value={fmt$(p.totalMonthlyRent)} icon={DollarSign} color="#C9A84C" />
-        <KpiCard label="Total Arrears" value={fmt$(p.totalArrears)} icon={DollarSign} color={p.totalArrears >= 100000 ? "#e05c5c" : "#C9A84C"} />
-        <KpiCard label="Legal Cases" value={data.legal.totalActive} icon={Scale} color="#C9A84C" subtext={data.legal.totalBalance > 0 ? `${fmt$(data.legal.totalBalance)} in legal` : undefined} />
-      </div>
-
-      {/* Collections & Arrears + Vacancies */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Arrears Breakdown */}
-        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-text-muted">Collections & Arrears</h3>
-            {trendIcon && (
-              <div className="flex items-center gap-1.5 text-xs text-text-muted">
-                {trendIcon}
-                <span>{trendLabel} vs prior month</span>
-                {p.priorMonthArrears !== null && (
-                  <span className="text-text-dim ml-1">({fmt$(p.priorMonthArrears)})</span>
-                )}
-              </div>
-            )}
-          </div>
-          <ArrearsTable arrears={data.arrears} total={p.totalArrears} />
-          {p.collectionRate === null && (
-            <p className="text-xs text-text-dim mt-3">Collection rate: N/A — billing history not available</p>
-          )}
+      {/* SECTION 1 — PORTFOLIO HEALTH KPIs */}
+      {metricsLoading ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => <StatCardSkeleton key={i} />)}
         </div>
-
-        {/* Vacancy Summary */}
-        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
-          <h3 className="text-sm font-medium text-text-muted mb-4">Vacancy Summary</h3>
-          <div className="grid grid-cols-3 gap-4 mb-4">
-            <MiniStat label="Vacant Units" value={data.vacancies.count} />
-            <MiniStat label="Vacancy Rate" value={fmtRate(data.vacancies.rate)} />
-            <MiniStat label="Lost Rent / Mo" value={fmt$(data.vacancies.estimatedLostRent)} />
-          </div>
-          {data.vacancies.units.length > 0 ? (
-            <div className="max-h-48 overflow-y-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-text-dim border-b border-border">
-                    <th className="text-left py-1.5 font-medium">Property</th>
-                    <th className="text-left py-1.5 font-medium">Unit</th>
-                    <th className="text-right py-1.5 font-medium">Days</th>
-                    <th className="text-right py-1.5 font-medium">Lost/Mo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.vacancies.units.slice(0, 20).map((v, i) => (
-                    <tr key={i} className="border-b border-border/50 last:border-0">
-                      <td className="py-1.5 text-text-primary truncate max-w-[180px]">{v.buildingAddress}</td>
-                      <td className="py-1.5 text-text-muted">{v.unitNumber}</td>
-                      <td className="py-1.5 text-right text-text-muted">{v.daysVacant}</td>
-                      <td className="py-1.5 text-right text-text-primary">{v.estimatedLostRent > 0 ? fmt$(v.estimatedLostRent) : "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-sm text-text-dim text-center py-6">No vacant units</p>
-          )}
+      ) : metricsError || !m ? (
+        <div className="bg-atlas-navy-3 border border-border rounded-xl p-4">
+          <SectionError label="portfolio metrics" />
         </div>
-      </div>
-
-      {/* Violations & Legal */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Violations */}
-        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
-          <h3 className="text-sm font-medium text-text-muted mb-4">Violations & Compliance</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-            <MiniStat label="Total Open" value={data.violations.totalOpen} />
-            <MiniStat label="Class A" value={data.violations.classA} color={data.violations.classA > 0 ? "#e05c5c" : undefined} />
-            <MiniStat label="Class B" value={data.violations.classB} color={data.violations.classB > 0 ? "#e09a3e" : undefined} />
-            <MiniStat label="Class C" value={data.violations.classC} color={data.violations.classC > 0 ? "#e05c5c" : undefined} />
-          </div>
-          {data.violations.pastCureDate > 0 && (
-            <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg">
-              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
-              <span className="text-xs text-red-300">{data.violations.pastCureDate} violation{data.violations.pastCureDate !== 1 ? "s" : ""} past cure date</span>
-            </div>
-          )}
-          {data.violations.topBuildings.length > 0 && (
-            <div>
-              <p className="text-xs text-text-dim mb-2">Most violations by building</p>
-              {data.violations.topBuildings.map((b, i) => (
-                <div key={i} className="flex items-center justify-between py-1 text-xs">
-                  <span className="text-text-primary truncate max-w-[260px]">{b.address}</span>
-                  <span className="text-text-muted font-mono">{b.count}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {data.violations.totalOpen === 0 && (
-            <p className="text-sm text-text-dim text-center py-4">No open violations</p>
-          )}
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <KpiCard label="Total Units" value={Number(m.totalUnits ?? 0)} icon={Building2} color="#C9A84C" />
+          <KpiCard
+            label="Occupancy Rate"
+            value={`${Number(m.occupancyRate ?? 0).toFixed(1)}%`}
+            icon={Users}
+            color={pctColor(Number(m.occupancyRate ?? 0))}
+          />
+          <KpiCard
+            label="Vacant Units"
+            value={Number(m.vacant ?? 0)}
+            icon={DoorOpen}
+            color={m.vacant > 0 ? "#f59e0b" : "#C9A84C"}
+            subtext={m.lostRent > 0 ? `${fmt$(m.lostRent)}/mo lost` : undefined}
+            subtextColor="#ef4444"
+          />
+          <KpiCard
+            label="Lost Rent/Mo"
+            value={fmt$(Number(m.lostRent ?? 0))}
+            icon={DollarSign}
+            color="#ef4444"
+          />
+          <KpiCard
+            label="Active Projects"
+            value={projectsLoading ? "..." : projectCount}
+            icon={FolderKanban}
+            color="#C9A84C"
+          />
+          <KpiCard
+            label="Open Legal Cases"
+            value={Number(m.legalCaseCount ?? 0)}
+            icon={Scale}
+            color={m.legalCaseCount > 0 ? "#ef4444" : "#C9A84C"}
+          />
         </div>
+      )}
 
-        {/* Legal */}
-        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
-          <h3 className="text-sm font-medium text-text-muted mb-4">Legal Cases</h3>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <MiniStat label="Active Cases" value={data.legal.totalActive} />
-            <MiniStat label="Balance in Legal" value={fmt$(data.legal.totalBalance)} />
-          </div>
-          {Object.keys(data.legal.byStage).length > 0 ? (
-            <div>
-              <p className="text-xs text-text-dim mb-2">By stage</p>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1">
-                {Object.entries(data.legal.byStage)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([stage, count]) => (
-                    <div key={stage} className="flex items-center justify-between py-1 text-xs">
-                      <span className="text-text-primary capitalize">{stage.replace(/-/g, " ")}</span>
-                      <span className="text-text-muted font-mono">{count}</span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-text-dim text-center py-4">No active legal cases</p>
-          )}
-        </div>
-      </div>
-
-      {/* Upcoming Renewals & Vacancy Pipeline */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Upcoming Renewals */}
-        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
-          <h3 className="text-sm font-medium text-text-muted mb-4 flex items-center gap-2">
-            <CalendarClock className="w-4 h-4" />
-            Upcoming Renewals (90 days)
-          </h3>
-          {data.renewals.length > 0 ? (
-            <div className="max-h-64 overflow-y-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-text-dim border-b border-border">
-                    <th className="text-left py-1.5 font-medium">Tenant</th>
-                    <th className="text-left py-1.5 font-medium">Unit</th>
-                    <th className="text-right py-1.5 font-medium">Days</th>
-                    <th className="text-right py-1.5 font-medium">Rent</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.renewals.map((r) => (
-                    <tr key={r.tenantId} className="border-b border-border/50 last:border-0">
-                      <td className="py-1.5 text-text-primary truncate max-w-[120px]">{r.tenantName}</td>
-                      <td className="py-1.5 text-text-muted">
-                        <span className="truncate max-w-[100px] inline-block">{r.buildingAddress}</span>
-                        <span className="text-text-dim ml-1">#{r.unitNumber}</span>
-                      </td>
-                      <td className="py-1.5 text-right tabular-nums">
-                        <span className={r.daysUntilExpiry <= 30 ? "text-red-400 font-medium" : r.daysUntilExpiry <= 60 ? "text-orange-400" : "text-text-muted"}>
-                          {r.daysUntilExpiry}
-                        </span>
-                      </td>
-                      <td className="py-1.5 text-right text-text-primary tabular-nums">{fmt$(r.currentRent)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-sm text-text-dim text-center py-6">No leases expiring in the next 90 days</p>
-          )}
-        </div>
-
-        {/* Vacancy Pipeline */}
-        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
-          <h3 className="text-sm font-medium text-text-muted mb-4 flex items-center gap-2">
-            <Activity className="w-4 h-4" />
-            Vacancy Pipeline
-          </h3>
-          {data.vacancyPipeline.length > 0 ? (
-            <div className="max-h-64 overflow-y-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-text-dim border-b border-border">
-                    <th className="text-left py-1.5 font-medium">Unit</th>
-                    <th className="text-right py-1.5 font-medium">Asking</th>
-                    <th className="text-right py-1.5 font-medium">Days</th>
-                    <th className="text-right py-1.5 font-medium">Activity</th>
-                    <th className="text-left py-1.5 font-medium">Last</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.vacancyPipeline.map((v) => (
-                    <tr key={v.unitId} className="border-b border-border/50 last:border-0">
-                      <td className="py-1.5 text-text-primary">
-                        <span className="truncate max-w-[100px] inline-block">{v.buildingAddress}</span>
-                        <span className="text-text-dim ml-1">#{v.unitNumber}</span>
-                      </td>
-                      <td className="py-1.5 text-right text-text-muted tabular-nums">{v.askingRent ? fmt$(v.askingRent) : "—"}</td>
-                      <td className="py-1.5 text-right tabular-nums">
-                        <span className={v.daysVacant >= 60 ? "text-red-400" : v.daysVacant >= 30 ? "text-orange-400" : "text-text-muted"}>
-                          {v.daysVacant}
-                        </span>
-                      </td>
-                      <td className="py-1.5 text-right tabular-nums">
-                        <span className={v.recentActivityCount === 0 ? "text-red-400" : "text-text-muted"}>
-                          {v.recentActivityCount}
-                        </span>
-                      </td>
-                      <td className="py-1.5 text-text-dim">
-                        {v.lastActivityDate
-                          ? `${v.lastActivityType} — ${new Date(v.lastActivityDate).toLocaleDateString()}`
-                          : "No activity"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-sm text-text-dim text-center py-6">No vacant units</p>
-          )}
-        </div>
-      </div>
-
-      {/* Per-Building Table */}
-      {sortedBuildings.length > 0 && (
-        <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
-          <h3 className="text-sm font-medium text-text-muted mb-4">Property Summary</h3>
-          <div className="overflow-x-auto">
+      {/* SECTION 2 — PORTFOLIO BY BUILDING */}
+      <SectionCard title="Portfolio by Building" icon={Building2}>
+        {buildingsLoading ? (
+          <SectionSkeleton rows={6} />
+        ) : buildingsError ? (
+          <SectionError label="building data" />
+        ) : sortedBuildings.length === 0 ? (
+          <p className="text-sm text-text-dim text-center py-6">No buildings in portfolio</p>
+        ) : (
+          <div className="overflow-x-auto -mx-1">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-text-dim border-b border-border text-xs">
-                  <SortableHeader label="Property" col="address" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                  <SortableHeader label="Units" col="totalUnits" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
-                  <SortableHeader label="Occupancy" col="occupancyRate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
-                  <SortableHeader label="Arrears" col="arrears" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
-                  <SortableHeader label="Violations" col="openViolations" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
-                  <SortableHeader label="Legal" col="activeLegalCases" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                  <SortTh label="Address" col="address" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortTh label="Units" col="totalUnits" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                  <SortTh label="Occupied" col="occupied" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                  <SortTh label="Vacant" col="vacant" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                  <th className="py-2 text-right font-medium px-2">Occupancy %</th>
+                  <SortTh label="Violations" col="arrearsCount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                  <SortTh label="Legal" col="legalCount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
                 </tr>
               </thead>
               <tbody>
-                {sortedBuildings.map((b, i) => (
-                  <tr
-                    key={b.id}
-                    className={`border-b border-border/50 last:border-0 cursor-pointer hover:bg-card-hover transition-colors ${i % 2 === 1 ? "bg-white/[0.02]" : ""}`}
-                    onClick={() => router.push(`/data?building=${b.id}`)}
-                  >
-                    <td className="py-2.5 text-text-primary font-medium">{b.address}</td>
-                    <td className="py-2.5 text-right text-text-muted tabular-nums">{b.totalUnits}</td>
-                    <td className="py-2.5 text-right tabular-nums">
-                      <span className={b.occupancyRate < 80 ? "text-red-400" : b.occupancyRate < 90 ? "text-orange-400" : "text-text-primary"}>
-                        {b.occupancyRate}%
-                      </span>
-                    </td>
-                    <td className="py-2.5 text-right tabular-nums">
-                      <span className={b.arrears > 50000 ? "text-red-400" : b.arrears > 10000 ? "text-orange-400" : "text-text-primary"}>
-                        {fmt$(b.arrears)}
-                      </span>
-                    </td>
-                    <td className="py-2.5 text-right tabular-nums">
-                      <span className={b.openViolations > 10 ? "text-red-400" : b.openViolations > 0 ? "text-orange-400" : "text-text-muted"}>
-                        {b.openViolations}
-                      </span>
-                    </td>
-                    <td className="py-2.5 text-right tabular-nums">
-                      <span className={b.activeLegalCases > 0 ? "text-orange-400" : "text-text-muted"}>
-                        {b.activeLegalCases}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {sortedBuildings.map((b, i) => {
+                  const occ = b.totalUnits > 0 ? (b.occupied / b.totalUnits) * 100 : 0;
+                  return (
+                    <tr
+                      key={b.id}
+                      className={`border-b border-border/50 last:border-0 hover:bg-card-hover transition-colors ${i % 2 === 1 ? "bg-white/[0.02]" : ""}`}
+                    >
+                      <td className="py-2.5 text-text-primary font-medium px-2">{b.address}</td>
+                      <td className="py-2.5 text-right text-text-muted tabular-nums px-2">{b.totalUnits}</td>
+                      <td className="py-2.5 text-right text-text-muted tabular-nums px-2">{b.occupied}</td>
+                      <td className="py-2.5 text-right tabular-nums px-2">
+                        <span className={b.vacant > 0 ? "text-amber-400" : "text-text-muted"}>{b.vacant}</span>
+                      </td>
+                      <td className="py-2.5 text-right px-2">
+                        <div className="flex items-center justify-end gap-2">
+                          <div className="w-16 h-2 rounded-full bg-white/10 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{ width: `${Math.min(occ, 100)}%`, backgroundColor: pctColor(occ) }}
+                            />
+                          </div>
+                          <span className="text-xs tabular-nums" style={{ color: pctColor(occ) }}>
+                            {occ.toFixed(0)}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 text-right tabular-nums px-2">
+                        {b.arrearsCount > 0 ? (
+                          <span className="inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-500/20 text-red-400">
+                            {b.arrearsCount}
+                          </span>
+                        ) : (
+                          <span className="text-text-dim">0</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 text-right tabular-nums px-2">
+                        <span className={b.legalCount > 0 ? "text-orange-400" : "text-text-dim"}>
+                          {b.legalCount}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </SectionCard>
+
+      {/* SECTION 3 — TWO COLUMNS: Projects + Vacancies */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Active Projects */}
+        <SectionCard title="Active Projects" icon={FolderKanban}>
+          {projectsLoading ? (
+            <SectionSkeleton rows={4} />
+          ) : projectsError ? (
+            <SectionError label="projects" />
+          ) : projects.length === 0 ? (
+            <div className="text-center py-8">
+              <FolderKanban className="w-8 h-8 text-text-dim mx-auto mb-2" />
+              <p className="text-sm text-text-dim">
+                {isOwner
+                  ? "No owner-visible projects. Ask your PM to mark projects as owner-visible."
+                  : "No active projects"}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {projects.slice(0, 8).map((p: any) => {
+                const pct = Number(p.percentComplete ?? 0);
+                const approved = Number(p.approvedBudget ?? 0);
+                const actual = Number(p.actualCost ?? 0);
+                const variance = approved - actual;
+                const overdue = p.targetEndDate && new Date(p.targetEndDate) < new Date();
+                return (
+                  <div key={p.id} className="border border-border rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-text-primary truncate">{p.name}</p>
+                        <p className="text-xs text-text-dim truncate">{p.buildingAddress || ""}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                          p.status === "IN_PROGRESS" ? "bg-blue-500/20 text-blue-400" :
+                          p.status === "COMPLETED" ? "bg-green-500/20 text-green-400" :
+                          p.status === "ON_HOLD" ? "bg-amber-500/20 text-amber-400" :
+                          "bg-white/10 text-text-muted"
+                        }`}>
+                          {(p.status || "").replace(/_/g, " ")}
+                        </span>
+                        {p.health && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                            p.health === "ON_TRACK" ? "bg-green-500/20 text-green-400" :
+                            p.health === "AT_RISK" ? "bg-amber-500/20 text-amber-400" :
+                            p.health === "OFF_TRACK" ? "bg-red-500/20 text-red-400" :
+                            "bg-white/10 text-text-muted"
+                          }`}>
+                            {(p.health || "").replace(/_/g, " ")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Progress bar */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex-1 h-2 rounded-full bg-white/10 overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: "#C9A84C" }}
+                        />
+                      </div>
+                      <span className="text-xs text-accent font-mono">{pct}%</span>
+                    </div>
+                    {/* Budget */}
+                    {approved > 0 && (
+                      <div className="flex items-center gap-4 text-xs text-text-dim">
+                        <span>Approved: <span className="text-text-primary">{fmt$(approved)}</span></span>
+                        <span>Actual: <span className="text-text-primary">{fmt$(actual)}</span></span>
+                        <span>
+                          Variance:{" "}
+                          <span className={variance >= 0 ? "text-green-400" : "text-red-400"}>
+                            {variance >= 0 ? "+" : ""}{fmt$(variance)}
+                          </span>
+                        </span>
+                      </div>
+                    )}
+                    {p.targetEndDate && (
+                      <p className={`text-xs mt-1 ${overdue ? "text-red-400" : "text-text-dim"}`}>
+                        Target: {formatDate(p.targetEndDate)} {overdue ? "(OVERDUE)" : ""}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </SectionCard>
+
+        {/* Vacancy Summary */}
+        <SectionCard title="Vacancy Summary" icon={DoorOpen}>
+          {vacanciesLoading && buildingsLoading ? (
+            <SectionSkeleton rows={5} />
+          ) : (
+            <>
+              {/* Aggregate */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <MiniStat label="Total Vacant" value={m ? Number(m.vacant ?? 0) : vacancySummary.total} />
+                <MiniStat label="Lost Rent/Mo" value={m ? fmt$(Number(m.lostRent ?? 0)) : "—"} color="#ef4444" />
+              </div>
+
+              {/* Top longest vacant */}
+              {vacancySummary.topLongest.length > 0 ? (
+                <>
+                  <p className="text-xs text-text-dim mb-2">Longest vacant units</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-text-dim border-b border-border">
+                          <th className="text-left py-1.5 font-medium">Building</th>
+                          <th className="text-left py-1.5 font-medium">Unit</th>
+                          <th className="text-right py-1.5 font-medium">Days</th>
+                          <th className="text-right py-1.5 font-medium">Asking</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {vacancySummary.topLongest.map((v: any, i: number) => (
+                          <tr key={v.id || i} className="border-b border-border/50 last:border-0">
+                            <td className="py-1.5 text-text-primary truncate max-w-[160px]">
+                              {v.buildingAddress || v.building?.address || "—"}
+                            </td>
+                            <td className="py-1.5 text-text-muted">{v.unitNumber || v.unit || "—"}</td>
+                            <td className="py-1.5 text-right text-text-muted tabular-nums">
+                              {Number(v.daysVacant ?? 0)}
+                            </td>
+                            <td className="py-1.5 text-right text-text-primary tabular-nums">
+                              {v.askingRent ? fmt$(Number(v.askingRent)) : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-text-dim text-center py-4">
+                  {m && m.vacant === 0 ? "No vacant units — full occupancy!" : "Vacancy details not available"}
+                </p>
+              )}
+            </>
+          )}
+        </SectionCard>
+      </div>
+
+      {/* SECTION 4 — COLLECTIONS SUMMARY */}
+      <SectionCard title="Collections Summary" icon={DollarSign}>
+        {collLoading && metricsLoading ? (
+          <SectionSkeleton rows={4} />
+        ) : collError && metricsError ? (
+          <SectionError label="collections" />
+        ) : (
+          <>
+            {/* Big AR number */}
+            <div className="text-center mb-6">
+              <p className="text-[10px] text-text-dim uppercase tracking-[0.15em]">Total AR Balance</p>
+              <p className="text-4xl font-bold font-data text-accent tabular-nums mt-1">
+                {m ? fmt$(Number(m.totalBalance ?? 0)) : "—"}
+              </p>
+            </div>
+
+            {/* Aging bars */}
+            {m && (
+              <div className="space-y-3">
+                <AgingBar label="Current" amount={Number(m.current$ ?? 0)} total={Number(m.totalBalance ?? 1)} color="#22c55e" />
+                <AgingBar label="30-60 Days" amount={Number(m["arrears30$"] ?? 0)} total={Number(m.totalBalance ?? 1)} color="#f59e0b" />
+                <AgingBar label="60-90 Days" amount={Number(m["arrears60$"] ?? 0)} total={Number(m.totalBalance ?? 1)} color="#f97316" />
+                <AgingBar label="90+ Days" amount={Number(m["arrears90Plus$"] ?? 0)} total={Number(m.totalBalance ?? 1)} color="#ef4444" />
+              </div>
+            )}
+
+            {/* Tenant count for ADMIN/PM only */}
+            {isAdminOrPM(role) && m && (
+              <p className="text-xs text-text-dim mt-4">
+                {Number(m.arrears30 ?? 0) + Number(m.arrears60 ?? 0) + Number(m.arrears90Plus ?? 0)} tenants with outstanding balance
+              </p>
+            )}
+          </>
+        )}
+      </SectionCard>
+
+      {/* SECTION 5 — COMPLIANCE SNAPSHOT */}
+      <SectionCard title="Compliance Snapshot" icon={Shield}>
+        {violLoading ? (
+          <SectionSkeleton rows={4} />
+        ) : violError || !violStats ? (
+          <SectionError label="violation stats" />
+        ) : (
+          <>
+            {/* Violation class counts */}
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="text-center">
+                <p className="text-xs text-text-dim mb-1">Class C (Hazardous)</p>
+                <p className="text-2xl font-bold font-data tabular-nums" style={{ color: violStats.classCCount > 0 ? "#ef4444" : "var(--atlas-text)" }}>
+                  {violStats.classCCount}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-text-dim mb-1">Class B (Hazardous)</p>
+                <p className="text-2xl font-bold font-data tabular-nums" style={{ color: violStats.classBCount > 0 ? "#f97316" : "var(--atlas-text)" }}>
+                  {violStats.classBCount}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-text-dim mb-1">Class A (Non-Haz)</p>
+                <p className="text-2xl font-bold font-data tabular-nums" style={{ color: violStats.classACount > 0 ? "#f59e0b" : "var(--atlas-text)" }}>
+                  {violStats.classACount}
+                </p>
+              </div>
+            </div>
+
+            {/* Top buildings by violation (from buildings data) */}
+            {!buildingsLoading && buildings.length > 0 && (
+              <>
+                <p className="text-xs text-text-dim mb-2">Top buildings by violations</p>
+                <div className="space-y-1">
+                  {[...buildings]
+                    .sort((a, b) => (b.arrearsCount ?? 0) - (a.arrearsCount ?? 0))
+                    .slice(0, 5)
+                    .filter((b) => b.arrearsCount > 0)
+                    .map((b) => (
+                      <div key={b.id} className="flex items-center justify-between py-1.5 text-xs">
+                        <span className="text-text-primary truncate max-w-[260px]">{b.address}</span>
+                        <span className="text-text-muted font-mono">{b.arrearsCount}</span>
+                      </div>
+                    ))}
+                </div>
+              </>
+            )}
+
+            {violStats.totalOpen === 0 && (
+              <p className="text-sm text-text-dim text-center py-4">No open violations</p>
+            )}
+          </>
+        )}
+      </SectionCard>
     </div>
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────
+// ── Sub-components ───────────────────────────────────────────
 
 function MiniStat({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
@@ -412,63 +619,33 @@ function MiniStat({ label, value, color }: { label: string; value: string | numb
   );
 }
 
-function ArrearsTable({ arrears, total }: { arrears: OwnerDashboardDTO["arrears"]; total: number }) {
-  const rows = [
-    { label: "Current", ...arrears.current },
-    { label: "30 Days", ...arrears.d30 },
-    { label: "60 Days", ...arrears.d60 },
-    { label: "90 Days", ...arrears.d90 },
-    { label: "120+ Days", ...arrears.d120plus },
-  ];
-
+function AgingBar({ label, amount, total, color }: { label: string; amount: number; total: number; color: string }) {
+  const pct = total > 0 ? Math.min((amount / total) * 100, 100) : 0;
   return (
-    <table className="w-full text-xs">
-      <thead>
-        <tr className="text-text-dim border-b border-border">
-          <th className="text-left py-1.5 font-medium">Bucket</th>
-          <th className="text-right py-1.5 font-medium">Tenants</th>
-          <th className="text-right py-1.5 font-medium">Amount</th>
-          <th className="text-right py-1.5 font-medium">% of Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.label} className="border-b border-border/50 last:border-0">
-            <td className="py-1.5 text-text-primary">{r.label}</td>
-            <td className="py-1.5 text-right text-text-muted tabular-nums">{r.count}</td>
-            <td className="py-1.5 text-right text-text-primary tabular-nums">{fmt$(r.amount)}</td>
-            <td className="py-1.5 text-right text-text-muted tabular-nums">
-              {total > 0 ? `${((r.amount / total) * 100).toFixed(1)}%` : "—"}
-            </td>
-          </tr>
-        ))}
-        <tr className="border-t border-border font-medium">
-          <td className="py-1.5 text-text-primary">Total</td>
-          <td className="py-1.5 text-right text-text-muted tabular-nums">
-            {rows.reduce((s, r) => s + r.count, 0)}
-          </td>
-          <td className="py-1.5 text-right text-accent tabular-nums">{fmt$(total)}</td>
-          <td className="py-1.5 text-right text-text-muted">100%</td>
-        </tr>
-      </tbody>
-    </table>
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs text-text-dim">{label}</span>
+        <span className="text-xs font-mono tabular-nums text-text-primary">{fmt$(amount)}</span>
+      </div>
+      <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${pct}%`, backgroundColor: color }}
+        />
+      </div>
+    </div>
   );
 }
 
-function SortableHeader({
+function SortTh({
   label, col, sortKey, sortDir, onSort, align = "left",
 }: {
-  label: string;
-  col: SortKey;
-  sortKey: SortKey;
-  sortDir: "asc" | "desc";
-  onSort: (col: SortKey) => void;
-  align?: "left" | "right";
+  label: string; col: string; sortKey: string; sortDir: "asc" | "desc"; onSort: (col: string) => void; align?: "left" | "right";
 }) {
   const active = sortKey === col;
   return (
     <th
-      className={`py-2 font-medium cursor-pointer select-none hover:text-text-primary transition-colors ${align === "right" ? "text-right" : "text-left"}`}
+      className={`py-2 font-medium cursor-pointer select-none hover:text-text-primary transition-colors px-2 ${align === "right" ? "text-right" : "text-left"}`}
       onClick={() => onSort(col)}
     >
       <span className={active ? "text-accent" : ""}>
