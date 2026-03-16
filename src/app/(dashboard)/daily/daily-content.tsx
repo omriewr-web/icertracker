@@ -8,6 +8,7 @@ import {
   FileText, ExternalLink,
 } from "lucide-react";
 import KpiCard from "@/components/ui/kpi-card";
+import WorkOrderDetailModal from "@/components/maintenance/work-order-detail-modal";
 import { Skeleton, StatCardSkeleton } from "@/components/ui/skeleton";
 import { useAppStore } from "@/stores/app-store";
 import { fmt$, formatDate } from "@/lib/utils";
@@ -86,6 +87,7 @@ function SectionSkeleton() {
 
 export default function DailyBriefingContent() {
   const { selectedBuildingId } = useAppStore();
+  const [selectedWO, setSelectedWO] = useState<string | null>(null);
 
   // Independent data fetching per section
   const [metrics, setMetrics] = useState<PortfolioMetrics | null>(null);
@@ -348,7 +350,7 @@ export default function DailyBriefingContent() {
                 {workOrders.map((wo: any) => {
                   const daysOpen = daysSince(wo.createdAt);
                   return (
-                    <div key={wo.id} className="flex items-center justify-between px-2 py-2 rounded-lg hover:bg-card-hover transition-colors">
+                    <div key={wo.id} className="flex items-center justify-between px-2 py-2 rounded-lg hover:bg-card-hover transition-colors cursor-pointer" onClick={() => setSelectedWO(wo.id)}>
                       <div className="min-w-0">
                         <p className="text-sm text-text-primary truncate">{wo.title}</p>
                         <p className="text-xs text-text-dim truncate">{wo.buildingAddress || ""}</p>
@@ -459,6 +461,9 @@ export default function DailyBriefingContent() {
           <QuickStat label="No Lease" value={String(Number(m.noLease ?? 0))} color="#f59e0b" />
         </div>
       )}
+
+      {/* Work Order Detail Modal */}
+      <WorkOrderDetailModal workOrderId={selectedWO} onClose={() => setSelectedWO(null)} />
     </div>
   );
 }
