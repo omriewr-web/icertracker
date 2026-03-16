@@ -475,6 +475,7 @@ export const unitUpdateSchema = z.object({
   unitType: z.string().nullable().optional(),
   isVacant: z.boolean().optional(),
   askingRent: z.number().min(0).nullable().optional(),
+  vacancyStatus: z.enum(["VACANT", "MAKE_READY", "READY_TO_SHOW", "LEASED"]).nullable().optional(),
 });
 
 // ── Signal Schema ───────────────────────────────────────────

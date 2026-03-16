@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { DoorOpen, ArrowRight, ClipboardList, Plus, MessageSquare } from "lucide-react";
+import { DoorOpen, ArrowRight, ClipboardList, Plus, MessageSquare, ChevronDown, AlertTriangle, Wrench, Hammer } from "lucide-react";
 import { useBuildings } from "@/hooks/use-buildings";
 import { useMetrics } from "@/hooks/use-metrics";
 import { useTurnovers, useCreateTurnover } from "@/hooks/use-turnovers";
@@ -34,6 +34,35 @@ const ACTIVITY_TYPES = [
   { value: "lease_signed", label: "Lease Signed" },
   { value: "note", label: "Note" },
 ];
+
+const VACANCY_STATUSES = [
+  { value: "VACANT", label: "Vacant", color: "text-text-dim bg-white/5" },
+  { value: "MAKE_READY", label: "Make-Ready", color: "text-amber-400 bg-amber-400/10" },
+  { value: "READY_TO_SHOW", label: "Ready to Show", color: "text-blue-400 bg-blue-400/10" },
+  { value: "LEASED", label: "Leased", color: "text-green-400 bg-green-400/10" },
+];
+
+function getBestRent(u: { askingRent: number | null; legalRent: number | null; lastLeaseRent: number | null; marketRent: number | null }): number | null {
+  if (u.marketRent && u.marketRent > 0) return u.marketRent;
+  if (u.askingRent && u.askingRent > 0) return u.askingRent;
+  if (u.legalRent && u.legalRent > 0) return u.legalRent;
+  if (u.lastLeaseRent && u.lastLeaseRent > 0) return u.lastLeaseRent;
+  return null;
+}
+
+function getDaysVacant(vacantSince: string | null): number | null {
+  if (!vacantSince) return null;
+  const diff = Date.now() - new Date(vacantSince).getTime();
+  return Math.max(0, Math.floor(diff / 86400000));
+}
+
+function getDaysVacantColor(days: number | null): string {
+  if (days === null) return "text-text-dim";
+  if (days > 90) return "text-red-400";
+  if (days > 60) return "text-orange-400";
+  if (days > 30) return "text-amber-400";
+  return "text-text-dim";
+}
 
 function InlineRentEditor({ unitId, currentRent }: { unitId: string; currentRent: number | null }) {
   const [editing, setEditing] = useState(false);
@@ -73,6 +102,96 @@ function InlineRentEditor({ unitId, currentRent }: { unitId: string; currentRent
   );
 }
 
+function InlineStatusEditor({ unitId, currentStatus }: { unitId: string; currentStatus: string | null }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const updateUnit = useUpdateUnit();
+
+  const status = VACANCY_STATUSES.find((s) => s.value === currentStatus) || VACANCY_STATUSES[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className={`px-1.5 py-0.5 rounded text-xs font-medium ${status.color} hover:opacity-80 transition-opacity flex items-center gap-1`}
+      >
+        {status.label}
+        <ChevronDown className="w-3 h-3" />
+      </button>
+      {open && (
+        <div className="absolute z-20 top-full mt-1 left-0 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[140px]">
+          {VACANCY_STATUSES.map((s) => (
+            <button
+              key={s.value}
+              onClick={() => {
+                updateUnit.mutate({ id: unitId, data: { vacancyStatus: s.value } });
+                setOpen(false);
+              }}
+              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-card-hover transition-colors ${s.value === currentStatus ? "font-bold" : ""}`}
+            >
+              <span className={s.color.split(" ")[0]}>{s.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ActionsDropdown({ unitId, buildingId }: { unitId: string; buildingId: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="text-accent hover:text-accent-light p-1 rounded hover:bg-accent/10 transition-colors"
+      >
+        <ChevronDown className="w-4 h-4" />
+      </button>
+      {open && (
+        <div className="absolute z-20 top-full mt-1 right-0 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[200px]">
+          <Link
+            href={`/projects/new?unitId=${unitId}&category=TURNOVER`}
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors"
+          >
+            <Hammer className="w-3.5 h-3.5" />
+            Create Make-Ready Project
+          </Link>
+          <Link
+            href={`/maintenance?unitId=${unitId}`}
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors"
+          >
+            <Wrench className="w-3.5 h-3.5" />
+            Create Work Order
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function VacanciesContent() {
   const { data: buildings, isLoading } = useBuildings();
   const { data: metrics } = useMetrics();
@@ -101,6 +220,13 @@ export default function VacanciesContent() {
     () => metrics?.lostRent || 0,
     [metrics]
   );
+
+  const critical90PlusCount = useMemo(() => {
+    return vacantUnits.filter((u) => {
+      const days = getDaysVacant(u.vacantSince);
+      return days !== null && days > 90;
+    }).length;
+  }, [vacantUnits]);
 
   // Build a map of unitId → turnover for quick lookup
   const turnoverByUnit = useMemo(() => {
@@ -169,11 +295,12 @@ export default function VacanciesContent() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <KpiCard label="Vacant Units" value={metrics?.vacant || 0} icon={DoorOpen} color="#F59E0B" />
         <KpiCard label="Total Units" value={metrics?.totalUnits || 0} />
         <KpiCard label="Vacancy Rate" value={metrics?.totalUnits ? pct(((metrics?.vacant || 0) / metrics.totalUnits) * 100) : "0%"} color="#F59E0B" />
         <KpiCard label="Lost Rent/Mo" value={fmt$(totalVacantRent)} color="#EF4444" />
+        <KpiCard label="90+ Days" value={critical90PlusCount} icon={AlertTriangle} color="#EF4444" />
       </div>
 
       {buildingsWithVacancies.length > 0 && (
@@ -189,40 +316,54 @@ export default function VacanciesContent() {
           <div className="px-3 py-2 border-b border-border">
             <h3 className="text-sm font-medium text-text-muted">Vacant Units</h3>
           </div>
-          <table className="w-full text-sm min-w-[700px]">
+          <table className="w-full text-sm min-w-[900px]">
             <thead>
               <tr className="border-b border-border">
                 <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Property</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Unit</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Type</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Status</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase">Asking Rent</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase">Days Vacant</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase">Activity</th>
                 <th className="px-3 py-2 w-10"></th>
               </tr>
             </thead>
             <tbody>
-              {vacantUnits.map((u, i) => (
-                <tr key={u.id} className={`border-b border-border/50 last:border-0 hover:bg-card-hover transition-colors ${i % 2 === 1 ? "bg-white/[0.02]" : ""}`}>
-                  <td className="px-3 py-2 text-text-primary">{u.buildingAddress}</td>
-                  <td className="px-3 py-2 text-text-muted font-mono">{u.unitNumber}</td>
-                  <td className="px-3 py-2 text-text-dim text-xs">{u.unitType || "—"}</td>
-                  <td className="px-3 py-2 text-right">
-                    <InlineRentEditor unitId={u.id} currentRent={u.askingRent} />
-                  </td>
-                  <td className="px-3 py-2 text-right text-text-muted font-mono tabular-nums">
-                    {activityCountByUnit.get(u.id) || 0}
-                  </td>
-                  <td className="px-3 py-2">
-                    <button
-                      onClick={() => setActivityForm({ unitId: u.id, buildingId: u.buildingId })}
-                      className="text-accent hover:text-accent-light"
-                      title="Log activity"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {vacantUnits.map((u, i) => {
+                const displayRent = getBestRent(u);
+                const daysVacant = getDaysVacant(u.vacantSince);
+                const daysColor = getDaysVacantColor(daysVacant);
+                return (
+                  <tr key={u.id} className={`border-b border-border/50 last:border-0 hover:bg-card-hover transition-colors ${i % 2 === 1 ? "bg-white/[0.02]" : ""}`}>
+                    <td className="px-3 py-2 text-text-primary">{u.buildingAddress}</td>
+                    <td className="px-3 py-2 text-text-muted font-mono">{u.unitNumber}</td>
+                    <td className="px-3 py-2 text-text-dim text-xs">{u.unitType || "—"}</td>
+                    <td className="px-3 py-2">
+                      <InlineStatusEditor unitId={u.id} currentStatus={u.vacancyStatus} />
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <InlineRentEditor unitId={u.id} currentRent={displayRent} />
+                    </td>
+                    <td className={`px-3 py-2 text-right font-mono tabular-nums ${daysColor}`}>
+                      {daysVacant !== null ? daysVacant : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right text-text-muted font-mono tabular-nums">
+                      {activityCountByUnit.get(u.id) || 0}
+                    </td>
+                    <td className="px-3 py-2 flex items-center gap-1">
+                      <button
+                        onClick={() => setActivityForm({ unitId: u.id, buildingId: u.buildingId })}
+                        className="text-accent hover:text-accent-light p-1 rounded hover:bg-accent/10 transition-colors"
+                        title="Log activity"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                      <ActionsDropdown unitId={u.id} buildingId={u.buildingId} />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

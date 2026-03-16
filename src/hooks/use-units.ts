@@ -8,7 +8,11 @@ export interface UnitView {
   unitNumber: string;
   unitType: string | null;
   askingRent: number | null;
+  legalRent: number | null;
+  lastLeaseRent: number | null;
   isVacant: boolean;
+  vacantSince: string | null;
+  vacancyStatus: string | null;
   buildingId: string;
   buildingAddress: string;
   tenantId: string | null;

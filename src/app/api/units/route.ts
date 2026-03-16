@@ -22,24 +22,36 @@ export const GET = withAuth(async (req, { user }) => {
     include: {
       building: { select: { id: true, address: true, altAddress: true } },
       tenant: { select: { id: true, name: true, marketRent: true, balance: true, leaseStatus: true } },
+      leases: {
+        orderBy: { leaseEnd: "desc" },
+        take: 1,
+        select: { leaseEnd: true, monthlyRent: true, legalRent: true, preferentialRent: true },
+      },
     },
     orderBy: [{ building: { address: "asc" } }, { unitNumber: "asc" }],
   });
 
   return NextResponse.json(
-    units.map((u) => ({
-      id: u.id,
-      unitNumber: u.unitNumber,
-      unitType: u.unitType,
-      askingRent: u.askingRent ? toNumber(u.askingRent) : null,
-      isVacant: u.isVacant,
-      buildingId: u.building.id,
-      buildingAddress: getDisplayAddress(u.building),
-      tenantId: u.tenant?.id ?? null,
-      tenantName: u.tenant?.name ?? null,
-      marketRent: u.tenant ? toNumber(u.tenant.marketRent) : null,
-      balance: u.tenant ? toNumber(u.tenant.balance) : null,
-    }))
+    units.map((u) => {
+      const lastLease = u.leases[0] ?? null;
+      return {
+        id: u.id,
+        unitNumber: u.unitNumber,
+        unitType: u.unitType,
+        askingRent: u.askingRent ? toNumber(u.askingRent) : null,
+        legalRent: u.legalRent ? toNumber(u.legalRent) : null,
+        lastLeaseRent: lastLease ? (toNumber(lastLease.monthlyRent) || toNumber(lastLease.legalRent) || toNumber(lastLease.preferentialRent) || null) : null,
+        isVacant: u.isVacant,
+        vacantSince: u.vacantSince?.toISOString() ?? lastLease?.leaseEnd?.toISOString() ?? null,
+        vacancyStatus: u.vacancyStatus,
+        buildingId: u.building.id,
+        buildingAddress: getDisplayAddress(u.building),
+        tenantId: u.tenant?.id ?? null,
+        tenantName: u.tenant?.name ?? null,
+        marketRent: u.tenant ? toNumber(u.tenant.marketRent) : null,
+        balance: u.tenant ? toNumber(u.tenant.balance) : null,
+      };
+    })
   );
 }, "dash");
 

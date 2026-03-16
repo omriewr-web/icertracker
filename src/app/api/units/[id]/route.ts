@@ -18,6 +18,7 @@ export const PATCH = withAuth(async (req, { user, params }) => {
       ...(body.unitType !== undefined && { unitType: body.unitType || null }),
       ...(body.isVacant !== undefined && { isVacant: body.isVacant }),
       ...(body.askingRent !== undefined && { askingRent: body.askingRent }),
+      ...(body.vacancyStatus !== undefined && { vacancyStatus: body.vacancyStatus }),
     },
   });
   return NextResponse.json(unit);

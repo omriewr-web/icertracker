@@ -63,9 +63,32 @@ export const GET = withAuth(async (req, { user }) => {
   const legalCaseCount = await prisma.legalCase.count({ where: legalWhere });
   const totalMarketRent = tenants.reduce((s, t) => s + toNumber(t.marketRent), 0);
   const totalBalance = tenants.reduce((s, t) => s + toNumber(t.balance), 0);
-  const lostRent = tenants
-    .filter((t) => t.unit.isVacant && t.unit.isResidential)
-    .reduce((s, t) => s + toNumber(t.marketRent), 0);
+
+  // Lost rent: sum best available rent for each vacant unit
+  // Query vacant units directly (tenants are usually absent on vacant units)
+  const vacantUnitsForRent = await prisma.unit.findMany({
+    where: { ...unitWhere, isResidential: true, isVacant: true },
+    select: {
+      legalRent: true,
+      askingRent: true,
+      leases: {
+        where: { isCurrent: false },
+        orderBy: { leaseEnd: "desc" },
+        take: 1,
+        select: { monthlyRent: true, legalRent: true, preferentialRent: true },
+      },
+    },
+  });
+  const lostRent = vacantUnitsForRent.reduce((s, u) => {
+    const unitRent = toNumber(u.askingRent) || toNumber(u.legalRent);
+    if (unitRent > 0) return s + unitRent;
+    const lease = u.leases[0];
+    if (lease) {
+      const leaseRent = toNumber(lease.monthlyRent) || toNumber(lease.legalRent) || toNumber(lease.preferentialRent);
+      return s + leaseRent;
+    }
+    return s;
+  }, 0);
 
   const metrics: PortfolioMetrics = {
     totalUnits: units,
