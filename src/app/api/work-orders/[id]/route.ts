@@ -4,6 +4,7 @@ import { withAuth, parseBody } from "@/lib/api-helpers";
 import { workOrderUpdateSchema } from "@/lib/validations";
 import { assertWorkOrderAccess } from "@/lib/data-scope";
 import { getDisplayAddress } from "@/lib/building-matching";
+import { toNumber } from "@/lib/utils/decimal";
 
 export const dynamic = "force-dynamic";
 
@@ -30,8 +31,8 @@ function mapWorkOrder(wo: any) {
     priority: wo.priority,
     category: wo.category,
     photos: wo.photos as string[] | null,
-    estimatedCost: wo.estimatedCost ? Number(wo.estimatedCost) : null,
-    actualCost: wo.actualCost ? Number(wo.actualCost) : null,
+    estimatedCost: wo.estimatedCost ? toNumber(wo.estimatedCost) : null,
+    actualCost: wo.actualCost ? toNumber(wo.actualCost) : null,
     scheduledDate: wo.scheduledDate?.toISOString() ?? null,
     completedDate: wo.completedDate?.toISOString() ?? null,
     buildingId: wo.buildingId,

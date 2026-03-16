@@ -4,6 +4,7 @@ import { withAuth, parseBody } from "@/lib/api-helpers";
 import { getBuildingScope, EMPTY_SCOPE, assertBuildingAccess } from "@/lib/data-scope";
 import { unitCreateSchema } from "@/lib/validations";
 import { getDisplayAddress } from "@/lib/building-matching";
+import { toNumber } from "@/lib/utils/decimal";
 
 export const dynamic = "force-dynamic";
 
@@ -30,14 +31,14 @@ export const GET = withAuth(async (req, { user }) => {
       id: u.id,
       unitNumber: u.unitNumber,
       unitType: u.unitType,
-      askingRent: u.askingRent ? Number(u.askingRent) : null,
+      askingRent: u.askingRent ? toNumber(u.askingRent) : null,
       isVacant: u.isVacant,
       buildingId: u.building.id,
       buildingAddress: getDisplayAddress(u.building),
       tenantId: u.tenant?.id ?? null,
       tenantName: u.tenant?.name ?? null,
-      marketRent: u.tenant ? Number(u.tenant.marketRent) : null,
-      balance: u.tenant ? Number(u.tenant.balance) : null,
+      marketRent: u.tenant ? toNumber(u.tenant.marketRent) : null,
+      balance: u.tenant ? toNumber(u.tenant.balance) : null,
     }))
   );
 }, "dash");

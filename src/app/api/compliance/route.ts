@@ -5,6 +5,7 @@ import { complianceItemCreateSchema } from "@/lib/validations";
 import { getBuildingScope, EMPTY_SCOPE, assertBuildingAccess } from "@/lib/data-scope";
 import { getDisplayAddress } from "@/lib/building-matching";
 import type { ComplianceItemView } from "@/types";
+import { toNumber } from "@/lib/utils/decimal";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ function mapComplianceItem(item: any): ComplianceItemView {
     nextDueDate: item.nextDueDate?.toISOString() || null,
     assignedVendorId: item.assignedVendorId,
     assignedVendorName: item.assignedVendor?.name || null,
-    cost: Number(item.cost),
+    cost: toNumber(item.cost),
     filedBy: item.filedBy,
     certificateUrl: item.certificateUrl,
     notes: item.notes,

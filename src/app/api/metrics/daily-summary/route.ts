@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { getTenantScope, EMPTY_SCOPE } from "@/lib/data-scope";
 import { getDisplayAddress } from "@/lib/building-matching";
+import { toNumber } from "@/lib/utils/decimal";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,7 @@ export const GET = withAuth(async (req, { user }) => {
     urgentTenants: urgentTenants.map((t) => ({
       id: t.id,
       name: t.name,
-      balance: Number(t.balance),
+      balance: toNumber(t.balance),
       collectionScore: t.collectionScore,
       building: getDisplayAddress(t.unit.building),
       unit: t.unit.unitNumber,

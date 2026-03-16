@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { assertTenantAccess } from "@/lib/data-scope";
 import { AI_MODEL } from "@/lib/ai-config";
+import { toNumber } from "@/lib/utils/decimal";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +78,7 @@ export const GET = withAuth(async (req, { user, params }) => {
   const context = [
     `Tenant: ${tenant.name}`,
     `Unit: ${tenant.unit.unitNumber}, Building: ${tenant.unit.building.address}`,
-    `Current Balance: $${Number(tenant.balance).toFixed(2)}`,
+    `Current Balance: $${toNumber(tenant.balance).toFixed(2)}`,
     `Lease Status: ${tenant.leaseStatus}`,
     `Lease Expiration: ${tenant.leaseExpiration?.toISOString().split("T")[0] ?? "Unknown"}`,
   ];
@@ -86,18 +87,18 @@ export const GET = withAuth(async (req, { user, params }) => {
     context.push(
       `\nLatest AR Snapshot (${latestSnapshot.snapshotDate.toISOString().split("T")[0]}):`,
       `  Collection Status: ${latestSnapshot.collectionStatus}`,
-      `  Total Balance: $${Number(latestSnapshot.totalBalance).toFixed(2)}`,
-      `  0-30 days: $${Number(latestSnapshot.balance0_30).toFixed(2)}`,
-      `  31-60 days: $${Number(latestSnapshot.balance31_60).toFixed(2)}`,
-      `  61-90 days: $${Number(latestSnapshot.balance61_90).toFixed(2)}`,
-      `  90+ days: $${Number(latestSnapshot.balance90plus).toFixed(2)}`,
+      `  Total Balance: $${toNumber(latestSnapshot.totalBalance).toFixed(2)}`,
+      `  0-30 days: $${toNumber(latestSnapshot.balance0_30).toFixed(2)}`,
+      `  31-60 days: $${toNumber(latestSnapshot.balance31_60).toFixed(2)}`,
+      `  61-90 days: $${toNumber(latestSnapshot.balance61_90).toFixed(2)}`,
+      `  90+ days: $${toNumber(latestSnapshot.balance90plus).toFixed(2)}`,
     );
   }
 
   if (snapshotTrend.length > 0) {
     context.push(`\nBalance Trend (last ${snapshotTrend.length} months):`);
     for (const s of snapshotTrend.reverse()) {
-      context.push(`  ${s.month.toISOString().split("T")[0]}: $${Number(s.totalBalance).toFixed(2)}`);
+      context.push(`  ${s.month.toISOString().split("T")[0]}: $${toNumber(s.totalBalance).toFixed(2)}`);
     }
   }
 

@@ -6,6 +6,7 @@ import { withAuth } from "@/lib/api-helpers";
 import { normalizeAddress } from "@/lib/building-matching";
 import { matchLegalCase, type LegalCaseRow, type TenantRecord, type MatchResult } from "@/lib/legal-matching";
 import { LegalStage } from "@prisma/client";
+import { toNumber } from "@/lib/utils/decimal";
 
 export const dynamic = "force-dynamic";
 
@@ -113,7 +114,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     unitNumber: t.unit.unitNumber,
     buildingId: t.unit.buildingId,
     buildingAddress: t.unit.building.address,
-    balance: Number(t.balance),
+    balance: toNumber(t.balance),
   }));
 
   // Parse each row into a LegalCaseRow

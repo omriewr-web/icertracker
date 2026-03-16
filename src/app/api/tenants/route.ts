@@ -7,6 +7,7 @@ import { getTenantScope, EMPTY_SCOPE, assertBuildingAccess } from "@/lib/data-sc
 import { getArrearsCategory, getArrearsDays, getLeaseStatus, calcCollectionScore } from "@/lib/scoring";
 import { getDisplayAddress } from "@/lib/building-matching";
 import { scoreLegalCandidate } from "@/lib/legal-matching";
+import { toNumber } from "@/lib/utils/decimal";
 
 export const dynamic = "force-dynamic";
 
@@ -93,21 +94,21 @@ export const GET = withAuth(async (req, { user }) => {
     buildingRegion: t.unit.building.region,
     entity: t.unit.building.entity,
     portfolio: t.unit.building.portfolio,
-    marketRent: Number(t.marketRent),
-    legalRent: Number(t.legalRent),
-    dhcrLegalRent: Number(t.dhcrLegalRent),
-    prefRent: Number(t.prefRent),
-    actualRent: Number(t.actualRent),
+    marketRent: toNumber(t.marketRent),
+    legalRent: toNumber(t.legalRent),
+    dhcrLegalRent: toNumber(t.dhcrLegalRent),
+    prefRent: toNumber(t.prefRent),
+    actualRent: toNumber(t.actualRent),
     chargeCode: t.chargeCode,
     isStabilized: t.isStabilized,
-    deposit: Number(t.deposit),
+    deposit: toNumber(t.deposit),
     moveInDate: t.moveInDate?.toISOString() ?? null,
     leaseExpiration: t.leaseExpiration?.toISOString() ?? null,
     moveOutDate: t.moveOutDate?.toISOString() ?? null,
-    balance: Number(t.balance),
+    balance: toNumber(t.balance),
     arrearsCategory: t.arrearsCategory as any,
     arrearsDays: t.arrearsDays,
-    monthsOwed: t.balance && t.marketRent ? Math.round((Number(t.balance) / Number(t.marketRent)) * 10) / 10 : 0,
+    monthsOwed: t.balance && t.marketRent ? Math.round((toNumber(t.balance) / toNumber(t.marketRent)) * 10) / 10 : 0,
     leaseStatus: t.leaseStatus as any,
     collectionScore: t.collectionScore,
     legalFlag: !!t.legalCases[0]?.inLegal,
@@ -116,8 +117,8 @@ export const GET = withAuth(async (req, { user }) => {
       const hasActiveCase = !!t.legalCases[0]?.inLegal;
       if (hasActiveCase) return false;
       const { score } = scoreLegalCandidate({
-        balance: Number(t.balance),
-        marketRent: Number(t.marketRent),
+        balance: toNumber(t.balance),
+        marketRent: toNumber(t.marketRent),
         collectionScore: t.collectionScore,
         arrearsCategory: t.arrearsCategory,
         leaseStatus: t.leaseStatus,

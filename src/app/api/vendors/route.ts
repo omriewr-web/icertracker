@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { vendorCreateSchema } from "@/lib/validations";
 import { getOrgScope } from "@/lib/data-scope";
+import { toNumber } from "@/lib/utils/decimal";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export const GET = withAuth(async (req, { user }) => {
   return NextResponse.json(
     vendors.map((v) => ({
       ...v,
-      hourlyRate: v.hourlyRate ? Number(v.hourlyRate) : null,
+      hourlyRate: v.hourlyRate ? toNumber(v.hourlyRate) : null,
     }))
   );
 }, "maintenance");

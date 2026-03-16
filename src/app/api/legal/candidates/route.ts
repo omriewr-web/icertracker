@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { getTenantScope, EMPTY_SCOPE } from "@/lib/data-scope";
 import { scoreLegalCandidate } from "@/lib/legal-matching";
+import { toNumber } from "@/lib/utils/decimal";
 
 export const dynamic = "force-dynamic";
 
@@ -43,8 +44,8 @@ export const GET = withAuth(async (req, { user }) => {
   const candidates = tenants
     .map((t) => {
       const { score, reasons } = scoreLegalCandidate({
-        balance: Number(t.balance),
-        marketRent: Number(t.marketRent),
+        balance: toNumber(t.balance),
+        marketRent: toNumber(t.marketRent),
         collectionScore: t.collectionScore,
         arrearsCategory: t.arrearsCategory,
         leaseStatus: t.leaseStatus,
@@ -56,8 +57,8 @@ export const GET = withAuth(async (req, { user }) => {
         name: t.name,
         unitNumber: t.unit.unitNumber,
         buildingAddress: t.unit.building.address,
-        balance: Number(t.balance),
-        monthsOwed: Number(t.monthsOwed),
+        balance: toNumber(t.balance),
+        monthsOwed: toNumber(t.monthsOwed),
         collectionScore: t.collectionScore,
         arrearsCategory: t.arrearsCategory,
         leaseStatus: t.leaseStatus,

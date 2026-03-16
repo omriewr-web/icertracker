@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { getTenantScope, getBuildingScope, EMPTY_SCOPE } from "@/lib/data-scope";
 import { PortfolioMetrics } from "@/types";
+import { toNumber } from "@/lib/utils/decimal";
 
 export const dynamic = "force-dynamic";
 
@@ -60,11 +61,11 @@ export const GET = withAuth(async (req, { user }) => {
     legalWhere.tenant = tenantScope;
   }
   const legalCaseCount = await prisma.legalCase.count({ where: legalWhere });
-  const totalMarketRent = tenants.reduce((s, t) => s + Number(t.marketRent), 0);
-  const totalBalance = tenants.reduce((s, t) => s + Number(t.balance), 0);
+  const totalMarketRent = tenants.reduce((s, t) => s + toNumber(t.marketRent), 0);
+  const totalBalance = tenants.reduce((s, t) => s + toNumber(t.balance), 0);
   const lostRent = tenants
     .filter((t) => t.unit.isVacant && t.unit.isResidential)
-    .reduce((s, t) => s + Number(t.marketRent), 0);
+    .reduce((s, t) => s + toNumber(t.marketRent), 0);
 
   const metrics: PortfolioMetrics = {
     totalUnits: units,
@@ -77,10 +78,10 @@ export const GET = withAuth(async (req, { user }) => {
     arrears30: tenants.filter((t) => t.arrearsCategory === "30").length,
     arrears60: tenants.filter((t) => t.arrearsCategory === "60").length,
     arrears90Plus: tenants.filter((t) => ["90", "120+"].includes(t.arrearsCategory)).length,
-    arrears30$: tenants.filter((t) => t.arrearsCategory === "30").reduce((s, t) => s + Number(t.balance), 0),
-    arrears60$: tenants.filter((t) => t.arrearsCategory === "60").reduce((s, t) => s + Number(t.balance), 0),
-    arrears90Plus$: tenants.filter((t) => ["90", "120+"].includes(t.arrearsCategory)).reduce((s, t) => s + Number(t.balance), 0),
-    current$: tenants.filter((t) => !t.arrearsCategory || t.arrearsCategory === "current").reduce((s, t) => s + Number(t.balance), 0),
+    arrears30$: tenants.filter((t) => t.arrearsCategory === "30").reduce((s, t) => s + toNumber(t.balance), 0),
+    arrears60$: tenants.filter((t) => t.arrearsCategory === "60").reduce((s, t) => s + toNumber(t.balance), 0),
+    arrears90Plus$: tenants.filter((t) => ["90", "120+"].includes(t.arrearsCategory)).reduce((s, t) => s + toNumber(t.balance), 0),
+    current$: tenants.filter((t) => !t.arrearsCategory || t.arrearsCategory === "current").reduce((s, t) => s + toNumber(t.balance), 0),
     legalCaseCount,
     noLease: tenants.filter((t) => t.leaseStatus === "no-lease").length,
     expiredLease: tenants.filter((t) => t.leaseStatus === "expired").length,

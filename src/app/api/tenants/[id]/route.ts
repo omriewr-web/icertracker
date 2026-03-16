@@ -4,6 +4,7 @@ import { withAuth, parseBody } from "@/lib/api-helpers";
 import { tenantUpdateSchema } from "@/lib/validations";
 import { getArrearsCategory, getArrearsDays, getLeaseStatus, calcCollectionScore } from "@/lib/scoring";
 import { assertTenantAccess } from "@/lib/data-scope";
+import { toNumber } from "@/lib/utils/decimal";
 
 export const dynamic = "force-dynamic";
 
@@ -44,8 +45,8 @@ export const PATCH = withAuth(async (req, { user, params }) => {
   const current = await prisma.tenant.findUnique({ where: { id }, include: { legalCases: { where: { isActive: true }, take: 1 } } });
   if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const balance = data.balance ?? Number(current.balance);
-  const marketRent = data.marketRent ?? Number(current.marketRent);
+  const balance = data.balance ?? toNumber(current.balance);
+  const marketRent = data.marketRent ?? toNumber(current.marketRent);
   const leaseExp = data.leaseExpiration !== undefined
     ? (data.leaseExpiration ? new Date(data.leaseExpiration) : null)
     : current.leaseExpiration;
@@ -101,10 +102,10 @@ export const PATCH = withAuth(async (req, { user, params }) => {
       leaseStart: tenant.moveInDate,
       leaseEnd: tenant.leaseExpiration,
       moveInDate: tenant.moveInDate,
-      monthlyRent: Number(tenant.marketRent),
-      legalRent: Number(tenant.legalRent),
-      securityDeposit: Number(tenant.deposit),
-      currentBalance: Number(tenant.balance),
+      monthlyRent: toNumber(tenant.marketRent),
+      legalRent: toNumber(tenant.legalRent),
+      securityDeposit: toNumber(tenant.deposit),
+      currentBalance: toNumber(tenant.balance),
       chargeCode: tenant.chargeCode ?? null,
       isStabilized: tenant.isStabilized,
       status: tenant.leaseExpiration
@@ -115,10 +116,10 @@ export const PATCH = withAuth(async (req, { user, params }) => {
       leaseStart: tenant.moveInDate,
       leaseEnd: tenant.leaseExpiration,
       moveInDate: tenant.moveInDate,
-      monthlyRent: Number(tenant.marketRent),
-      legalRent: Number(tenant.legalRent),
-      securityDeposit: Number(tenant.deposit),
-      currentBalance: Number(tenant.balance),
+      monthlyRent: toNumber(tenant.marketRent),
+      legalRent: toNumber(tenant.legalRent),
+      securityDeposit: toNumber(tenant.deposit),
+      currentBalance: toNumber(tenant.balance),
       chargeCode: tenant.chargeCode ?? null,
       isStabilized: tenant.isStabilized,
       status: tenant.leaseExpiration
