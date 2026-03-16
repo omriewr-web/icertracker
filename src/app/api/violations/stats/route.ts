@@ -3,10 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { getBuildingScope, EMPTY_SCOPE } from "@/lib/data-scope";
 import type { ViolationStats } from "@/types";
+import logger from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
 export const GET = withAuth(async (req: NextRequest, { user }) => {
+  const start = Date.now();
+  const log = logger.child({ route: "/api/violations/stats", userId: user.id });
+  log.info({ action: "start" });
+
   const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
   const orgFilter = isAdmin
     ? {}
@@ -53,5 +58,6 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
     upcomingHearings: hearings,
   };
 
+  log.info({ action: "complete", totalOpen: stats.totalOpen, durationMs: Date.now() - start });
   return NextResponse.json(stats);
 }, "compliance");

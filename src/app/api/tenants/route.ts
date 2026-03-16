@@ -8,10 +8,15 @@ import { getArrearsCategory, getArrearsDays, getLeaseStatus, calcCollectionScore
 import { getDisplayAddress } from "@/lib/building-matching";
 import { scoreLegalCandidate } from "@/lib/legal-matching";
 import { toNumber } from "@/lib/utils/decimal";
+import logger from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
 export const GET = withAuth(async (req, { user }) => {
+  const start = Date.now();
+  const log = logger.child({ route: "/api/tenants", userId: user.id });
+  log.info({ action: "start" });
+
   const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
   const orgFilter = isAdmin
     ? {}
@@ -131,6 +136,7 @@ export const GET = withAuth(async (req, { user }) => {
     taskCount: t._count.tasks,
   }));
 
+  log.info({ action: "complete", count: result.length, total, durationMs: Date.now() - start });
   return NextResponse.json({
     tenants: result,
     pagination: {

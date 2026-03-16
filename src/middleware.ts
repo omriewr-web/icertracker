@@ -1,8 +1,15 @@
 import { withAuth } from "next-auth/middleware";
+import { NextResponse } from "next/server";
 
-export default withAuth({
-  pages: { signIn: "/login" },
-});
+export default withAuth(
+  function middleware(req) {
+    const response = NextResponse.next();
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+    response.headers.set("x-request-id", requestId);
+    return response;
+  },
+  { pages: { signIn: "/login" } },
+);
 
 export const config = {
   matcher: [
@@ -20,6 +27,6 @@ export const config = {
      * - _next/image     → Next.js image optimization
      * - favicon.ico     → Browser favicon
      */
-    "/((?!login|request|api/auth|api/work-orders/request|_next/static|_next/image|favicon.ico).*)",
+    "/((?!login|request|api/auth|api/health|api/work-orders/request|_next/static|_next/image|favicon.ico).*)",
   ],
 };

@@ -5,6 +5,7 @@ import { withAuth, parseBody } from "@/lib/api-helpers";
 import { buildingCreateSchema } from "@/lib/validations";
 import { getBuildingIdScope, EMPTY_SCOPE } from "@/lib/data-scope";
 import { getDisplayAddress } from "@/lib/building-matching";
+import logger from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,10 @@ interface BuildingAggRow {
 }
 
 export const GET = withAuth(async (req, { user }) => {
+  const start = Date.now();
+  const log = logger.child({ route: "/api/buildings", userId: user.id });
+  log.info({ action: "start" });
+
   const url = new URL(req.url);
   const portfolio = url.searchParams.get("portfolio");
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
@@ -189,6 +194,7 @@ export const GET = withAuth(async (req, { user }) => {
     };
   });
 
+  log.info({ action: "complete", count: result.length, durationMs: Date.now() - start });
   return NextResponse.json(result);
 });
 
