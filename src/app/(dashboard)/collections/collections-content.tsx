@@ -253,6 +253,21 @@ export default function CollectionsContent() {
   const highAlerts = useMemo(() => visibleAlerts.filter((a) => a.priority === "HIGH"), [visibleAlerts]);
   const mediumAlerts = useMemo(() => visibleAlerts.filter((a) => a.priority === "MEDIUM"), [visibleAlerts]);
 
+  // Stale tenants from alerts (no contact in 30+ days), grouped by building
+  const staleAlerts = useMemo(
+    () => (alerts ?? []).filter((a) => a.alertType === "CONTACT_OVERDUE_30"),
+    [alerts]
+  );
+  const staleByBuilding = useMemo(() => {
+    const map = new Map<string, CollectionAlert[]>();
+    for (const a of staleAlerts) {
+      const list = map.get(a.buildingAddress) ?? [];
+      list.push(a);
+      map.set(a.buildingAddress, list);
+    }
+    return Array.from(map.entries()).sort((a, b) => b[1].length - a[1].length);
+  }, [staleAlerts]);
+
   const isLoading = dashLoading || tenantsLoading;
 
   function handleBuildingFilter(buildingId: string) {
@@ -620,8 +635,85 @@ export default function CollectionsContent() {
             {staleOpen ? <ChevronUp className="w-4 h-4 text-text-dim" /> : <ChevronDown className="w-4 h-4 text-text-dim" />}
           </button>
           {staleOpen && (
-            <div className="px-4 pb-3 text-xs text-text-muted">
-              <p>These tenants have outstanding balances but no recent follow-up activity.</p>
+            <div className="border-t border-border/50">
+              {staleByBuilding.length === 0 ? (
+                <div className="px-4 py-3 text-xs text-text-muted">
+                  <p>These tenants have outstanding balances but no recent follow-up activity.</p>
+                </div>
+              ) : (
+                staleByBuilding.map(([address, tenants]) => (
+                  <div key={address}>
+                    <div className="px-4 py-2 bg-amber-500/5 border-b border-border/30">
+                      <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                        {address} ({tenants.length})
+                      </span>
+                    </div>
+                    {tenants.map((alert) => (
+                      <div key={alert.tenantId}>
+                        <div
+                          onClick={() => router.push(`/collections/${alert.tenantId}`)}
+                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-card-hover transition-colors cursor-pointer border-l-2 border-l-amber-500"
+                        >
+                          <div className="flex-1 min-w-0 flex items-center gap-4">
+                            <span className="text-sm text-text-primary font-medium truncate w-36">{alert.tenantName}</span>
+                            <span className="text-xs text-text-dim truncate w-24">{alert.unit}</span>
+                            <span className="text-xs text-red-400 font-mono w-20 text-right">{fmt$(alert.balance)}</span>
+                            <span className="text-xs truncate flex-1 text-amber-400">
+                              {alert.alertMessage}
+                            </span>
+                            {alert.daysSinceContact != null && (
+                              <span className="text-[10px] text-text-dim whitespace-nowrap">{alert.daysSinceContact}d since contact</span>
+                            )}
+                          </div>
+                          <button
+                            onClick={(e) => openFollowUp(alert, e)}
+                            className="px-2 py-1 text-[11px] font-medium text-accent border border-accent/30 rounded hover:bg-accent/10 transition-colors shrink-0"
+                          >
+                            Send Follow-up
+                          </button>
+                        </div>
+                        {followUpTenantId === alert.tenantId && (
+                          <div className="px-4 py-3 bg-card-hover/50 border-t border-border/30 border-l-2 border-l-amber-500" onClick={(e) => e.stopPropagation()}>
+                            <div className="space-y-2 max-w-2xl">
+                              <textarea
+                                value={followUpText}
+                                onChange={(e) => setFollowUpText(e.target.value)}
+                                rows={3}
+                                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent resize-none"
+                              />
+                              <div className="flex items-center gap-3">
+                                <select
+                                  value={followUpType}
+                                  onChange={(e) => setFollowUpType(e.target.value)}
+                                  className="bg-bg border border-border rounded-lg px-2 py-1 text-xs text-text-primary focus:outline-none focus:border-accent"
+                                >
+                                  <option value="CALLED">Called</option>
+                                  <option value="EMAILED">Emailed</option>
+                                  <option value="VISITED">Visited</option>
+                                  <option value="OTHER">Other</option>
+                                </select>
+                                <AIEnhanceButton
+                                  value={followUpText}
+                                  context="collection_note"
+                                  onEnhanced={(text) => setFollowUpText(text)}
+                                />
+                                <div className="flex items-center gap-2 ml-auto">
+                                  <Button variant="outline" onClick={cancelFollowUp}>
+                                    Cancel
+                                  </Button>
+                                  <Button onClick={submitFollowUp} disabled={!followUpText.trim() || createNote.isPending}>
+                                    {createNote.isPending ? "Sending..." : "Submit Note"}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>
