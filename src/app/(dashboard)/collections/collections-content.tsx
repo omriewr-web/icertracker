@@ -189,7 +189,7 @@ export default function CollectionsContent() {
   const bulkUpdate = useBulkCollectionAction();
   const sendToLegal = useSendToLegal();
 
-  const isLoading = dashLoading && tenantsLoading;
+  const isLoading = dashLoading || tenantsLoading;
 
   function handleBuildingFilter(buildingId: string) {
     setFilters((prev) => ({ ...prev, buildingId: buildingId || undefined }));
