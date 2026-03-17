@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import {
   Building2, Users, DollarSign, Scale, DoorOpen, FolderKanban,
-  AlertTriangle, Shield, ChevronUp, ChevronDown, ExternalLink,
+  AlertTriangle, Shield, ChevronUp, ChevronDown, ExternalLink, ArrowRight,
 } from "lucide-react";
+import { useAppStore } from "@/stores/app-store";
 import KpiCard from "@/components/ui/kpi-card";
 import ExportButton from "@/components/ui/export-button";
 import { Skeleton, StatCardSkeleton } from "@/components/ui/skeleton";
@@ -75,6 +77,8 @@ function SectionSkeleton({ rows = 4 }: { rows?: number }) {
 
 export default function OwnerDashboardContent() {
   const { data: session } = useSession();
+  const router = useRouter();
+  const setSelectedBuildingId = useAppStore((s) => s.setSelectedBuildingId);
   const role = (session?.user?.role || "OWNER") as UserRole;
   const isOwner = isOwnerRole(role);
 
@@ -318,6 +322,7 @@ export default function OwnerDashboardContent() {
                   <th className="py-2 text-right font-medium px-2">Occupancy %</th>
                   <SortTh label="Violations" col="arrearsCount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
                   <SortTh label="Legal" col="legalCount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                  <th className="py-2 px-2 w-8" />
                 </tr>
               </thead>
               <tbody>
@@ -326,7 +331,11 @@ export default function OwnerDashboardContent() {
                   return (
                     <tr
                       key={b.id}
-                      className={`border-b border-border/50 last:border-0 hover:bg-card-hover transition-colors ${i % 2 === 1 ? "bg-white/[0.02]" : ""}`}
+                      className={`border-b border-border/50 last:border-0 hover:bg-card-hover transition-colors cursor-pointer ${i % 2 === 1 ? "bg-white/[0.02]" : ""}`}
+                      onClick={() => {
+                        setSelectedBuildingId(b.id);
+                        router.push("/data");
+                      }}
                     >
                       <td className="py-2.5 text-text-primary font-medium px-2">{b.address}</td>
                       <td className="py-2.5 text-right text-text-muted tabular-nums px-2">{b.totalUnits}</td>
@@ -360,6 +369,9 @@ export default function OwnerDashboardContent() {
                         <span className={b.legalCount > 0 ? "text-orange-400" : "text-text-dim"}>
                           {b.legalCount}
                         </span>
+                      </td>
+                      <td className="py-2.5 px-2">
+                        <ArrowRight className="w-3.5 h-3.5 text-text-dim" />
                       </td>
                     </tr>
                   );
