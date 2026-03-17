@@ -26,6 +26,7 @@ import {
   ScrollText,
   Upload,
   MessageSquare,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/permissions";
@@ -67,6 +68,7 @@ const navItems: NavItem[] = [
   { href: "/users", label: "Users", icon: Users, perm: "users", section: "SETTINGS" },
   { href: "/settings/rgb-orders", label: "RGB Orders", subtitle: "Annual Rent Guidelines", icon: ScrollText, perm: "allProps", section: "SETTINGS" },
   { href: "/settings/legal-rent-import", label: "Legal Rent Import", subtitle: "Bulk update regulated rents", icon: Upload, perm: "upload", section: "SETTINGS" },
+  { href: "/settings/billing", label: "Billing", subtitle: "Subscription & Invoices", icon: CreditCard, perm: "allProps", section: "SETTINGS" },
 ];
 
 const sectionLabels: Record<Section, string> = {
