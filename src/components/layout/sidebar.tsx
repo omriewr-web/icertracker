@@ -24,7 +24,8 @@ import {
   FolderKanban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { hasPermission, UserRole } from "@/types";
+import { hasPermission } from "@/lib/permissions";
+import type { UserRole } from "@/types";
 import PropertySelector from "./property-selector";
 import { useAppStore } from "@/stores/app-store";
 

@@ -13,6 +13,11 @@ export type Module =
   | "owner-dashboard" | "coeus" | "reports" | "users" | "data-import"
   | "settings" | "organizations";
 
+type LegacyPermission =
+  | "allProps" | "dash" | "notes" | "pay" | "legal" | "upload" | "users"
+  | "vac" | "lease" | "fin" | "reports" | "edit" | "email" | "maintenance"
+  | "compliance" | "collections" | "utilities" | "owner" | "orgs";
+
 interface ModuleAccess {
   read: boolean;
   write: boolean;
@@ -125,6 +130,33 @@ export function canWriteModule(role: UserRole, module: string): boolean {
   if (!perms) return false;
   const access = perms[module as Module];
   return access?.write ?? false;
+}
+
+const LEGACY_PERMISSION_CHECKS: Record<LegacyPermission, (role: UserRole) => boolean> = {
+  allProps: (role) => ["SUPER_ADMIN", "ADMIN", "ACCOUNT_ADMIN"].includes(role),
+  dash: (role) => canAccessModule(role, "dashboard") || canAccessModule(role, "coeus"),
+  notes: (role) => canAccessModule(role, "tenants"),
+  pay: (role) => canWriteModule(role, "tenants"),
+  legal: (role) => canAccessModule(role, "legal"),
+  upload: (role) => canAccessModule(role, "data-import"),
+  users: (role) => canAccessModule(role, "users"),
+  vac: (role) => canAccessModule(role, "vacancies") || canAccessModule(role, "turnovers"),
+  lease: (role) => canAccessModule(role, "tenants") || canAccessModule(role, "vacancies"),
+  fin: (role) => canAccessModule(role, "collections") || canAccessModule(role, "reports"),
+  reports: (role) => canAccessModule(role, "reports"),
+  edit: (role) => Object.values(MODULE_PERMISSIONS[role]).some((access) => access.write),
+  email: (role) => canWriteModule(role, "collections") || canWriteModule(role, "tenants"),
+  maintenance: (role) => canAccessModule(role, "maintenance"),
+  compliance: (role) => canAccessModule(role, "compliance"),
+  collections: (role) => canAccessModule(role, "collections"),
+  utilities: (role) => canAccessModule(role, "utilities"),
+  owner: (role) => canAccessModule(role, "owner-dashboard"),
+  orgs: (role) => canAccessModule(role, "organizations"),
+};
+
+export function hasPermission(role: UserRole, perm: string): boolean {
+  const checker = LEGACY_PERMISSION_CHECKS[perm as LegacyPermission];
+  return checker ? checker(role) : false;
 }
 
 /** Roles that a given role is allowed to create */

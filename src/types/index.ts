@@ -180,25 +180,6 @@ export interface PortfolioMetrics {
   expiringSoon: number;
 }
 
-export const ROLE_PERMISSIONS: Record<UserRole, Record<string, boolean>> = {
-  SUPER_ADMIN:        { allProps: true, dash: true, notes: true, pay: true, legal: true, upload: true, users: true, vac: true, lease: true, fin: true, reports: true, edit: true, email: true, maintenance: true, compliance: true, collections: true, utilities: true, owner: true, orgs: true },
-  ADMIN:              { allProps: true, dash: true, notes: true, pay: true, legal: true, upload: true, users: true, vac: true, lease: true, fin: true, reports: true, edit: true, email: true, maintenance: true, compliance: true, collections: true, utilities: true, owner: true },
-  ACCOUNT_ADMIN:      { allProps: true, dash: true, notes: true, pay: true, legal: true, upload: true, users: true, vac: true, lease: true, fin: true, reports: true, edit: true, email: true, maintenance: true, compliance: true, collections: true, utilities: true, owner: true },
-  PM:                 { allProps: false, dash: true, notes: true, pay: true, legal: true, upload: true, users: true, vac: true, lease: true, fin: true, reports: true, edit: true, email: true, maintenance: true, compliance: true, collections: true, utilities: true, owner: false },
-  APM:                { allProps: false, dash: true, notes: true, pay: true, legal: true, upload: false, users: false, vac: true, lease: true, fin: true, reports: true, edit: true, email: true, maintenance: true, compliance: true, collections: true, utilities: true, owner: false },
-  COLLECTOR:          { allProps: false, dash: true, notes: true, pay: true, legal: false, upload: false, users: false, vac: false, lease: false, fin: true, reports: true, edit: true, email: true, maintenance: true, compliance: true, collections: true, utilities: true, owner: false },
-  OWNER:              { allProps: false, dash: true, notes: false, pay: false, legal: true, upload: false, users: false, vac: true, lease: true, fin: true, reports: true, edit: false, email: false, maintenance: true, compliance: true, collections: true, utilities: false, owner: true },
-  LEASING_SPECIALIST: { allProps: false, dash: false, notes: false, pay: false, legal: false, upload: false, users: false, vac: true, lease: true, fin: false, reports: true, edit: true, email: false, maintenance: false, compliance: false, collections: false, utilities: false, owner: false },
-  BROKER:             { allProps: false, dash: false, notes: false, pay: false, legal: false, upload: false, users: false, vac: true, lease: true, fin: false, reports: true, edit: false, email: false, maintenance: false, compliance: false, collections: false, utilities: false, owner: false },
-  SUPER:              { allProps: false, dash: false, notes: false, pay: false, legal: false, upload: false, users: false, vac: false, lease: false, fin: false, reports: false, edit: false, email: false, maintenance: true, compliance: true, collections: false, utilities: false, owner: false },
-  ACCOUNTING:         { allProps: false, dash: false, notes: false, pay: false, legal: true, upload: false, users: false, vac: false, lease: false, fin: true, reports: true, edit: false, email: false, maintenance: false, compliance: false, collections: true, utilities: false, owner: false },
-  LEASING_AGENT:      { allProps: false, dash: true, notes: false, pay: false, legal: false, upload: false, users: false, vac: true, lease: true, fin: false, reports: false, edit: true, email: false, maintenance: false, compliance: false, collections: false, utilities: false, owner: false },
-};
-
-export function hasPermission(role: UserRole, perm: string): boolean {
-  return ROLE_PERMISSIONS[role]?.[perm] ?? false;
-}
-
 // ── Work Order Types ─────────────────────────────────────────────
 
 export type WorkOrderStatus = "PENDING_REVIEW" | "OPEN" | "IN_PROGRESS" | "ON_HOLD" | "COMPLETED";

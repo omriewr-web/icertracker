@@ -37,6 +37,20 @@ export const POST = withAuth(async (req, { user }) => {
     );
   }
 
+  if (data.buildingIds && data.buildingIds.length > 0 && user.role !== "SUPER_ADMIN") {
+    const buildings = await prisma.building.findMany({
+      where: { id: { in: data.buildingIds } },
+      select: { organizationId: true },
+    });
+
+    if (
+      buildings.length !== data.buildingIds.length ||
+      buildings.some((building) => building.organizationId !== user.organizationId)
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   const hash = await bcrypt.hash(data.password, 12);
 
   const result = await prisma.$transaction(async (tx) => {

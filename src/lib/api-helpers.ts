@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "./auth";
-import { hasPermission, UserRole } from "@/types";
+import { hasPermission } from "./permissions";
+import type { UserRole } from "@/types";
 import { ZodError } from "zod";
 import logger from "./logger";
 

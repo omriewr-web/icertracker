@@ -11,15 +11,31 @@ export const dynamic = "force-dynamic";
 export const PATCH = withAuth(async (req, { user, params }) => {
   const { id } = await params;
 
+  const targetUser = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, role: true, organizationId: true },
+  });
+
   // Verify target user belongs to same org (unless SUPER_ADMIN)
   if (user.role !== "SUPER_ADMIN") {
-    const target = await prisma.user.findUnique({ where: { id }, select: { organizationId: true } });
-    if (!target || target.organizationId !== user.organizationId) {
+    if (!targetUser || targetUser.organizationId !== user.organizationId) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
   }
 
+  if (!targetUser) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const data = await parseBody(req, userUpdateSchema);
+
+  if (targetUser.role === "ADMIN" && user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (targetUser.id === user.id && data.active === false) {
+    return NextResponse.json({ error: "Cannot deactivate yourself" }, { status: 403 });
+  }
 
   // If changing role, enforce permissions
   if (data.role && !canCreateRole(user.role as UserRole, data.role as UserRole)) {
@@ -27,6 +43,20 @@ export const PATCH = withAuth(async (req, { user, params }) => {
       { error: `Your role cannot assign the ${data.role} role` },
       { status: 403 },
     );
+  }
+
+  if (data.buildingIds && data.buildingIds.length > 0 && user.role !== "SUPER_ADMIN") {
+    const buildings = await prisma.building.findMany({
+      where: { id: { in: data.buildingIds } },
+      select: { organizationId: true },
+    });
+
+    if (
+      buildings.length !== data.buildingIds.length ||
+      buildings.some((building) => building.organizationId !== user.organizationId)
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -67,12 +97,28 @@ export const PATCH = withAuth(async (req, { user, params }) => {
 export const DELETE = withAuth(async (req, { user, params }) => {
   const { id } = await params;
 
+  if (id === user.id) {
+    return NextResponse.json({ error: "Cannot deactivate yourself" }, { status: 403 });
+  }
+
+  const targetUser = await prisma.user.findUnique({
+    where: { id },
+    select: { role: true, organizationId: true },
+  });
+
   // Verify target user belongs to same org (unless SUPER_ADMIN)
   if (user.role !== "SUPER_ADMIN") {
-    const target = await prisma.user.findUnique({ where: { id }, select: { organizationId: true } });
-    if (!target || target.organizationId !== user.organizationId) {
+    if (!targetUser || targetUser.organizationId !== user.organizationId) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
+  }
+
+  if (!targetUser) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (targetUser.role === "ADMIN" && user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   await prisma.user.update({ where: { id }, data: { active: false } });
