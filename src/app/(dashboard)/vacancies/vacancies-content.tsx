@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import {
   DoorOpen, Home, Wrench, CheckCircle, Clock, Tag, AlertTriangle,
@@ -18,6 +19,7 @@ import KpiCard from "@/components/ui/kpi-card";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/empty-state";
 import { fmt$, pct } from "@/lib/utils";
+import toast from "react-hot-toast";
 import ExportButton from "@/components/ui/export-button";
 
 // ── Status Config ─────────────────────────────────────────────
@@ -412,6 +414,7 @@ function ActionsMenu({ unit, onApproveRent, isAdmin }: {
   const [dateValue, setDateValue] = useState("");
   const [saving, setSaving] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const qc = useQueryClient();
   useClickOutside(ref, () => { setOpen(false); setDateField(null); });
 
   async function saveDate(field: "vacantSince" | "readyDate") {
@@ -423,12 +426,13 @@ function ActionsMenu({ unit, onApproveRent, isAdmin }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [field]: new Date(dateValue).toISOString() }),
       });
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) throw new Error("Failed to update date");
       setDateField(null);
       setOpen(false);
-      window.location.reload();
+      qc.invalidateQueries({ queryKey: ["vacancies"] });
+      toast.success("Date updated");
     } catch {
-      // error silently
+      toast.error("Failed to update date");
     } finally {
       setSaving(false);
     }
