@@ -23,6 +23,7 @@ import {
   Building2,
   FolderKanban,
   ClipboardList,
+  ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/permissions";
@@ -51,6 +52,7 @@ const navItems: { href: string; label: string; icon: typeof LayoutDashboard; per
   { href: "/reports", label: "Reports", icon: BarChart3, perm: "reports", section: "SETTINGS" },
   { href: "/data", label: "Data Management", icon: Database, perm: "upload", section: "SETTINGS" },
   { href: "/users", label: "Users", icon: Users, perm: "users", section: "SETTINGS" },
+  { href: "/settings/rgb-orders", label: "RGB Orders", icon: ScrollText, perm: "edit", section: "SETTINGS" },
 ];
 
 const sectionLabels: Record<Section, string> = {
