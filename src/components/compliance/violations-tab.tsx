@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { RefreshCw, AlertTriangle, ShieldCheck, DollarSign, Calendar, Bug } from "lucide-react";
 import { useViolations, useViolationStats, useSyncViolationsStream } from "@/hooks/use-violations";
 import EmptyState from "@/components/ui/empty-state";
@@ -39,6 +40,8 @@ function ClassBadge({ cls }: { cls: string | null }) {
 }
 
 export default function ViolationsTab() {
+  const { data: session } = useSession();
+  const isAdmin = ["SUPER_ADMIN", "ADMIN", "ACCOUNT_ADMIN"].includes(session?.user?.role ?? "");
   const { selectedBuildingId } = useAppStore();
   const { data: buildings } = useBuildings();
   const [filterSource, setFilterSource] = useState("");
@@ -123,14 +126,16 @@ export default function ViolationsTab() {
             ] : undefined,
           }}
         />
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setShowTestPanel(!showTestPanel)}
-        >
-          <Bug className="w-3.5 h-3.5" />
-          Test Sync
-        </Button>
+        {isAdmin && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowTestPanel(!showTestPanel)}
+          >
+            <Bug className="w-3.5 h-3.5" />
+            Test Sync
+          </Button>
+        )}
         <Button
           size="sm"
           onClick={() => syncMutate(selectedBuildingId ? { buildingId: selectedBuildingId } : {})}
@@ -145,8 +150,8 @@ export default function ViolationsTab() {
         </Button>
       </div>
 
-      {/* Test Sync Debug Panel */}
-      {showTestPanel && (
+      {/* Test Sync Debug Panel — admin only */}
+      {isAdmin && showTestPanel && (
         <div className="bg-card border border-border rounded-xl p-4 space-y-3">
           <h3 className="text-sm font-semibold text-text-primary">Debug: Test NYC Open Data Fetch</h3>
           <div className="flex items-end gap-3">
