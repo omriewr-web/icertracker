@@ -357,7 +357,7 @@ export default function CollectionsContent() {
         <KpiCard label="Total AR Balance" value={fmt$(dashboard?.totalBalance ?? 0)} icon={DollarSign} color="#e05c5c" />
         <KpiCard label="Non-Paying Tenants" value={dashboard?.tenantCount ?? 0} icon={AlertTriangle} color="#e09a3e" />
         <KpiCard label="In Legal" value={dashboard?.legalCount ?? 0} icon={Scale} color="#8B5CF6" />
-        <KpiCard label="Follow-Ups Due" value={dashboard?.staleCount ?? 0} subtext="No notes in 30+ days" icon={Phone} color="#3B82F6" />
+        <KpiCard label="Follow-Ups Due" value={dashboard?.followUpsDue ?? 0} subtext="Scheduled follow-ups due today" icon={Phone} color="#3B82F6" />
       </div>
 
       {/* ── Stale Tenants Alert ── */}
