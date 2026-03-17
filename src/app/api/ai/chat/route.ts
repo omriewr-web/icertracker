@@ -1,10 +1,11 @@
 // AI_GUARDRAIL: This service returns recommendations only.
 // It must never directly mutate financial records.
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth } from "@/lib/api-helpers";
+import { withAuth, parseBody } from "@/lib/api-helpers";
 import Anthropic from "@anthropic-ai/sdk";
 import { buildPortfolioContext } from "@/lib/ai-context";
 import { AI_MODEL } from "@/lib/ai-config";
+import { aiChatSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
@@ -27,10 +28,7 @@ export const POST = withAuth(async (req, { user }) => {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
   }
 
-  const { messages, tenantId } = await req.json();
-  if (!messages?.length) {
-    return NextResponse.json({ error: "Messages required" }, { status: 400 });
-  }
+  const { messages, tenantId } = await parseBody(req, aiChatSchema);
 
   // Build context from database
   const context = await buildPortfolioContext(user, tenantId);

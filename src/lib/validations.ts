@@ -428,19 +428,24 @@ export const turnoverUpdateSchema = z.object({
 // ── Collection Schemas ──────────────────────────────────────
 
 export const collectionNoteCreateSchema = z.object({
-  content: z.string().min(1),
+  content: z.string().min(1).max(2000),
   actionType: z.enum([
     "CALLED", "LEFT_VOICEMAIL", "TEXTED", "EMAILED", "NOTICE_SENT",
     "PAYMENT_PLAN", "PARTIAL_PAYMENT", "PROMISE_TO_PAY", "SENT_TO_LEGAL", "OTHER",
   ]),
-  followUpDate: z.string().nullable().optional(),
+  followUpDate: z.string().optional(),
 });
 
 export const collectionStatusUpdateSchema = z.object({
-  status: z.enum([
-    "CURRENT", "LATE", "DELINQUENT", "CHRONIC",
-    "PAYMENT_PLAN", "LEGAL", "VACATE_PENDING",
-  ]),
+  status: z.string().min(1),
+});
+
+export const aiChatSchema = z.object({
+  messages: z.array(z.object({
+    role: z.enum(["user", "assistant"]),
+    content: z.string().min(1),
+  })).min(1),
+  tenantId: z.string().optional(),
 });
 
 // ── Legal Review Schema ─────────────────────────────────────
