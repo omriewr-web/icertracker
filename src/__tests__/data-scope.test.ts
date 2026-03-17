@@ -55,7 +55,7 @@ describe("getBuildingIdScope", () => {
 
   it("scoped user sees only assigned buildings", () => {
     const scope = getBuildingIdScope(scopedUser);
-    expect(scope).toEqual({ id: { in: ["bld-1", "bld-2"] } });
+    expect(scope).toEqual({ id: { in: ["bld-1", "bld-2"] }, organizationId: "org-1" });
   });
 
   it("non-admin with empty assignedProperties gets EMPTY_SCOPE", () => {
@@ -82,7 +82,7 @@ describe("getBuildingIdScope", () => {
 
   it("scoped user with assigned explicit buildingId gets access", () => {
     const scope = getBuildingIdScope(scopedUser, "bld-1");
-    expect(scope).toEqual({ id: "bld-1" });
+    expect(scope).toEqual({ id: "bld-1", organizationId: "org-1" });
   });
 
   it("scoped user with unassigned explicit buildingId gets EMPTY_SCOPE", () => {
@@ -134,7 +134,7 @@ describe("getBuildingScope", () => {
   });
 
   it("scoped user gets buildingId filter", () => {
-    expect(getBuildingScope(scopedUser)).toEqual({ buildingId: { in: ["bld-1", "bld-2"] } });
+    expect(getBuildingScope(scopedUser)).toEqual({ buildingId: { in: ["bld-1", "bld-2"] }, building: { organizationId: "org-1" } });
   });
 
   it("empty user gets EMPTY_SCOPE", () => {
@@ -174,7 +174,7 @@ describe("getTenantScope", () => {
   });
 
   it("scoped user gets nested unit.buildingId filter", () => {
-    expect(getTenantScope(scopedUser)).toEqual({ unit: { buildingId: { in: ["bld-1", "bld-2"] } } });
+    expect(getTenantScope(scopedUser)).toEqual({ unit: { buildingId: { in: ["bld-1", "bld-2"] }, building: { organizationId: "org-1" } } });
   });
 
   it("empty user gets EMPTY_SCOPE", () => {
