@@ -25,8 +25,12 @@ export const GET = withAuth(async (req, { user }) => {
 
   const url = new URL(req.url);
   const portfolio = url.searchParams.get("portfolio");
-  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
-  const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get("limit") || "50", 10)));
+  const pageParam = url.searchParams.get("page");
+  const limitParam = url.searchParams.get("limit");
+  // When no pagination params are passed (dropdown usage), return all buildings
+  const paginated = pageParam != null || limitParam != null;
+  const page = Math.max(1, parseInt(pageParam || "1", 10));
+  const limit = Math.min(500, Math.max(1, parseInt(limitParam || "500", 10)));
 
   const scope = getBuildingIdScope(user);
   if (scope === EMPTY_SCOPE) return NextResponse.json([]);
@@ -82,8 +86,7 @@ export const GET = withAuth(async (req, { user }) => {
       },
     },
     orderBy: { address: "asc" },
-    skip: (page - 1) * limit,
-    take: limit,
+    ...(paginated ? { skip: (page - 1) * limit, take: limit } : {}),
   });
 
   if (buildings.length === 0) return NextResponse.json([]);
