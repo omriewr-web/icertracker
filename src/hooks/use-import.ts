@@ -6,8 +6,8 @@ import toast from "react-hot-toast";
 /** All query keys that should be invalidated after any import */
 const IMPORT_INVALIDATION_KEYS = [
   "tenants", "buildings", "units", "metrics",
-  "vacancies", "legalCases", "violations",
-  "workOrders", "collectionCases",
+  "vacancies", "legal", "violations",
+  "work-orders", "collections",
 ] as const;
 
 function invalidateImportCaches(qc: ReturnType<typeof useQueryClient>) {
