@@ -21,6 +21,7 @@ import { WorkOrderView } from "@/types";
 import { formatDate, fmt$ } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import ExportButton from "@/components/ui/export-button";
+import ConfirmDialog from "@/components/ui/confirm-dialog";
 
 export default function MaintenanceContent() {
   const { data: workOrders, isLoading } = useWorkOrders();
@@ -35,6 +36,7 @@ export default function MaintenanceContent() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState("");
   const [bulkValue, setBulkValue] = useState("");
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false);
 
   const stats = useMemo(() => {
     const wos = workOrders || [];
@@ -75,8 +77,22 @@ export default function MaintenanceContent() {
     }
   }
 
+  function getBulkActionLabel(): string {
+    if (bulkAction === "change_status") return `Change status to ${bulkValue.replace(/_/g, " ")}`;
+    if (bulkAction === "change_priority") return `Change priority to ${bulkValue}`;
+    if (bulkAction === "assign_vendor") {
+      const vendorName = vendors?.find((v) => v.id === bulkValue)?.name || bulkValue;
+      return `Assign vendor ${vendorName}`;
+    }
+    return "Apply bulk action";
+  }
+
   function handleBulkApply() {
     if (!bulkAction || !bulkValue || selectedIds.size === 0) return;
+    setShowBulkConfirm(true);
+  }
+
+  function handleBulkConfirm() {
     bulkUpdate.mutate(
       { ids: Array.from(selectedIds), action: bulkAction, value: bulkValue },
       {
@@ -84,6 +100,7 @@ export default function MaintenanceContent() {
           setSelectedIds(new Set());
           setBulkAction("");
           setBulkValue("");
+          setShowBulkConfirm(false);
         },
       }
     );
@@ -310,6 +327,15 @@ export default function MaintenanceContent() {
 
       <WorkOrderDetailModal workOrderId={selectedWO} onClose={() => setSelectedWO(null)} />
       <CreateWorkOrderModal open={showCreate} onClose={() => setShowCreate(false)} />
+      <ConfirmDialog
+        open={showBulkConfirm}
+        onClose={() => setShowBulkConfirm(false)}
+        onConfirm={handleBulkConfirm}
+        title="Confirm Bulk Action"
+        message={`${getBulkActionLabel()}. This will update ${selectedIds.size} work order${selectedIds.size === 1 ? "" : "s"}.`}
+        confirmLabel="Apply"
+        loading={bulkUpdate.isPending}
+      />
     </div>
   );
 }
