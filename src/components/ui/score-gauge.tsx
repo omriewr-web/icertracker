@@ -23,6 +23,7 @@ export default function ScoreGauge({ score, size = 80, strokeWidth = 6, label, c
 
   return (
     <div className={cn("flex flex-col items-center gap-1", className)}>
+      <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="transform -rotate-90">
         <circle
           cx={center}
@@ -45,9 +46,10 @@ export default function ScoreGauge({ score, size = 80, strokeWidth = 6, label, c
           className="transition-all duration-700 ease-out"
         />
       </svg>
-      <span className="absolute font-data text-sm font-bold" style={{ color }}>
+      <span className="absolute inset-0 flex items-center justify-center font-data text-sm font-bold" style={{ color }}>
         {score}
       </span>
+      </div>
       {label && <span className="text-[10px] text-text-dim uppercase tracking-wider">{label}</span>}
     </div>
   );
