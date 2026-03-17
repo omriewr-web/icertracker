@@ -24,6 +24,7 @@ import {
   FolderKanban,
   ClipboardList,
   ScrollText,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/permissions";
@@ -63,6 +64,7 @@ const navItems: NavItem[] = [
   { href: "/data", label: "Data Management", subtitle: "Import & Settings", icon: Database, perm: "upload", section: "SETTINGS" },
   { href: "/users", label: "Users", icon: Users, perm: "users", section: "SETTINGS" },
   { href: "/settings/rgb-orders", label: "RGB Orders", subtitle: "Annual Rent Guidelines", icon: ScrollText, perm: "allProps", section: "SETTINGS" },
+  { href: "/settings/legal-rent-import", label: "Legal Rent Import", subtitle: "Bulk update regulated rents", icon: Upload, perm: "upload", section: "SETTINGS" },
 ];
 
 const sectionLabels: Record<Section, string> = {
