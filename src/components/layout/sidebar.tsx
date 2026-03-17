@@ -25,6 +25,7 @@ import {
   ClipboardList,
   ScrollText,
   Upload,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/permissions";
@@ -52,6 +53,7 @@ const navItems: NavItem[] = [
   { href: "/alerts", label: "Arrears Alerts", subtitle: "Collection Flags", icon: AlertTriangle, perm: "fin", section: "FINANCIAL" },
   { href: "/collections", label: "Collections", icon: DollarSign, perm: "collections", section: "FINANCIAL" },
   { href: "/collections/report", label: "AR Report", icon: ClipboardList, perm: "collections", section: "FINANCIAL" },
+  { href: "/communicate", label: "Communicate", subtitle: "Tenant Outreach", icon: MessageSquare, perm: "collections", section: "FINANCIAL" },
   { href: "/vacancies", label: "Vacancies", icon: DoorOpen, perm: "vac", section: "OPERATIONS" },
   { href: "/leases", label: "Leases", icon: FileText, perm: "lease", section: "OPERATIONS" },
   { href: "/maintenance", label: "Work Orders", icon: Wrench, perm: "maintenance", section: "OPERATIONS" },

@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   CalendarClock, AlertTriangle, Shield, Scale, DollarSign,
   Building2, Wrench, Users, TrendingUp, CheckCircle, Clock,
-  FileText, ExternalLink,
+  FileText, ExternalLink, Banknote, Bell, ShieldAlert,
 } from "lucide-react";
 import KpiCard from "@/components/ui/kpi-card";
 import WorkOrderDetailModal from "@/components/maintenance/work-order-detail-modal";
@@ -115,6 +115,10 @@ export default function DailyBriefingContent() {
   const [complianceLoading, setComplianceLoading] = useState(true);
   const [complianceError, setComplianceError] = useState(false);
 
+  const [dailySummary, setDailySummary] = useState<any>(null);
+  const [dailySummaryLoading, setDailySummaryLoading] = useState(true);
+  const [dailySummaryError, setDailySummaryError] = useState(false);
+
   useEffect(() => {
     const params = new URLSearchParams();
     if (selectedBuildingId) params.set("buildingId", selectedBuildingId);
@@ -193,6 +197,14 @@ export default function DailyBriefingContent() {
       .then((d) => { setCompliance(d); setComplianceError(false); })
       .catch(() => setComplianceError(true))
       .finally(() => setComplianceLoading(false));
+
+    // Daily summary (collections alerts, follow-ups, violations)
+    setDailySummaryLoading(true);
+    fetch(`/api/metrics/daily-summary${qs ? `?${qs}` : ""}`)
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((d) => { setDailySummary(d); setDailySummaryError(false); })
+      .catch(() => setDailySummaryError(true))
+      .finally(() => setDailySummaryLoading(false));
   }, [selectedBuildingId]);
 
   const m = metrics;
@@ -461,6 +473,115 @@ export default function DailyBriefingContent() {
           <QuickStat label="No Lease" value={String(Number(m.noLease ?? 0))} color="#f59e0b" />
         </div>
       )}
+
+      {/* SECTION 5 — COLLECTIONS ALERTS, FOLLOW-UPS, VIOLATIONS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Collections Alerts */}
+        <Section title="Collections Alerts" icon={Banknote} iconColor="text-red-400">
+          {dailySummaryLoading ? (
+            <SectionSkeleton />
+          ) : dailySummaryError || !dailySummary ? (
+            <SectionError label="collections alerts" />
+          ) : (
+            <>
+              <div className="flex items-center gap-4 mb-3">
+                {dailySummary.collectionsAlerts.highPriority > 0 && (
+                  <span className="text-sm font-medium text-red-400">
+                    {dailySummary.collectionsAlerts.highPriority} high-priority
+                  </span>
+                )}
+                {dailySummary.collectionsAlerts.stale > 0 && (
+                  <span className="text-sm font-medium text-amber-400">
+                    {dailySummary.collectionsAlerts.stale} stale
+                  </span>
+                )}
+                {dailySummary.collectionsAlerts.highPriority === 0 && dailySummary.collectionsAlerts.stale === 0 && (
+                  <span className="text-sm text-green-400">All accounts up to date</span>
+                )}
+              </div>
+              {dailySummary.collectionsAlerts.top3.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-text-dim uppercase tracking-[0.15em] mb-2">Top Balances</p>
+                  {dailySummary.collectionsAlerts.top3.map((t: any) => (
+                    <Link
+                      key={t.id}
+                      href={`/collections/${t.id}`}
+                      className="flex items-center justify-between px-2 py-2 rounded-lg hover:bg-card-hover transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm text-text-primary truncate">{t.name}</p>
+                        <p className="text-xs text-text-dim truncate">{t.building} {t.unit ? `#${t.unit}` : ""}</p>
+                      </div>
+                      <p className="text-sm font-mono font-medium text-red-400 shrink-0 ml-2">{fmt$(t.balance)}</p>
+                    </Link>
+                  ))}
+                </div>
+              )}
+              <Link href="/collections" className="flex items-center gap-1 mt-3 text-xs text-accent hover:underline">
+                View Collections → <ExternalLink className="w-3 h-3" />
+              </Link>
+            </>
+          )}
+        </Section>
+
+        {/* Today's Follow-ups */}
+        <Section title="Today's Follow-ups" icon={Bell} iconColor="text-amber-400">
+          {dailySummaryLoading ? (
+            <SectionSkeleton />
+          ) : dailySummaryError || !dailySummary ? (
+            <SectionError label="follow-ups" />
+          ) : dailySummary.todaysFollowups.length === 0 ? (
+            <div className="flex items-center gap-3 px-3 py-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+              <CheckCircle className="w-5 h-5 text-green-400 shrink-0" />
+              <span className="text-sm text-green-300">No follow-ups today</span>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {dailySummary.todaysFollowups.map((f: any) => (
+                <Link
+                  key={f.id}
+                  href={`/collections/${f.tenantId}`}
+                  className="flex items-center justify-between px-2 py-2 rounded-lg hover:bg-card-hover transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm text-text-primary truncate">{f.tenantName}</p>
+                    <p className="text-xs text-text-dim truncate">{f.building} {f.unit ? `#${f.unit}` : ""}</p>
+                  </div>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium shrink-0 ml-2">
+                    {f.actionType?.replace(/_/g, " ") ?? "Follow-up"}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </Section>
+
+        {/* Violations */}
+        <Section title="Violations" icon={ShieldAlert} iconColor="text-red-400">
+          {dailySummaryLoading ? (
+            <SectionSkeleton />
+          ) : dailySummaryError || !dailySummary ? (
+            <SectionError label="violations" />
+          ) : dailySummary.violationsSummary.classCNoWO === 0 ? (
+            <div className="flex items-center gap-3 px-3 py-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+              <CheckCircle className="w-5 h-5 text-green-400 shrink-0" />
+              <span className="text-sm text-green-300">All Class C violations have work orders</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 px-3 py-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                <span className="text-sm text-red-300">
+                  {dailySummary.violationsSummary.classCNoWO} Class C violation{dailySummary.violationsSummary.classCNoWO !== 1 ? "s" : ""} without work orders
+                </span>
+              </div>
+              <Link href="/compliance" className="flex items-center gap-1 mt-3 text-xs text-accent hover:underline">
+                View in Compliance → <ExternalLink className="w-3 h-3" />
+              </Link>
+            </>
+          )}
+        </Section>
+      </div>
 
       {/* Work Order Detail Modal */}
       <WorkOrderDetailModal workOrderId={selectedWO} onClose={() => setSelectedWO(null)} />
