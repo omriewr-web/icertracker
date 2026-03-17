@@ -26,10 +26,12 @@ import {
   Send,
   CalendarCheck,
   AlertTriangle,
+  Pencil,
 } from "lucide-react";
 import { useCollectionProfile, useCreateCollectionNote, useUpdateCollectionStatus } from "@/hooks/use-collections";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import Button from "@/components/ui/button";
+import Modal from "@/components/ui/modal";
 import { fmt$, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
@@ -127,6 +129,15 @@ export default function TenantCollectionPage() {
 
   // Status editor state
   const [statusNotes, setStatusNotes] = useState("");
+
+  // Edit modal state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editLegalRent, setEditLegalRent] = useState("");
+  const [editPrefRent, setEditPrefRent] = useState("");
+  const [editIsStabilized, setEditIsStabilized] = useState(false);
+  const [editRegulationType, setEditRegulationType] = useState("UNKNOWN");
+  const [editDhcrRegistrationId, setEditDhcrRegistrationId] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
   // AI panel state
   const [aiFetchedAt, setAiFetchedAt] = useState<Date | null>(null);
@@ -242,6 +253,46 @@ export default function TenantCollectionPage() {
     aiQuery.refetch();
   }
 
+  // Open edit modal pre-filled with current data
+  function openEditModal() {
+    setEditLegalRent(tenant?.legalRent != null ? String(Number(tenant.legalRent)) : "0");
+    setEditPrefRent(tenant?.prefRent != null ? String(Number(tenant.prefRent)) : "0");
+    setEditIsStabilized(tenant?.isStabilized ?? false);
+    setEditRegulationType(tenant?.unit?.regulationType ?? "UNKNOWN");
+    setEditDhcrRegistrationId(tenant?.unit?.dhcrRegistrationId ?? "");
+    setEditOpen(true);
+  }
+
+  // Submit edit modal
+  async function handleEditSubmit() {
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/collections/tenants/${tenantId}/edit`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          legalRent: parseFloat(editLegalRent) || 0,
+          prefRent: parseFloat(editPrefRent) || 0,
+          isStabilized: editIsStabilized,
+          regulationType: editRegulationType,
+          dhcrRegistrationId: editDhcrRegistrationId || null,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to update tenant");
+      }
+      toast.success("Tenant details updated");
+      qc.invalidateQueries({ queryKey: ["collections", "profile", tenantId] });
+      setEditOpen(false);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to update tenant";
+      toast.error(message);
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
   // Note border color by action type
   const NOTE_BORDER_COLORS: Record<string, string> = {
     CALLED: "border-l-blue-400",
@@ -280,6 +331,13 @@ export default function TenantCollectionPage() {
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-text-primary">{tenantName}</h1>
               <ScoreBadge score={collectionScore} />
+              <button
+                onClick={openEditModal}
+                className="p-1.5 rounded-lg text-text-dim hover:text-accent hover:bg-accent/10 transition-colors"
+                aria-label="Edit tenant details"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
             </div>
             <p className="text-sm text-text-muted mt-1">
               {buildingAddress}
@@ -555,6 +613,75 @@ export default function TenantCollectionPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Edit Tenant Modal ── */}
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit Tenant Details">
+        <div className="space-y-4">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-text-dim uppercase tracking-wider">Legal Rent</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={editLegalRent}
+              onChange={(e) => setEditLegalRent(e.target.value)}
+              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-text-dim uppercase tracking-wider">Preferential Rent</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={editPrefRent}
+              onChange={(e) => setEditPrefRent(e.target.value)}
+              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="editIsStabilized"
+              checked={editIsStabilized}
+              onChange={(e) => setEditIsStabilized(e.target.checked)}
+              className="w-4 h-4 rounded border-border bg-bg text-accent focus:ring-accent"
+            />
+            <label htmlFor="editIsStabilized" className="text-sm text-text-primary">Rent Stabilized</label>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-text-dim uppercase tracking-wider">Regulation Type</label>
+            <select
+              value={editRegulationType}
+              onChange={(e) => setEditRegulationType(e.target.value)}
+              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent"
+            >
+              <option value="STABILIZED">Stabilized</option>
+              <option value="CONTROLLED">Controlled</option>
+              <option value="UNREGULATED">Unregulated</option>
+              <option value="UNKNOWN">Unknown</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-text-dim uppercase tracking-wider">DHCR Registration ID</label>
+            <input
+              type="text"
+              value={editDhcrRegistrationId}
+              onChange={(e) => setEditDhcrRegistrationId(e.target.value)}
+              placeholder="e.g. RN12345678"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-dim focus:outline-none focus:border-accent"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button size="sm" variant="ghost" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleEditSubmit} disabled={editSaving}>
+              {editSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
