@@ -18,7 +18,7 @@
     "postinstall": "prisma generate",
     "test": "vitest run",
     "test:watch": "vitest",
-    "deploy": "dotenv -e .env.local -- sh -c 'npx vercel --prod --force --token $VERCEL_TOKEN'"
+    "deploy": "bash scripts/deploy.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
