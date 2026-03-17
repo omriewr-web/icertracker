@@ -45,6 +45,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: "/", label: "Argus", subtitle: "Portfolio Overview", icon: LayoutDashboard, perm: "dash", section: "INTELLIGENCE" },
   { href: "/owner-dashboard", label: "Owner View", icon: Building2, perm: "owner", section: "INTELLIGENCE" },
+  { href: "/owner/dashboard", label: "Owner Portal", subtitle: "Portfolio Summary", icon: Building2, perm: "owner", section: "INTELLIGENCE" },
   { href: "/coeus", label: "Coeus", subtitle: "AI Assistant", icon: Radio, perm: "dash", section: "INTELLIGENCE" },
   { href: "/daily", label: "Daily Briefing", icon: CalendarClock, perm: "dash", section: "INTELLIGENCE" },
   { href: "/alerts", label: "Arrears Alerts", subtitle: "Collection Flags", icon: AlertTriangle, perm: "fin", section: "FINANCIAL" },
@@ -61,7 +62,7 @@ const navItems: NavItem[] = [
   { href: "/reports", label: "Reports", icon: BarChart3, perm: "reports", section: "SETTINGS" },
   { href: "/data", label: "Data Management", subtitle: "Import & Settings", icon: Database, perm: "upload", section: "SETTINGS" },
   { href: "/users", label: "Users", icon: Users, perm: "users", section: "SETTINGS" },
-  { href: "/settings/rgb-orders", label: "RGB Orders", icon: ScrollText, perm: "edit", section: "SETTINGS" },
+  { href: "/settings/rgb-orders", label: "RGB Orders", subtitle: "Annual Rent Guidelines", icon: ScrollText, perm: "allProps", section: "SETTINGS" },
 ];
 
 const sectionLabels: Record<Section, string> = {
