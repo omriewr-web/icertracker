@@ -35,6 +35,7 @@ import Modal from "@/components/ui/modal";
 import { fmt$, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
+import { normalizeCollectionStatus, getStatusColor } from "@/lib/collections/types";
 
 // ── Action type config ──
 
@@ -74,17 +75,9 @@ const STATUS_OPTIONS: StatusOption[] = [
 ];
 
 function getStatusDisplay(dbStatus: string, arrearsDays?: number): { label: string; color: { bg: string; text: string } } {
-  // Special DELINQUENT mapping based on arrearsDays
-  if (dbStatus === "DELINQUENT") {
-    if (arrearsDays != null && arrearsDays < 30) return { label: "Late", color: { bg: "bg-yellow-500/10", text: "text-yellow-400" } };
-    if (arrearsDays != null && arrearsDays >= 30 && arrearsDays < 60) return { label: "Payment Plan / Follow Up", color: { bg: "bg-orange-500/10", text: "text-orange-400" } };
-    if (arrearsDays != null && arrearsDays >= 60 && arrearsDays < 90) return { label: "Legal Review", color: { bg: "bg-red-500/10", text: "text-red-300" } };
-    if (arrearsDays != null && arrearsDays >= 90) return { label: "Escalated", color: { bg: "bg-red-500/10", text: "text-red-400" } };
-    return { label: "Delinquent", color: { bg: "bg-orange-500/10", text: "text-orange-400" } };
-  }
-  const found = STATUS_OPTIONS.find((s) => s.dbValue === dbStatus);
-  if (found) return { label: found.label, color: found.color };
-  return { label: dbStatus.replace(/_/g, " "), color: { bg: "bg-gray-500/10", text: "text-gray-400" } };
+  const label = normalizeCollectionStatus(dbStatus, arrearsDays);
+  const color = getStatusColor(label);
+  return { label, color };
 }
 
 // ── Score badge ──

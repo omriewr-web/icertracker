@@ -18,6 +18,7 @@ import { useBuildings } from "@/hooks/use-buildings";
 import { fmt$, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { ARReportData } from "@/lib/collections/types";
+import { normalizeCollectionStatus, getStatusColor } from "@/lib/collections/types";
 
 // ── Helpers ──
 
@@ -82,7 +83,7 @@ async function exportPdf(data: ARReportData, buildingLabel: string) {
       fmt$(t.days60),
       fmt$(t.days90),
       fmt$(t.days120),
-      t.status.replace(/_/g, " "),
+      normalizeCollectionStatus(t.status),
       t.daysSinceNote != null ? String(t.daysSinceNote) : "—",
     ]),
     styles: { fontSize: 7 },
@@ -122,7 +123,7 @@ async function exportExcel(data: ARReportData, buildingLabel: string) {
     "60+": t.days60,
     "90+": t.days90,
     "120+": t.days120,
-    Status: t.status,
+    Status: normalizeCollectionStatus(t.status),
     "Days Since Note": t.daysSinceNote ?? "",
     "Last Note": t.lastNote ?? "",
   }));
@@ -363,9 +364,15 @@ export default function ARReportPage() {
                       <td className={cn("text-right px-3 py-2 font-mono", t.days90 > 0 ? "text-red-400" : "text-text-dim")}>{fmt$(t.days90)}</td>
                       <td className={cn("text-right px-3 py-2 font-mono", t.days120 > 0 ? "text-red-400" : "text-text-dim")}>{fmt$(t.days120)}</td>
                       <td className="px-3 py-2">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-text-dim font-medium uppercase">
-                          {t.status.replace(/_/g, " ")}
-                        </span>
+                        {(() => {
+                          const label = normalizeCollectionStatus(t.status);
+                          const clr = getStatusColor(label);
+                          return (
+                            <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap", clr.bg, clr.text)}>
+                              {label}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className={cn("text-right px-3 py-2 font-mono", t.daysSinceNote != null && t.daysSinceNote > 30 ? "text-red-400" : "text-text-muted")}>
                         {t.daysSinceNote != null ? t.daysSinceNote : "—"}

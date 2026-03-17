@@ -34,31 +34,17 @@ import Modal from "@/components/ui/modal";
 import { fmt$, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import ExportButton from "@/components/ui/export-button";
+import { normalizeCollectionStatus, getStatusColor } from "@/lib/collections/types";
 
-// ── Status config ──
+// ── Status config (values for dropdowns / API calls) ──
 
 const COLLECTION_STATUSES = [
-  { value: "monitoring", label: "Monitoring", color: "bg-atlas-blue/10 text-atlas-blue" },
-  { value: "demand_sent", label: "Demand Sent", color: "bg-atlas-amber/10 text-atlas-amber" },
-  { value: "legal_referred", label: "Legal Referred", color: "bg-atlas-purple/10 text-atlas-purple" },
-  { value: "payment_plan", label: "Payment Plan", color: "bg-atlas-green/10 text-atlas-green" },
-  { value: "resolved", label: "Resolved", color: "bg-text-dim/10 text-text-dim" },
-  // Legacy values from existing data
-  { value: "new_arrears", label: "New Arrears", color: "bg-atlas-red/10 text-atlas-red" },
-  { value: "reminder_sent", label: "Reminder Sent", color: "bg-atlas-amber/10 text-atlas-amber" },
-  { value: "notice_served", label: "Notice Served", color: "bg-atlas-amber/10 text-atlas-amber" },
-  { value: "legal_review", label: "Legal Review", color: "bg-atlas-purple/10 text-atlas-purple" },
-  { value: "legal_filed", label: "Legal Filed", color: "bg-atlas-purple/10 text-atlas-purple" },
+  { value: "monitoring", label: "Monitoring" },
+  { value: "demand_sent", label: "Demand Sent" },
+  { value: "legal_referred", label: "Legal Referred" },
+  { value: "payment_plan", label: "Payment Plan" },
+  { value: "resolved", label: "Resolved" },
 ];
-
-function getStatusConfig(status: string | null) {
-  if (!status) return null;
-  return COLLECTION_STATUSES.find((s) => s.value === status) || {
-    value: status,
-    label: status.replace(/_/g, " "),
-    color: "bg-border text-text-dim",
-  };
-}
 
 // ── Aging badge ──
 
@@ -558,7 +544,8 @@ export default function CollectionsContent() {
                     ? row.collectionNoteText.slice(0, 60) + "…"
                     : row.collectionNoteText
                   : null;
-                const statusCfg = getStatusConfig(row.collectionStatus);
+                const statusLabel = row.collectionStatus ? normalizeCollectionStatus(row.collectionStatus) : null;
+                const statusClr = statusLabel ? getStatusColor(statusLabel) : null;
 
                 return (
                   <tr
@@ -579,9 +566,9 @@ export default function CollectionsContent() {
                     <td className="px-3 py-2 text-right text-red-400 font-mono" onClick={() => router.push(`/collections/${row.id}`)}>{fmt$(row.balance)}</td>
                     <td className="px-3 py-2 text-center" onClick={() => router.push(`/collections/${row.id}`)}><AgingBadge category={row.arrearsCategory} /></td>
                     <td className="px-3 py-2 text-center" onClick={() => router.push(`/collections/${row.id}`)}>
-                      {statusCfg ? (
-                        <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-semibold whitespace-nowrap", statusCfg.color)}>
-                          {statusCfg.label}
+                      {statusLabel && statusClr ? (
+                        <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-semibold whitespace-nowrap", statusClr.bg, statusClr.text)}>
+                          {statusLabel}
                         </span>
                       ) : (
                         <span className="text-text-dim">—</span>
@@ -680,22 +667,26 @@ export default function CollectionsContent() {
       {/* ── Quick Action: Change Status Modal ── */}
       <Modal open={!!statusTarget} onClose={() => setStatusTarget(null)} title={`Change Status — ${statusTarget?.name || ""}`}>
         <div className="space-y-2">
-          {COLLECTION_STATUSES.slice(0, 5).map((s) => (
-            <button
-              key={s.value}
-              onClick={() => handleQuickStatus(s.value)}
-              disabled={updateStatus.isPending}
-              className={cn(
-                "w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors text-left",
-                statusTarget?.collectionStatus === s.value
-                  ? `${s.color} border-current`
-                  : "border-border text-text-muted hover:bg-card-hover"
-              )}
-            >
-              <span className={cn("w-2 h-2 rounded-full", s.color.split(" ")[0].replace("/10", ""))} />
-              {s.label}
-            </button>
-          ))}
+          {COLLECTION_STATUSES.map((s) => {
+            const displayLabel = normalizeCollectionStatus(s.value);
+            const clr = getStatusColor(displayLabel);
+            return (
+              <button
+                key={s.value}
+                onClick={() => handleQuickStatus(s.value)}
+                disabled={updateStatus.isPending}
+                className={cn(
+                  "w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors text-left",
+                  statusTarget?.collectionStatus === s.value
+                    ? `${clr.bg} ${clr.text} border-current`
+                    : "border-border text-text-muted hover:bg-card-hover"
+                )}
+              >
+                <span className={cn("w-2 h-2 rounded-full", clr.bg.replace("/10", ""))} />
+                {s.label}
+              </button>
+            );
+          })}
         </div>
       </Modal>
 
