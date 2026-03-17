@@ -50,7 +50,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
   });
   const orgBuildingIds = orgBuildings.map((b) => b.id);
   const orgTenants = await prisma.tenant.findMany({
-    where: { unit: { buildingId: { in: orgBuildingIds } } },
+    where: { unit: { buildingId: { in: orgBuildingIds } }, isDeleted: false },
     select: { id: true },
   });
   const orgTenantIds = orgTenants.map((t) => t.id);

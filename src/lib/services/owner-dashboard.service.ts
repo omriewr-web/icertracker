@@ -37,7 +37,7 @@ export async function getOwnerDashboard(user: ScopeUser): Promise<OwnerDashboard
 
     // All tenants with financial data (no notes, no internal data)
     prisma.tenant.findMany({
-      where: tenantScope as object,
+      where: { ...(tenantScope as object), isDeleted: false },
       select: {
         id: true,
         balance: true,
@@ -120,6 +120,7 @@ export async function getOwnerDashboard(user: ScopeUser): Promise<OwnerDashboard
       return prisma.tenant.findMany({
         where: {
           ...(tenantScope as object),
+          isDeleted: false,
           leaseExpiration: { gte: new Date(), lte: ninetyDays },
           moveOutDate: null,
         },

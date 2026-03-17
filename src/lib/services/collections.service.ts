@@ -51,6 +51,7 @@ export async function getCollectionsDashboard(
   const tenants = await prisma.tenant.findMany({
     where: {
       ...(scope as object),
+      isDeleted: false,
       balance: { gt: 0 },
     },
     select: {
@@ -340,6 +341,7 @@ export async function getARReport(
 
   const where: any = {
     ...(scope as object),
+    isDeleted: false,
     balance: { gt: filters.minBalance ?? 0 },
   };
 
@@ -425,7 +427,7 @@ export async function bulkCollectionAction(
 
   // Verify all tenant IDs are in scope
   const tenants = await prisma.tenant.findMany({
-    where: { id: { in: data.tenantIds } },
+    where: { id: { in: data.tenantIds }, isDeleted: false },
     select: { id: true, unitId: true, unit: { select: { buildingId: true } } },
   });
 

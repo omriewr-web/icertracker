@@ -302,7 +302,9 @@ model Tenant {
   overrides          Json?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
-  unit               Unit                @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  isDeleted          Boolean             @default(false)
+  deletedAt          DateTime?
+  unit               Unit                @relation(fields: [unitId], references: [id], onDelete: Restrict)
   notes              TenantNote[]
   commLogs           CommLog[]
   payments           Payment[]
@@ -326,6 +328,7 @@ model Tenant {
   @@index([leaseExpiration])
   @@index([collectionScore])
   @@index([unitId, balance])
+  @@index([isDeleted])
   @@map("tenants")
 }
 
@@ -345,7 +348,7 @@ model TenantNote {
   text      String       @db.Text
   category  NoteCategory @default(GENERAL)
   createdAt DateTime     @default(now())
-  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   author    User         @relation(fields: [authorId], references: [id])
 
   @@index([tenantId, createdAt(sort: Desc)])
@@ -371,7 +374,7 @@ model CommLog {
   summary   String   @db.Text
   outcome   String?
   createdAt DateTime @default(now())
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   author    User     @relation(fields: [authorId], references: [id])
 
   @@index([tenantId, createdAt(sort: Desc)])
@@ -389,7 +392,7 @@ model Payment {
   reference  String?
   notes      String?
   createdAt  DateTime @default(now())
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   recorder   User     @relation(fields: [recordedBy], references: [id])
 
   @@index([tenantId, date(sort: Desc)])
@@ -433,7 +436,7 @@ model LegalCase {
   notes_text           String?         @db.Text
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
-  tenant               Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant               Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   building             Building?       @relation(fields: [buildingId], references: [id])
   unit                 Unit?           @relation(fields: [unitId], references: [id])
   collectionCase       CollectionCase? @relation(fields: [collectionCaseId], references: [id])
@@ -489,7 +492,7 @@ model LegalNote {
   stage       LegalStage
   isSystem    Boolean    @default(false)
   createdAt   DateTime   @default(now())
-  legalCase   LegalCase  @relation(fields: [legalCaseId], references: [id], onDelete: Cascade)
+  legalCase   LegalCase  @relation(fields: [legalCaseId], references: [id], onDelete: Restrict)
   author      User       @relation(fields: [authorId], references: [id])
 
   @@index([legalCaseId, createdAt(sort: Desc)])
@@ -507,7 +510,7 @@ model Task {
   done        Boolean   @default(false)
   completedAt DateTime?
   createdAt   DateTime  @default(now())
-  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   createdBy   User      @relation(fields: [createdById], references: [id])
 
   @@index([tenantId])
@@ -1048,7 +1051,7 @@ model Lease {
   updatedAt        DateTime          @updatedAt
   organization     Organization?     @relation(fields: [organizationId], references: [id])
   building         Building?         @relation(fields: [buildingId], references: [id])
-  unit             Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unit             Unit              @relation(fields: [unitId], references: [id], onDelete: Restrict)
   tenant           Tenant?           @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   occupants        LeaseOccupant[]
   recurringCharges RecurringCharge[]
@@ -1541,8 +1544,8 @@ model CollectionNote {
   actionType   CollectionActionType
   followUpDate DateTime?
   createdAt    DateTime             @default(now())
-  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  building     Building             @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  building     Building             @relation(fields: [buildingId], references: [id], onDelete: Restrict)
   author       User                 @relation(fields: [authorId], references: [id])
 
   @@index([tenantId])
@@ -1564,8 +1567,8 @@ model ARSnapshot {
   totalBalance     Decimal          @db.Decimal(10, 2)
   collectionStatus CollectionStatus
   snapshotDate     DateTime
-  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  building         Building         @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  building         Building         @relation(fields: [buildingId], references: [id], onDelete: Restrict)
 
   @@unique([tenantId, month])
   @@index([buildingId])

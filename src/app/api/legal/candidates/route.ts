@@ -18,6 +18,7 @@ export const GET = withAuth(async (req, { user }) => {
   const tenants = await prisma.tenant.findMany({
     where: {
       ...(scope as object),
+      isDeleted: false,
       balance: { gt: 0 },
       legalCases: { none: { isActive: true } },
     },

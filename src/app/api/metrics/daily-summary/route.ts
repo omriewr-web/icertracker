@@ -18,7 +18,7 @@ export const GET = withAuth(async (req, { user }) => {
 
   const [urgentTenants, recentNotes, recentPayments, legalCases] = await Promise.all([
     prisma.tenant.findMany({
-      where: { ...scope, collectionScore: { gte: 60 } },
+      where: { ...scope, isDeleted: false, collectionScore: { gte: 60 } },
       include: { unit: { include: { building: { select: { address: true, altAddress: true } } } }, legalCases: { where: { isActive: true }, select: { stage: true }, take: 1 } },
       orderBy: { collectionScore: "desc" },
       take: 20,
@@ -44,7 +44,7 @@ export const GET = withAuth(async (req, { user }) => {
   ]);
 
   const expiringLeases = await prisma.tenant.findMany({
-    where: { ...scope, leaseStatus: "expiring-soon" },
+    where: { ...scope, isDeleted: false, leaseStatus: "expiring-soon" },
     include: { unit: { include: { building: { select: { address: true, altAddress: true } } } } },
     orderBy: { leaseExpiration: "asc" },
     take: 10,

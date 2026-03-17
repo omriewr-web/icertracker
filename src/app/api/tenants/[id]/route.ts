@@ -31,7 +31,7 @@ export const GET = withAuth(async (req, { user, params }) => {
     },
   });
 
-  if (!tenant) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!tenant || tenant.isDeleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(tenant);
 });
 
@@ -138,9 +138,10 @@ export const DELETE = withAuth(async (req, { user, params }) => {
 
   const tenant = await prisma.tenant.findUnique({ where: { id } });
   if (!tenant) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (tenant.isDeleted) return NextResponse.json({ error: "Already deleted" }, { status: 410 });
 
   await prisma.$transaction(async (tx) => {
-    // End the associated lease (if any) before deleting tenant
+    // End the associated lease (if any)
     const leaseId = `${id}-lease`;
     const existingLease = await tx.lease.findUnique({ where: { id: leaseId } });
     if (existingLease) {
@@ -150,7 +151,12 @@ export const DELETE = withAuth(async (req, { user, params }) => {
       });
     }
 
-    await tx.tenant.delete({ where: { id } });
+    // Soft delete — preserve all legal/financial history
+    await tx.tenant.update({
+      where: { id },
+      data: { isDeleted: true, deletedAt: new Date() },
+    });
+
     // Mark unit as vacant
     await tx.unit.update({ where: { id: tenant.unitId }, data: { isVacant: true } });
   });

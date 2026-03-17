@@ -23,7 +23,7 @@ export const GET = withAuth(async (req, { user }) => {
     return NextResponse.json(empty);
   }
 
-  const where: any = { ...(tenantScope as object) };
+  const where: any = { ...(tenantScope as object), isDeleted: false };
 
   // Apply portfolio filter
   if (portfolio) {

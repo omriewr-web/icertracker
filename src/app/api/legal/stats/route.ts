@@ -62,7 +62,7 @@ export const GET = withAuth(async (req, { user }) => {
       const assigned = user.assignedProperties ?? [];
       if (assigned.length === 0) return 0;
       const scopedTenantIds = await prisma.tenant.findMany({
-        where: { unit: { buildingId: { in: assigned } } },
+        where: { unit: { buildingId: { in: assigned } }, isDeleted: false },
         select: { id: true },
       });
       const ids = scopedTenantIds.map((t) => t.id);

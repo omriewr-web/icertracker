@@ -43,7 +43,7 @@ export const GET = withAuth(async (req, { user }) => {
   const scope = getTenantScope(user, buildingId);
   if (scope === EMPTY_SCOPE) return NextResponse.json({ tenants: [], pagination: { page, limit, total: 0, totalPages: 0 } });
 
-  const where: any = { ...scope };
+  const where: any = { ...scope, isDeleted: false };
 
   if (search) {
     where.OR = [
