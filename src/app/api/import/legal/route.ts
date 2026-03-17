@@ -223,138 +223,139 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
 
   const logId = await startImportLog({ userId: user.id, organizationId: user.organizationId, importType: "legal-cases", fileName: file.name });
 
-  let imported = 0;
-  let skipped = 0;
-  let duplicatesSkipped = 0;
-  let queued = 0;
-  const errors: string[] = [];
+  // Wrap entire import in a transaction to prevent partial writes
+  const { imported, skipped, duplicatesSkipped, queued, errors } = await prisma.$transaction(async (tx) => {
+    let imported = 0;
+    let skipped = 0;
+    let duplicatesSkipped = 0;
+    let queued = 0;
+    const errors: string[] = [];
 
-  for (const match of matchResults) {
-    const { row } = match;
-    const rowNum = row.rowIndex + 2;
+    for (const match of matchResults) {
+      const { row } = match;
+      const rowNum = row.rowIndex + 2;
 
-    // Auto-import exact and likely matches
-    if ((match.matchType === "exact" || match.matchType === "likely") && match.tenant) {
-      // Skip duplicates: tenant has active case and case numbers don't match
-      const existingCaseNum = importActiveCaseMap.get(match.tenant.id);
-      if (existingCaseNum !== undefined) {
-        // Active case exists — only proceed if case number matches (update)
-        if (!(row.caseNumber && existingCaseNum && row.caseNumber === existingCaseNum)) {
-          duplicatesSkipped++;
-          continue;
+      // Auto-import exact and likely matches
+      if ((match.matchType === "exact" || match.matchType === "likely") && match.tenant) {
+        // Skip duplicates: tenant has active case and case numbers don't match
+        const existingCaseNum = importActiveCaseMap.get(match.tenant.id);
+        if (existingCaseNum !== undefined) {
+          if (!(row.caseNumber && existingCaseNum && row.caseNumber === existingCaseNum)) {
+            duplicatesSkipped++;
+            continue;
+          }
         }
-      }
-      const stage = parseStage(row.legalStage);
-      try {
-        const existingActive = await prisma.legalCase.findFirst({
-          where: { tenantId: match.tenant.id, isActive: true },
-        });
+        const stage = parseStage(row.legalStage);
+        try {
+          const existingActive = await tx.legalCase.findFirst({
+            where: { tenantId: match.tenant.id, isActive: true },
+          });
 
-        let caseId: string;
-        if (existingActive) {
-          // Update existing active case
-          await prisma.legalCase.update({
-            where: { id: existingActive.id },
+          let caseId: string;
+          if (existingActive) {
+            await tx.legalCase.update({
+              where: { id: existingActive.id },
+              data: {
+                inLegal: true,
+                stage,
+                ...(row.caseNumber ? { caseNumber: row.caseNumber } : {}),
+                ...(row.attorney ? { attorney: row.attorney } : {}),
+                ...(row.filingDate ? { filedDate: row.filingDate } : {}),
+                ...(row.courtDate ? { courtDate: row.courtDate } : {}),
+                ...(row.arrearsBalance ? { arrearsBalance: row.arrearsBalance } : {}),
+                ...(row.status ? { status: row.status } : {}),
+                importBatchId: importBatch.id,
+              },
+            });
+            caseId = existingActive.id;
+          } else {
+            const created = await tx.legalCase.create({
+              data: {
+                tenantId: match.tenant.id,
+                inLegal: true,
+                stage,
+                caseNumber: row.caseNumber || null,
+                attorney: row.attorney || null,
+                filedDate: row.filingDate,
+                courtDate: row.courtDate,
+                arrearsBalance: row.arrearsBalance || null,
+                status: row.status || "active",
+                importBatchId: importBatch.id,
+                isActive: true,
+              },
+            });
+            caseId = created.id;
+          }
+
+          if (row.notes) {
+            await tx.legalNote.create({
+              data: {
+                legalCaseId: caseId,
+                authorId: user.id,
+                text: `[Import] ${row.notes}`,
+                stage,
+                isSystem: true,
+              },
+            });
+          }
+
+          await tx.importRow.create({
             data: {
-              inLegal: true,
-              stage,
-              ...(row.caseNumber ? { caseNumber: row.caseNumber } : {}),
-              ...(row.attorney ? { attorney: row.attorney } : {}),
-              ...(row.filingDate ? { filedDate: row.filingDate } : {}),
-              ...(row.courtDate ? { courtDate: row.courtDate } : {}),
-              ...(row.arrearsBalance ? { arrearsBalance: row.arrearsBalance } : {}),
-              ...(row.status ? { status: row.status } : {}),
               importBatchId: importBatch.id,
+              rowIndex: row.rowIndex,
+              rawData: row as any,
+              status: existingActive ? "UPDATED" : "CREATED",
+              entityType: "legal_case",
+              entityId: match.tenant.id,
             },
           });
-          caseId = existingActive.id;
-        } else {
-          // Create new case
-          const created = await prisma.legalCase.create({
+
+          imported++;
+        } catch (e: any) {
+          errors.push(`Row ${rowNum}: ${row.tenantName} — ${e.message}`);
+          skipped++;
+        }
+      } else {
+        // Send to review queue
+        try {
+          await tx.legalImportQueue.create({
             data: {
-              tenantId: match.tenant.id,
-              inLegal: true,
-              stage,
-              caseNumber: row.caseNumber || null,
-              attorney: row.attorney || null,
-              filedDate: row.filingDate,
-              courtDate: row.courtDate,
-              arrearsBalance: row.arrearsBalance || null,
-              status: row.status || "active",
               importBatchId: importBatch.id,
-              isActive: true,
+              rowIndex: row.rowIndex,
+              rawData: row as any,
+              matchType: match.matchType,
+              matchConfidence: match.confidence,
+              candidateTenantId: match.tenant?.id || null,
+              candidateTenantName: match.tenant?.name || null,
+              candidateBuildingAddress: match.tenant?.buildingAddress || null,
+              candidateUnitNumber: match.tenant?.unitNumber || null,
+              sourceAddress: row.address || null,
+              sourceUnit: row.unit || null,
+              sourceTenantName: row.tenantName || null,
+              sourceCaseNumber: row.caseNumber || null,
+              status: "pending",
             },
           });
-          caseId = created.id;
+          queued++;
+        } catch (e: any) {
+          errors.push(`Row ${rowNum}: Failed to queue — ${e.message}`);
+          skipped++;
         }
-
-        // Add note if provided
-        if (row.notes) {
-          await prisma.legalNote.create({
-            data: {
-              legalCaseId: caseId,
-              authorId: user.id,
-              text: `[Import] ${row.notes}`,
-              stage,
-              isSystem: true,
-            },
-          });
-        }
-
-        await prisma.importRow.create({
-          data: {
-            importBatchId: importBatch.id,
-            rowIndex: row.rowIndex,
-            rawData: row as any,
-            status: existingActive ? "UPDATED" : "CREATED",
-            entityType: "legal_case",
-            entityId: match.tenant.id,
-          },
-        });
-
-        imported++;
-      } catch (e: any) {
-        errors.push(`Row ${rowNum}: ${row.tenantName} — ${e.message}`);
-        skipped++;
-      }
-    } else {
-      // Send to review queue
-      try {
-        await prisma.legalImportQueue.create({
-          data: {
-            importBatchId: importBatch.id,
-            rowIndex: row.rowIndex,
-            rawData: row as any,
-            matchType: match.matchType,
-            matchConfidence: match.confidence,
-            candidateTenantId: match.tenant?.id || null,
-            candidateTenantName: match.tenant?.name || null,
-            candidateBuildingAddress: match.tenant?.buildingAddress || null,
-            candidateUnitNumber: match.tenant?.unitNumber || null,
-            sourceAddress: row.address || null,
-            sourceUnit: row.unit || null,
-            sourceTenantName: row.tenantName || null,
-            sourceCaseNumber: row.caseNumber || null,
-            status: "pending",
-          },
-        });
-        queued++;
-      } catch (e: any) {
-        errors.push(`Row ${rowNum}: Failed to queue — ${e.message}`);
-        skipped++;
       }
     }
-  }
 
-  // Update batch
-  await prisma.importBatch.update({
-    where: { id: importBatch.id },
-    data: {
-      recordCount: imported,
-      status: errors.length > 0 ? "completed_with_errors" : "completed",
-      errors: errors.length > 0 ? errors : undefined,
-    },
-  });
+    // Update batch status within the transaction
+    await tx.importBatch.update({
+      where: { id: importBatch.id },
+      data: {
+        recordCount: imported,
+        status: errors.length > 0 ? "completed_with_errors" : "completed",
+        errors: errors.length > 0 ? errors : undefined,
+      },
+    });
+
+    return { imported, skipped, duplicatesSkipped, queued, errors };
+  }, { timeout: 60000 }); // 60s timeout for large imports
 
   await completeImportLog(logId, errors.length > 0 ? "COMPLETED_WITH_ERRORS" : "COMPLETED", { rowsInserted: imported, rowsFailed: skipped + duplicatesSkipped, rowErrors: errors });
 
