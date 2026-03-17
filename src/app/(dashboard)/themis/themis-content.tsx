@@ -6,6 +6,7 @@ import { Scale, ArrowLeft, ArrowRight, Upload, Mail, PenLine, Check, AlertTriang
 import Button from "@/components/ui/button";
 import { useBuildings } from "@/hooks/use-buildings";
 import { cn } from "@/lib/utils";
+import toast from "react-hot-toast";
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -173,7 +174,9 @@ export default function ThemisContent() {
     try {
       const res = await fetch("/api/themis/intake?status=pending");
       if (res.ok) setIntakes(await res.json());
-    } catch {}
+    } catch (err: any) {
+      toast.error(err?.message || "Operation failed");
+    }
     setLoading(false);
   }
 
@@ -217,7 +220,9 @@ export default function ThemisContent() {
         setFormFiles([]);
         loadIntakes();
       }
-    } catch {}
+    } catch (err: any) {
+      toast.error(err?.message || "Operation failed");
+    }
     setSubmitting(false);
   }
 
@@ -259,7 +264,9 @@ export default function ThemisContent() {
         setCurrentDraft(data);
         setStep(3);
       }
-    } catch {}
+    } catch (err: any) {
+      toast.error(err?.message || "Operation failed");
+    }
     setSubmitting(false);
   }
 
@@ -275,7 +282,9 @@ export default function ThemisContent() {
       if (res.ok) {
         setStep(4);
       }
-    } catch {}
+    } catch (err: any) {
+      toast.error(err?.message || "Operation failed");
+    }
     setSubmitting(false);
   }
 
@@ -292,7 +301,9 @@ export default function ThemisContent() {
         setPromoted(true);
         setPromotedWOId(data.workOrderId);
       }
-    } catch {}
+    } catch (err: any) {
+      toast.error(err?.message || "Operation failed");
+    }
     setSubmitting(false);
   }
 
@@ -310,7 +321,9 @@ export default function ThemisContent() {
         a.click();
         URL.revokeObjectURL(url);
       }
-    } catch {}
+    } catch (err: any) {
+      toast.error(err?.message || "Operation failed");
+    }
     setPdfLoading(false);
   }
 

@@ -164,6 +164,8 @@ export function useSendToLegal() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["collections"] });
+      qc.invalidateQueries({ queryKey: ["legal"] });
+      qc.invalidateQueries({ queryKey: ["legal-stats"] });
       toast.success("Tenant referred to legal");
     },
     onError: (err: Error) => toast.error(err.message),
