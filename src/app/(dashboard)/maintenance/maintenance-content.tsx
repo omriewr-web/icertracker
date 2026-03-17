@@ -101,7 +101,7 @@ export default function MaintenanceContent() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Maintenance</h1>
+          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Work Orders</h1>
           <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Operations — Work Orders</span>
         </div>
         <div className="flex items-center gap-2">
