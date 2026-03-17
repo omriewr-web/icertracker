@@ -38,6 +38,7 @@ import { fmt$, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import ExportButton from "@/components/ui/export-button";
 import { normalizeCollectionStatus, getStatusColor } from "@/lib/collections/types";
+import AIEnhanceButton from "@/components/ui/ai-enhance-button";
 
 // ── Status config (values for dropdowns / API calls) ──
 
@@ -160,6 +161,11 @@ export default function CollectionsContent() {
   const [alertsDismissed, setAlertsDismissed] = useState<Set<string>>(new Set());
   const [alertsExpanded, setAlertsExpanded] = useState(false);
 
+  // Follow-up inline form state
+  const [followUpTenantId, setFollowUpTenantId] = useState<string | null>(null);
+  const [followUpText, setFollowUpText] = useState("");
+  const [followUpType, setFollowUpType] = useState("CALLED");
+
   const { data: alerts } = useQuery<CollectionAlert[]>({
     queryKey: ["collections", "alerts"],
     queryFn: async () => {
@@ -200,6 +206,52 @@ export default function CollectionsContent() {
   const updateStatus = useUpdateCollectionStatus();
   const bulkUpdate = useBulkCollectionAction();
   const sendToLegal = useSendToLegal();
+
+  // Follow-up helpers
+  const getFollowUpTemplate = useCallback((alertType: CollectionAlert["alertType"], balance: number) => {
+    switch (alertType) {
+      case "PAYMENT_OVERDUE_90":
+        return `Follow-up: No payment received in 90+ days. Balance of ${fmt$(balance)} outstanding. Contacted tenant to arrange payment.`;
+      case "CONTACT_OVERDUE_30":
+        return `Follow-up: Attempted contact. Balance of ${fmt$(balance)} outstanding. No response in 30+ days.`;
+      case "HIGH_BALANCE_NO_LEGAL":
+        return `Follow-up: Balance of ${fmt$(balance)} exceeds threshold. Reviewing for legal referral.`;
+      default:
+        return `Follow-up: Balance of ${fmt$(balance)} outstanding.`;
+    }
+  }, []);
+
+  const openFollowUp = useCallback((alert: CollectionAlert, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setFollowUpTenantId(alert.tenantId);
+    setFollowUpText(getFollowUpTemplate(alert.alertType, alert.balance));
+    setFollowUpType("CALLED");
+  }, [getFollowUpTemplate]);
+
+  const submitFollowUp = useCallback(() => {
+    if (!followUpTenantId || !followUpText.trim()) return;
+    createNote.mutate(
+      { tenantId: followUpTenantId, data: { content: followUpText, actionType: followUpType } },
+      {
+        onSuccess: () => {
+          setAlertsDismissed((prev) => new Set(prev).add(followUpTenantId!));
+          setFollowUpTenantId(null);
+          setFollowUpText("");
+          setFollowUpType("CALLED");
+        },
+      }
+    );
+  }, [followUpTenantId, followUpText, followUpType, createNote]);
+
+  const cancelFollowUp = useCallback(() => {
+    setFollowUpTenantId(null);
+    setFollowUpText("");
+    setFollowUpType("CALLED");
+  }, []);
+
+  // Group alerts by priority
+  const highAlerts = useMemo(() => visibleAlerts.filter((a) => a.priority === "HIGH"), [visibleAlerts]);
+  const mediumAlerts = useMemo(() => visibleAlerts.filter((a) => a.priority === "MEDIUM"), [visibleAlerts]);
 
   const isLoading = dashLoading || tenantsLoading;
 
@@ -389,37 +441,164 @@ export default function CollectionsContent() {
           </button>
           {alertsExpanded && (
             <div className="border-t border-border/50">
-              {visibleAlerts.map((alert) => (
-                <div
-                  key={alert.tenantId}
-                  onClick={() => router.push(`/collections/${alert.tenantId}`)}
-                  className={cn(
-                    "flex items-center gap-3 px-4 py-2.5 hover:bg-card-hover transition-colors cursor-pointer border-l-2",
-                    alert.priority === "HIGH" ? "border-l-red-500" : "border-l-amber-500"
-                  )}
-                >
-                  <div className="flex-1 min-w-0 flex items-center gap-4">
-                    <span className="text-sm text-text-primary font-medium truncate w-36">{alert.tenantName}</span>
-                    <span className="text-xs text-text-dim truncate w-40">{alert.buildingAddress} — {alert.unit}</span>
-                    <span className="text-xs text-red-400 font-mono w-20 text-right">{fmt$(alert.balance)}</span>
-                    <span className={cn(
-                      "text-xs truncate flex-1",
-                      alert.priority === "HIGH" ? "text-red-400" : "text-amber-400"
-                    )}>
-                      {alert.alertMessage}
+              {/* High Priority group */}
+              {highAlerts.length > 0 && (
+                <>
+                  <div className="px-4 py-2 bg-red-500/5 border-b border-border/30">
+                    <span className="text-xs font-semibold text-red-400 uppercase tracking-wider">
+                      High Priority ({highAlerts.length})
                     </span>
-                    {alert.daysSinceContact != null && (
-                      <span className="text-[10px] text-text-dim whitespace-nowrap">{alert.daysSinceContact}d since contact</span>
-                    )}
                   </div>
-                  <button
-                    onClick={(e) => dismissAlert(alert.tenantId, e)}
-                    className="p-1 text-text-dim hover:text-text-muted transition-colors shrink-0"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+                  {highAlerts.map((alert) => (
+                    <div key={alert.tenantId}>
+                      <div
+                        onClick={() => router.push(`/collections/${alert.tenantId}`)}
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-card-hover transition-colors cursor-pointer border-l-2 border-l-red-500"
+                      >
+                        <div className="flex-1 min-w-0 flex items-center gap-4">
+                          <span className="text-sm text-text-primary font-medium truncate w-36">{alert.tenantName}</span>
+                          <span className="text-xs text-text-dim truncate w-40">{alert.buildingAddress} — {alert.unit}</span>
+                          <span className="text-xs text-red-400 font-mono w-20 text-right">{fmt$(alert.balance)}</span>
+                          <span className="text-xs truncate flex-1 text-red-400">
+                            {alert.alertMessage}
+                          </span>
+                          {alert.daysSinceContact != null && (
+                            <span className="text-[10px] text-text-dim whitespace-nowrap">{alert.daysSinceContact}d since contact</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={(e) => openFollowUp(alert, e)}
+                          className="px-2 py-1 text-[11px] font-medium text-accent border border-accent/30 rounded hover:bg-accent/10 transition-colors shrink-0"
+                        >
+                          Send Follow-up
+                        </button>
+                        <button
+                          onClick={(e) => dismissAlert(alert.tenantId, e)}
+                          className="p-1 text-text-dim hover:text-text-muted transition-colors shrink-0"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      {followUpTenantId === alert.tenantId && (
+                        <div className="px-4 py-3 bg-card-hover/50 border-t border-border/30 border-l-2 border-l-red-500" onClick={(e) => e.stopPropagation()}>
+                          <div className="space-y-2 max-w-2xl">
+                            <textarea
+                              value={followUpText}
+                              onChange={(e) => setFollowUpText(e.target.value)}
+                              rows={3}
+                              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent resize-none"
+                            />
+                            <div className="flex items-center gap-3">
+                              <select
+                                value={followUpType}
+                                onChange={(e) => setFollowUpType(e.target.value)}
+                                className="bg-bg border border-border rounded-lg px-2 py-1 text-xs text-text-primary focus:outline-none focus:border-accent"
+                              >
+                                <option value="CALLED">Called</option>
+                                <option value="EMAILED">Emailed</option>
+                                <option value="VISITED">Visited</option>
+                                <option value="OTHER">Other</option>
+                              </select>
+                              <AIEnhanceButton
+                                value={followUpText}
+                                context="collection_note"
+                                onEnhanced={(text) => setFollowUpText(text)}
+                              />
+                              <div className="flex items-center gap-2 ml-auto">
+                                <Button variant="outline" onClick={cancelFollowUp}>
+                                  Cancel
+                                </Button>
+                                <Button onClick={submitFollowUp} disabled={!followUpText.trim() || createNote.isPending}>
+                                  {createNote.isPending ? "Sending..." : "Submit Note"}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
+              {/* Medium Priority group */}
+              {mediumAlerts.length > 0 && (
+                <>
+                  <div className="px-4 py-2 bg-amber-500/5 border-b border-border/30">
+                    <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                      Medium Priority ({mediumAlerts.length})
+                    </span>
+                  </div>
+                  {mediumAlerts.map((alert) => (
+                    <div key={alert.tenantId}>
+                      <div
+                        onClick={() => router.push(`/collections/${alert.tenantId}`)}
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-card-hover transition-colors cursor-pointer border-l-2 border-l-amber-500"
+                      >
+                        <div className="flex-1 min-w-0 flex items-center gap-4">
+                          <span className="text-sm text-text-primary font-medium truncate w-36">{alert.tenantName}</span>
+                          <span className="text-xs text-text-dim truncate w-40">{alert.buildingAddress} — {alert.unit}</span>
+                          <span className="text-xs text-red-400 font-mono w-20 text-right">{fmt$(alert.balance)}</span>
+                          <span className="text-xs truncate flex-1 text-amber-400">
+                            {alert.alertMessage}
+                          </span>
+                          {alert.daysSinceContact != null && (
+                            <span className="text-[10px] text-text-dim whitespace-nowrap">{alert.daysSinceContact}d since contact</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={(e) => openFollowUp(alert, e)}
+                          className="px-2 py-1 text-[11px] font-medium text-accent border border-accent/30 rounded hover:bg-accent/10 transition-colors shrink-0"
+                        >
+                          Send Follow-up
+                        </button>
+                        <button
+                          onClick={(e) => dismissAlert(alert.tenantId, e)}
+                          className="p-1 text-text-dim hover:text-text-muted transition-colors shrink-0"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      {followUpTenantId === alert.tenantId && (
+                        <div className="px-4 py-3 bg-card-hover/50 border-t border-border/30 border-l-2 border-l-amber-500" onClick={(e) => e.stopPropagation()}>
+                          <div className="space-y-2 max-w-2xl">
+                            <textarea
+                              value={followUpText}
+                              onChange={(e) => setFollowUpText(e.target.value)}
+                              rows={3}
+                              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent resize-none"
+                            />
+                            <div className="flex items-center gap-3">
+                              <select
+                                value={followUpType}
+                                onChange={(e) => setFollowUpType(e.target.value)}
+                                className="bg-bg border border-border rounded-lg px-2 py-1 text-xs text-text-primary focus:outline-none focus:border-accent"
+                              >
+                                <option value="CALLED">Called</option>
+                                <option value="EMAILED">Emailed</option>
+                                <option value="VISITED">Visited</option>
+                                <option value="OTHER">Other</option>
+                              </select>
+                              <AIEnhanceButton
+                                value={followUpText}
+                                context="collection_note"
+                                onEnhanced={(text) => setFollowUpText(text)}
+                              />
+                              <div className="flex items-center gap-2 ml-auto">
+                                <Button variant="outline" onClick={cancelFollowUp}>
+                                  Cancel
+                                </Button>
+                                <Button onClick={submitFollowUp} disabled={!followUpText.trim() || createNote.isPending}>
+                                  {createNote.isPending ? "Sending..." : "Submit Note"}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           )}
         </div>
