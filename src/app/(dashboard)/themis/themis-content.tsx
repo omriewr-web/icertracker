@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Scale, ArrowLeft, ArrowRight, Upload, Mail, PenLine, Check, AlertTriangle, Download, Loader2, Plus, Trash2, Shield, Copy, Building2, X } from "lucide-react";
 import Button from "@/components/ui/button";
+import AIEnhanceButton from "@/components/ui/ai-enhance-button";
 import { useBuildings } from "@/hooks/use-buildings";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
@@ -431,6 +432,7 @@ export default function ThemisContent() {
               <div>
                 <label className={labelClass}>Describe the issue or paste email content</label>
                 <textarea value={formDescription} onChange={(e) => setFormDescription(e.target.value)} rows={6} className={cn(inputClass, "resize-none")} placeholder="Tenant reported a leak in the bathroom ceiling..." />
+                <AIEnhanceButton value={formDescription} context="general" onEnhanced={(v) => setFormDescription(v)} />
               </div>
               <div>
                 <label className={labelClass}>Attachments</label>
