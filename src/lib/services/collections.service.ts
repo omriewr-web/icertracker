@@ -580,6 +580,8 @@ export async function sendToLegal(
 
 import type { ARReportData, ARAgingBuildingRow, ARTenantDetailRow } from "@/lib/collections/types";
 
+export type { ScopeUser };
+
 interface FullARReportFilters {
   buildingId?: string;
   month?: string; // YYYY-MM
@@ -767,4 +769,123 @@ export async function getFullARReport(
     tenants: tenantRows,
     activity: { notesByType, statusChanges, top5ByBalance },
   };
+}
+
+// ── Collection Alerts ─────────────────────────────────────────
+
+export interface CollectionAlert {
+  tenantId: string;
+  tenantName: string;
+  buildingAddress: string;
+  unit: string;
+  balance: number;
+  alertType: "PAYMENT_OVERDUE_90" | "CONTACT_OVERDUE_30" | "HIGH_BALANCE_NO_LEGAL";
+  alertMessage: string;
+  daysSinceContact: number | null;
+  priority: "HIGH" | "MEDIUM";
+}
+
+export async function getCollectionAlerts(user: ScopeUser): Promise<CollectionAlert[]> {
+  const scope = getTenantScope(user);
+  if (scope === EMPTY_SCOPE) return [];
+
+  const tenants = await prisma.tenant.findMany({
+    where: {
+      ...(scope as object),
+      isDeleted: false,
+      balance: { gt: 0 },
+    },
+    select: {
+      id: true,
+      name: true,
+      balance: true,
+      unit: {
+        select: {
+          unitNumber: true,
+          building: { select: { address: true } },
+        },
+      },
+      legalCases: { where: { isActive: true }, select: { inLegal: true }, take: 1 },
+      collectionNotes: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { createdAt: true },
+      },
+      payments: {
+        orderBy: { date: "desc" },
+        take: 1,
+        select: { date: true },
+      },
+    },
+  });
+
+  const alerts: CollectionAlert[] = [];
+  const seen = new Set<string>();
+
+  for (const t of tenants) {
+    const balance = Number(t.balance);
+    const lastNoteDate = t.collectionNotes[0]?.createdAt ?? null;
+    const lastPaymentDate = t.payments[0]?.date ?? null;
+    const daysSinceContact = lastNoteDate
+      ? Math.round((Date.now() - new Date(lastNoteDate).getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+    const daysSincePayment = lastPaymentDate
+      ? Math.round((Date.now() - new Date(lastPaymentDate).getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+    const inLegal = t.legalCases[0]?.inLegal === true;
+
+    const base = {
+      tenantId: t.id,
+      tenantName: t.name,
+      buildingAddress: t.unit.building.address,
+      unit: t.unit.unitNumber,
+      balance,
+      daysSinceContact,
+    };
+
+    // Rule 1: 90-day no payment (HIGH priority)
+    if ((daysSincePayment === null || daysSincePayment > 90) && !seen.has(t.id)) {
+      alerts.push({
+        ...base,
+        alertType: "PAYMENT_OVERDUE_90",
+        alertMessage: daysSincePayment === null
+          ? "No payment ever recorded"
+          : `No payment in ${daysSincePayment} days`,
+        priority: "HIGH",
+      });
+      seen.add(t.id);
+      continue;
+    }
+
+    // Rule 3: High balance no legal (HIGH priority)
+    if (balance > 5000 && !inLegal && !seen.has(t.id)) {
+      alerts.push({
+        ...base,
+        alertType: "HIGH_BALANCE_NO_LEGAL",
+        alertMessage: "Balance over $5,000 with no legal action",
+        priority: "HIGH",
+      });
+      seen.add(t.id);
+      continue;
+    }
+
+    // Rule 2: 30-day no contact (MEDIUM priority)
+    if ((daysSinceContact === null || daysSinceContact > 30) && !seen.has(t.id)) {
+      alerts.push({
+        ...base,
+        alertType: "CONTACT_OVERDUE_30",
+        alertMessage: daysSinceContact === null
+          ? "Never contacted"
+          : `No contact in ${daysSinceContact} days`,
+        priority: "MEDIUM",
+      });
+      seen.add(t.id);
+    }
+  }
+
+  // Sort: HIGH priority first, then by balance descending
+  return alerts.sort((a, b) => {
+    if (a.priority !== b.priority) return a.priority === "HIGH" ? -1 : 1;
+    return b.balance - a.balance;
+  });
 }

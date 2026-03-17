@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   DollarSign,
   AlertTriangle,
+  AlertCircle,
   Scale,
   Phone,
   ChevronDown,
@@ -15,6 +16,8 @@ import {
   Check,
   Gavel,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import type { CollectionAlert } from "@/lib/services/collections.service";
 import {
   useCollectionsDashboard,
   useCollectionTenants,
@@ -152,6 +155,29 @@ export default function CollectionsContent() {
   const [bulkAction, setBulkAction] = useState("");
   const [bulkValue, setBulkValue] = useState("");
   const [bulkNote, setBulkNote] = useState("");
+
+  // Alerts state
+  const [alertsDismissed, setAlertsDismissed] = useState<Set<string>>(new Set());
+  const [alertsExpanded, setAlertsExpanded] = useState(false);
+
+  const { data: alerts } = useQuery<CollectionAlert[]>({
+    queryKey: ["collections", "alerts"],
+    queryFn: async () => {
+      const res = await fetch("/api/collections/alerts");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const visibleAlerts = useMemo(
+    () => (alerts ?? []).filter((a) => !alertsDismissed.has(a.tenantId)),
+    [alerts, alertsDismissed]
+  );
+
+  const dismissAlert = useCallback((tenantId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setAlertsDismissed((prev) => new Set(prev).add(tenantId));
+  }, []);
 
   // Quick action modals
   const [noteTarget, setNoteTarget] = useState<ARTenantRow | null>(null);
@@ -345,6 +371,59 @@ export default function CollectionsContent() {
         <KpiCard label="In Legal" value={dashboard?.legalCount ?? 0} icon={Scale} color="#8B5CF6" />
         <KpiCard label="Follow-Ups Due" value={dashboard?.followUpsDue ?? 0} subtext="Scheduled follow-ups due today" icon={Phone} color="#3B82F6" />
       </div>
+
+      {/* ── Collection Alerts Banner ── */}
+      {visibleAlerts.length > 0 && (
+        <div className="bg-atlas-navy-3 border border-red-500/30 rounded-xl overflow-hidden">
+          <button
+            onClick={() => setAlertsExpanded(!alertsExpanded)}
+            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-card-hover transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400" />
+              <span className="text-sm font-medium text-red-400">
+                {visibleAlerts.length} tenant{visibleAlerts.length !== 1 ? "s" : ""} need immediate attention
+              </span>
+            </div>
+            {alertsExpanded ? <ChevronUp className="w-4 h-4 text-text-dim" /> : <ChevronDown className="w-4 h-4 text-text-dim" />}
+          </button>
+          {alertsExpanded && (
+            <div className="border-t border-border/50">
+              {visibleAlerts.map((alert) => (
+                <div
+                  key={alert.tenantId}
+                  onClick={() => router.push(`/collections/${alert.tenantId}`)}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-2.5 hover:bg-card-hover transition-colors cursor-pointer border-l-2",
+                    alert.priority === "HIGH" ? "border-l-red-500" : "border-l-amber-500"
+                  )}
+                >
+                  <div className="flex-1 min-w-0 flex items-center gap-4">
+                    <span className="text-sm text-text-primary font-medium truncate w-36">{alert.tenantName}</span>
+                    <span className="text-xs text-text-dim truncate w-40">{alert.buildingAddress} — {alert.unit}</span>
+                    <span className="text-xs text-red-400 font-mono w-20 text-right">{fmt$(alert.balance)}</span>
+                    <span className={cn(
+                      "text-xs truncate flex-1",
+                      alert.priority === "HIGH" ? "text-red-400" : "text-amber-400"
+                    )}>
+                      {alert.alertMessage}
+                    </span>
+                    {alert.daysSinceContact != null && (
+                      <span className="text-[10px] text-text-dim whitespace-nowrap">{alert.daysSinceContact}d since contact</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={(e) => dismissAlert(alert.tenantId, e)}
+                    className="p-1 text-text-dim hover:text-text-muted transition-colors shrink-0"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Stale Tenants Alert ── */}
       {(dashboard?.staleCount ?? 0) > 0 && (
