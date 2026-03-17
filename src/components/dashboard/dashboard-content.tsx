@@ -46,8 +46,8 @@ export default function DashboardContent() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Command Center</h1>
-          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">// ARGUS PORTFOLIO OVERVIEW · LIVE</span>
+          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Argus</h1>
+          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Portfolio Overview</span>
         </div>
         <div className="flex items-center gap-2">
           <ExportButton

@@ -585,7 +585,7 @@ export default function VacanciesContent() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Vacancies</h1>
-          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">// Vacancy & Turnover Command Center</span>
+          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Operations — Vacancies & Turnovers</span>
         </div>
         <ExportButton
           data={filtered.map((u) => ({
@@ -620,7 +620,7 @@ export default function VacanciesContent() {
             { key: "access", label: "Access" },
           ]}
           pdfConfig={{
-            title: "Vacancy Command Center",
+            title: "Vacancies Report",
             stats: [
               { label: "Total Vacant", value: String(kpis.total) },
               { label: "In Turnover", value: String(kpis.inTurnover) },

@@ -122,7 +122,7 @@ export default function ProjectsContent() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Projects</h1>
-          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">// Building Project Command Center</span>
+          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Operations — Building Projects</span>
         </div>
         <div className="flex items-center gap-2">
           {/* View Toggle */}

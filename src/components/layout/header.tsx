@@ -26,7 +26,7 @@ export default function Header() {
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold tracking-wider text-accent">ATLASPM</h1>
           <div className="hidden sm:flex items-center gap-3">
-            <span className="text-[10px] font-medium tracking-[0.2em] text-text-dim uppercase">Urban Intelligence Platform</span>
+            <span className="text-[10px] font-medium tracking-[0.2em] text-text-dim uppercase">AtlasPM</span>
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-atlas-green/10 border border-atlas-green/20">
               <span className="w-1.5 h-1.5 rounded-full bg-atlas-green animate-atlas-live-blink" />
               <span className="text-[10px] font-medium tracking-wider text-atlas-green uppercase">ARGUS ACTIVE{metrics?.totalUnits != null ? ` · ${metrics.totalUnits} UNITS` : ""}</span>
