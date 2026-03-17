@@ -3,11 +3,13 @@
 import { useSession, signOut } from "next-auth/react";
 import { LogOut, Brain, Menu } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
+import { useMetrics } from "@/hooks/use-metrics";
 import OrgSwitcher from "./org-switcher";
 
 export default function Header() {
   const { data: session } = useSession();
   const { setAiPanelOpen, setSidebarOpen, sidebarOpen } = useAppStore();
+  const { data: metrics } = useMetrics();
 
   return (
     <header role="banner" className="h-[52px] bg-atlas-navy-2 border-b border-border shadow-[0_1px_0_rgba(201,168,76,0.08)] flex items-center justify-between px-4 sm:px-6 shrink-0">
@@ -27,7 +29,7 @@ export default function Header() {
             <span className="text-[10px] font-medium tracking-[0.2em] text-text-dim uppercase">Urban Intelligence Platform</span>
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-atlas-green/10 border border-atlas-green/20">
               <span className="w-1.5 h-1.5 rounded-full bg-atlas-green animate-atlas-live-blink" />
-              <span className="text-[10px] font-medium tracking-wider text-atlas-green uppercase">ARGUS ACTIVE · 921 UNITS</span>
+              <span className="text-[10px] font-medium tracking-wider text-atlas-green uppercase">ARGUS ACTIVE{metrics?.totalUnits != null ? ` · ${metrics.totalUnits} UNITS` : ""}</span>
             </div>
           </div>
         </div>

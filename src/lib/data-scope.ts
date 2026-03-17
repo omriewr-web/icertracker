@@ -206,7 +206,9 @@ export async function canAccessBuilding(user: ScopeUser, buildingId: string): Pr
   return assigned.includes(buildingId);
 }
 
-const FORBIDDEN = NextResponse.json({ error: "Forbidden" }, { status: 403 });
+function forbidden() {
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+}
 
 /** Verify the user can access a tenant by looking up its building. Returns 403 response or null. */
 export async function assertTenantAccess(user: ScopeUser, tenantId: string): Promise<NextResponse | null> {
@@ -215,14 +217,14 @@ export async function assertTenantAccess(user: ScopeUser, tenantId: string): Pro
     select: { unit: { select: { buildingId: true } } },
   });
   if (!tenant) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!(await canAccessBuilding(user, tenant.unit.buildingId))) return FORBIDDEN;
+  if (!(await canAccessBuilding(user, tenant.unit.buildingId))) return forbidden();
   return null;
 }
 
 /** Verify the user can access a building. Returns 403/404 response or null. */
 export async function assertBuildingAccess(user: ScopeUser, buildingId: string): Promise<NextResponse | null> {
   if (await canAccessBuilding(user, buildingId)) return null;
-  return FORBIDDEN;
+  return forbidden();
 }
 
 /** Verify the user can access a work order by looking up its building. Returns 403/404 response or null. */
@@ -232,7 +234,7 @@ export async function assertWorkOrderAccess(user: ScopeUser, workOrderId: string
     select: { buildingId: true },
   });
   if (!wo) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!(await canAccessBuilding(user, wo.buildingId))) return FORBIDDEN;
+  if (!(await canAccessBuilding(user, wo.buildingId))) return forbidden();
   return null;
 }
 
@@ -243,7 +245,7 @@ export async function assertUnitAccess(user: ScopeUser, unitId: string): Promise
     select: { buildingId: true },
   });
   if (!unit) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!(await canAccessBuilding(user, unit.buildingId))) return FORBIDDEN;
+  if (!(await canAccessBuilding(user, unit.buildingId))) return forbidden();
   return null;
 }
 
@@ -254,6 +256,6 @@ export async function assertComplianceAccess(user: ScopeUser, itemId: string): P
     select: { buildingId: true },
   });
   if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!(await canAccessBuilding(user, item.buildingId))) return FORBIDDEN;
+  if (!(await canAccessBuilding(user, item.buildingId))) return forbidden();
   return null;
 }
