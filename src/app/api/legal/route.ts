@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { getBuildingScope, EMPTY_SCOPE } from "@/lib/data-scope";
+import { toNumber } from "@/lib/utils/decimal";
 import logger from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +45,11 @@ export const GET = withAuth(async (req, { user }) => {
     take: 200,
   });
 
+  const normalized = cases.map((c) => ({
+    ...c,
+    arrearsBalance: toNumber(c.arrearsBalance),
+  }));
+
   log.info({ action: "complete", count: cases.length, durationMs: Date.now() - start });
-  return NextResponse.json(cases);
+  return NextResponse.json(normalized);
 }, "legal");
