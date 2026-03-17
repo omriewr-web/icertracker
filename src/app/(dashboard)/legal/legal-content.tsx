@@ -308,7 +308,8 @@ export default function LegalContent() {
             </div>
           ) : (
             <EmptyState
-              title={hasFilters ? "No cases match filters" : "No active legal cases"}
+              title={hasFilters ? "No cases match filters" : "No legal cases"}
+              description={hasFilters ? "Try adjusting your filters." : "No active legal cases in your portfolio."}
               icon={Scale}
             />
           )}
@@ -394,7 +395,7 @@ export default function LegalContent() {
               </table>
             </div>
           ) : (
-            <EmptyState title="No upcoming court dates" icon={Calendar} />
+            <EmptyState title="No upcoming court dates" description="No court dates scheduled for your portfolio." icon={Calendar} />
           )}
         </div>
       )}

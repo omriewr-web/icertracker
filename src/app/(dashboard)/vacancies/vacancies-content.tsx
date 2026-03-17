@@ -3,7 +3,7 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
-  DoorOpen, Wrench, CheckCircle, Clock, Tag, AlertTriangle,
+  DoorOpen, Home, Wrench, CheckCircle, Clock, Tag, AlertTriangle,
   MoreHorizontal, Key, User, Package, HelpCircle, Hash,
   ArrowRight, Hammer, DollarSign, Loader2, CalendarClock,
 } from "lucide-react";
@@ -770,8 +770,8 @@ export default function VacanciesContent() {
       ) : (
         <EmptyState
           title="No vacancies"
-          description={filterStatus || filterDays ? "No units match the selected filters" : "All units are currently occupied"}
-          icon={DoorOpen}
+          description={filterStatus || filterDays || filterBuilding ? "No units match the selected filters." : "All units are occupied."}
+          icon={Home}
         />
       )}
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { RefreshCw, AlertTriangle, DollarSign, Calendar, Bug } from "lucide-react";
+import { RefreshCw, AlertTriangle, ShieldCheck, DollarSign, Calendar, Bug } from "lucide-react";
 import { useViolations, useViolationStats, useSyncViolationsStream } from "@/hooks/use-violations";
 import EmptyState from "@/components/ui/empty-state";
 import { useAppStore } from "@/stores/app-store";
@@ -232,7 +232,7 @@ export default function ViolationsTab() {
           </tbody>
         </table>
         {(!violations || violations.length === 0) && (
-          <EmptyState icon={AlertTriangle} title="No violations found" description="Violations from HPD, DOB, and ECB will appear here once synced." />
+          <EmptyState icon={ShieldCheck} title="No violations found" description="No HPD, DOB, or ECB violations on record for your portfolio." />
         )}
       </div>
 
