@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Wrench, CheckCircle } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Wrench, CheckCircle, AlertTriangle } from "lucide-react";
 
 const CATEGORIES = [
   { value: "PLUMBING", label: "Plumbing" },
@@ -26,10 +27,14 @@ interface BuildingOption {
 }
 
 export default function RequestForm() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+
   const [buildings, setBuildings] = useState<BuildingOption[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [tokenError, setTokenError] = useState(false);
 
   const [form, setForm] = useState({
     tenantName: "",
@@ -43,11 +48,24 @@ export default function RequestForm() {
   });
 
   useEffect(() => {
-    fetch("/api/work-orders/request")
-      .then((r) => r.json())
-      .then(setBuildings)
-      .catch(() => {});
-  }, []);
+    if (!token) {
+      setTokenError(true);
+      return;
+    }
+    fetch(`/api/work-orders/request?token=${encodeURIComponent(token)}`)
+      .then((r) => {
+        if (!r.ok) throw new Error("Invalid token");
+        return r.json();
+      })
+      .then((data) => {
+        setBuildings(Array.isArray(data) ? data : []);
+        // Auto-select building if only one returned
+        if (Array.isArray(data) && data.length === 1) {
+          setForm((f) => ({ ...f, buildingId: data[0].id }));
+        }
+      })
+      .catch(() => setTokenError(true));
+  }, [token]);
 
   const selectedBuilding = buildings.find((b) => b.id === form.buildingId);
 
@@ -60,7 +78,7 @@ export default function RequestForm() {
       const res = await fetch("/api/work-orders/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, token }),
       });
 
       if (!res.ok) {
@@ -76,6 +94,21 @@ export default function RequestForm() {
     }
   }
 
+  if (tokenError) {
+    return (
+      <div className="w-full max-w-md text-center">
+        <div className="bg-card border border-border rounded-xl p-8">
+          <AlertTriangle className="w-12 h-12 text-amber-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-text-primary mb-2">Invalid or Missing Access Link</h2>
+          <p className="text-sm text-text-muted">
+            This form requires a valid building access link from your property manager.
+            Please contact your building management office for the correct link.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (submitted) {
     return (
       <div className="w-full max-w-md text-center">
@@ -89,7 +122,7 @@ export default function RequestForm() {
           <button
             onClick={() => {
               setSubmitted(false);
-              setForm({ tenantName: "", tenantContact: "", buildingId: "", unitId: "", category: "GENERAL", priority: "MEDIUM", title: "", description: "" });
+              setForm({ tenantName: "", tenantContact: "", buildingId: buildings[0]?.id || "", unitId: "", category: "GENERAL", priority: "MEDIUM", title: "", description: "" });
             }}
             className="text-accent hover:text-accent-light text-sm"
           >
@@ -210,6 +243,9 @@ export default function RequestForm() {
               placeholder="Please describe the issue in detail..."
             />
           </div>
+
+          {/* Honeypot field — hidden from real users */}
+          <input type="text" name="website" className="hidden" tabIndex={-1} autoComplete="off" />
 
           <button
             type="submit"

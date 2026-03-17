@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "./auth";
 import { hasPermission, UserRole } from "@/types";
+import { ZodError } from "zod";
+import logger from "./logger";
 
 export interface AuthUser {
   id: string;
@@ -14,6 +16,16 @@ export interface AuthUser {
 }
 
 type ApiHandler = (req: NextRequest, ctx: { user: AuthUser; params?: any }) => Promise<NextResponse | Response>;
+
+/** Custom error class for validation failures — caught by withAuth to return 400 */
+class ValidationError extends Error {
+  status = 400;
+  details: unknown;
+  constructor(details: unknown) {
+    super("Validation failed");
+    this.details = details;
+  }
+}
 
 export function withAuth(handler: ApiHandler, perm?: string) {
   return async (req: NextRequest, context?: { params?: any }) => {
@@ -28,7 +40,7 @@ export function withAuth(handler: ApiHandler, perm?: string) {
         email: session.user.email ?? "",
         role: session.user.role as UserRole,
         assignedProperties: session.user.assignedProperties ?? [],
-        organizationId: session.user.organizationId ?? "",
+        organizationId: session.user.organizationId || null,
         managerId: session.user.managerId ?? null,
       };
       if (!user.organizationId && user.role !== "SUPER_ADMIN") {
@@ -39,9 +51,17 @@ export function withAuth(handler: ApiHandler, perm?: string) {
       }
       return await handler(req, { user, params: context?.params });
     } catch (error: any) {
-      console.error("API Error:", error);
+      // Return 400 with field details for validation errors
+      if (error instanceof ValidationError) {
+        return NextResponse.json(
+          { error: "Validation failed", details: error.details },
+          { status: 400 }
+        );
+      }
+      const route = new URL(req.url).pathname;
+      logger.error({ err: error, route }, "API error");
       // Only expose message for known API errors; hide internal details
-      const isApiError = error.status && error.status < 500;
+      const isApiError = typeof error.status === "number" && error.status < 500;
       return NextResponse.json(
         { error: isApiError ? error.message : "Internal server error" },
         { status: error.status || 500 }
@@ -52,5 +72,12 @@ export function withAuth(handler: ApiHandler, perm?: string) {
 
 export async function parseBody<T>(req: NextRequest, schema: { parse: (v: unknown) => T }): Promise<T> {
   const body = await req.json();
-  return schema.parse(body);
+  try {
+    return schema.parse(body);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      throw new ValidationError(error.flatten());
+    }
+    throw error;
+  }
 }
