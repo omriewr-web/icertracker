@@ -2363,3 +2363,73 @@ model ProjectViolation {
   @@id([projectId, violationId])
   @@map("project_violations")
 }
+
+// ── Atlas Communicate ──
+
+enum OutreachTrigger {
+  DAYS_10
+  DAYS_30
+  DAYS_60
+  MANUAL
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum OutreachChannel {
+  SMS
+  EMAIL
+}
+
+enum MessageDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum MessageStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  READ
+  RESPONDED
+}
+
+model OutreachCampaign {
+  id          String          @id @default(cuid())
+  orgId       String
+  name        String
+  triggerType OutreachTrigger
+  status      CampaignStatus  @default(DRAFT)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  messages    OutreachMessage[]
+
+  @@index([orgId])
+  @@map("outreach_campaigns")
+}
+
+model OutreachMessage {
+  id          String           @id @default(cuid())
+  campaignId  String
+  tenantId    String
+  channel     OutreachChannel
+  direction   MessageDirection
+  body        String           @db.Text
+  status      MessageStatus    @default(PENDING)
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  respondedAt DateTime?
+  aiGenerated Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  campaign    OutreachCampaign @relation(fields: [campaignId], references: [id])
+
+  @@index([campaignId])
+  @@index([tenantId])
+  @@index([status])
+  @@map("outreach_messages")
+}

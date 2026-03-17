@@ -33,6 +33,7 @@ function mapViolation(v: any): ViolationView {
     hearingDate: v.hearingDate?.toISOString() || null,
     hearingStatus: v.hearingStatus,
     linkedWorkOrderId: v.linkedWorkOrderId,
+    lifecycleStatus: v.lifecycleStatus || "INGESTED",
     createdAt: v.createdAt.toISOString(),
     updatedAt: v.updatedAt.toISOString(),
     daysUntilCure,

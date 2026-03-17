@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { RefreshCw, AlertTriangle, ShieldCheck, DollarSign, Calendar, Bug } from "lucide-react";
-import { useViolations, useViolationStats, useSyncViolationsStream } from "@/hooks/use-violations";
+import { RefreshCw, AlertTriangle, ShieldCheck, DollarSign, Calendar, Bug, Wrench } from "lucide-react";
+import { useViolations, useViolationStats, useSyncViolationsStream, useCreateWorkOrderFromViolation } from "@/hooks/use-violations";
 import EmptyState from "@/components/ui/empty-state";
 import { useAppStore } from "@/stores/app-store";
 import { useBuildings } from "@/hooks/use-buildings";
@@ -39,6 +39,23 @@ function ClassBadge({ cls }: { cls: string | null }) {
   );
 }
 
+function LifecycleBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    INGESTED: "bg-gray-500/10 text-gray-400",
+    TRIAGED: "bg-blue-500/10 text-blue-400",
+    DISPATCHED: "bg-purple-500/10 text-purple-400",
+    EVIDENCE_SUBMITTED: "bg-indigo-500/10 text-indigo-400",
+    PM_VERIFIED: "bg-green-500/10 text-green-400",
+    CLOSED: "bg-gray-500/10 text-gray-500",
+  };
+  const label = status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${styles[status] || "bg-card-hover text-text-muted"}`}>
+      {label}
+    </span>
+  );
+}
+
 export default function ViolationsTab() {
   const { data: session } = useSession();
   const isAdmin = ["SUPER_ADMIN", "ADMIN", "ACCOUNT_ADMIN"].includes(session?.user?.role ?? "");
@@ -61,6 +78,7 @@ export default function ViolationsTab() {
   });
   const { data: stats } = useViolationStats();
   const { mutate: syncMutate, isPending: syncPending, progress: syncProgress } = useSyncViolationsStream();
+  const createWO = useCreateWorkOrderFromViolation();
 
   if (isLoading) return <LoadingSpinner />;
 
@@ -214,7 +232,9 @@ export default function ViolationsTab() {
               <th className="px-4 py-3 text-xs font-medium text-text-dim uppercase">Description</th>
               <th className="px-4 py-3 text-xs font-medium text-text-dim uppercase">Status</th>
               <th className="px-4 py-3 text-xs font-medium text-text-dim uppercase">Penalty</th>
+              <th className="px-4 py-3 text-xs font-medium text-text-dim uppercase">Lifecycle</th>
               <th className="px-4 py-3 text-xs font-medium text-text-dim uppercase">Cure</th>
+              <th className="px-4 py-3 text-xs font-medium text-text-dim uppercase">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -231,7 +251,23 @@ export default function ViolationsTab() {
                 <td className="px-4 py-3 text-text-muted truncate max-w-[250px]">{v.description}</td>
                 <td className="px-4 py-3 text-text-muted text-xs">{v.currentStatus || "—"}</td>
                 <td className="px-4 py-3 text-text-muted font-mono">{Number(v.penaltyAmount) > 0 ? fmt$(v.penaltyAmount) : "—"}</td>
+                <td className="px-4 py-3"><LifecycleBadge status={v.lifecycleStatus} /></td>
                 <td className="px-4 py-3"><CureBadge days={v.daysUntilCure} /></td>
+                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                  {!v.linkedWorkOrderId && (
+                    <button
+                      onClick={() => createWO.mutate(v.id)}
+                      disabled={createWO.isPending}
+                      className="inline-flex items-center gap-1 text-xs text-accent hover:text-accent/80 transition-colors disabled:opacity-50"
+                    >
+                      <Wrench className="w-3 h-3" />
+                      Create WO
+                    </button>
+                  )}
+                  {v.linkedWorkOrderId && (
+                    <span className="text-xs text-green-400">WO Linked</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

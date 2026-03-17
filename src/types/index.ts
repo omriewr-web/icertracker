@@ -259,6 +259,7 @@ export interface ViolationView {
   hearingDate: string | null;
   hearingStatus: string | null;
   linkedWorkOrderId: string | null;
+  lifecycleStatus: string;
   createdAt: string;
   updatedAt: string;
   daysUntilCure: number | null;

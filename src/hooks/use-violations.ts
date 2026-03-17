@@ -156,3 +156,25 @@ export function useSyncViolationsStream() {
 
   return { mutate, isPending, progress };
 }
+
+export function useCreateWorkOrderFromViolation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (violationId: string) => {
+      const res = await fetch(`/api/violations/${violationId}/create-work-order`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to create work order");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["violations"] });
+      qc.invalidateQueries({ queryKey: ["workOrders"] });
+      toast.success("Work order created from violation");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
