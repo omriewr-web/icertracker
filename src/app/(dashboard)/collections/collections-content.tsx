@@ -639,8 +639,8 @@ export default function CollectionsContent() {
         </div>
       ) : (
         <EmptyState
-          title="No tenants in arrears"
-          description="All tenants are current on their balances. Tenants with outstanding balances will appear here."
+          title="No outstanding balances"
+          description="All tenants are current. No collection activity needed."
           icon={DollarSign}
         />
       )}

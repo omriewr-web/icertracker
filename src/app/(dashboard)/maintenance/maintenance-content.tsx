@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Wrench, Plus, List, LayoutGrid, X } from "lucide-react";
+import { Wrench, Plus, List, LayoutGrid, X, CheckSquare } from "lucide-react";
 import { useWorkOrders, useBulkUpdateWorkOrders } from "@/hooks/use-work-orders";
 import { useVendors } from "@/hooks/use-vendors";
 import KpiCard from "@/components/ui/kpi-card";
@@ -299,7 +299,7 @@ export default function MaintenanceContent() {
                     </tr>
                   ))}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={10}><EmptyState icon={Wrench} title="No work orders found" description="Create a work order to start tracking maintenance tasks." /></td></tr>
+                    <tr><td colSpan={10}><EmptyState icon={CheckSquare} title="No work orders" description="No open work orders. Create one to track maintenance tasks." action={{ label: "Create Work Order", href: "/maintenance" }} /></td></tr>
                   )}
                 </tbody>
               </table>
