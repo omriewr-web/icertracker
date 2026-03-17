@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
+import { getBuildingIdScope, EMPTY_SCOPE } from "@/lib/data-scope";
 
 export const dynamic = "force-dynamic";
 
 export const POST = withAuth(async (_req, { user }) => {
+  const scope = getBuildingIdScope(user);
+  if (scope === EMPTY_SCOPE) return NextResponse.json({ geocoded: 0, total: 0 });
+
   const buildings = await prisma.building.findMany({
-    where: { lat: null },
+    where: { ...(scope as object), lat: null },
     select: { id: true, address: true, city: true, state: true },
   });
 

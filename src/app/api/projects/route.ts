@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
-import { getBuildingScope, EMPTY_SCOPE } from "@/lib/data-scope";
+import { getBuildingScope, EMPTY_SCOPE, assertBuildingAccess } from "@/lib/data-scope";
 import { getDisplayAddress } from "@/lib/building-matching";
 import { toNumber } from "@/lib/utils/decimal";
 
@@ -82,6 +82,12 @@ export const GET = withAuth(async (req, { user }) => {
 
 export const POST = withAuth(async (req, { user }) => {
   const body = await req.json();
+
+  if (!body.buildingId) {
+    return NextResponse.json({ error: "buildingId is required" }, { status: 400 });
+  }
+  const forbidden = await assertBuildingAccess(user, body.buildingId);
+  if (forbidden) return forbidden;
 
   const project = await prisma.$transaction(async (tx) => {
     const created = await tx.project.create({
