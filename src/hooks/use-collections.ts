@@ -172,6 +172,37 @@ export function useSendToLegal() {
   });
 }
 
+// ── Bulk follow-up ──
+
+export function useBulkFollowup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: {
+      tenantIds: string[];
+      noteText: string;
+      noteType: string;
+    }) => {
+      const res = await fetch("/api/collections/bulk-followup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to send bulk follow-up");
+      }
+      return res.json();
+    },
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ["collections"] });
+      toast.success(
+        `Follow-up notes created for ${result.success} tenant${result.success !== 1 ? "s" : ""}`
+      );
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
 // ── Update collection status ──
 
 export function useUpdateCollectionStatus() {
