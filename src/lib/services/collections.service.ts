@@ -127,6 +127,8 @@ export async function getTenantCollectionProfile(
         balance: true,
         actualRent: true,
         marketRent: true,
+        legalRent: true,
+        collectionScore: true,
         leaseStatus: true,
         leaseExpiration: true,
         arrearsCategory: true,
@@ -135,7 +137,7 @@ export async function getTenantCollectionProfile(
         unit: {
           select: {
             unitNumber: true,
-            building: { select: { id: true, address: true } },
+            building: { select: { id: true, address: true, altAddress: true } },
           },
         },
       },
@@ -187,6 +189,7 @@ export async function getTenantCollectionProfile(
         balance: Number(tenant.balance),
         actualRent: Number(tenant.actualRent),
         marketRent: Number(tenant.marketRent),
+        legalRent: Number(tenant.legalRent),
         monthsOwed: Number(tenant.monthsOwed),
       }
     : null;
