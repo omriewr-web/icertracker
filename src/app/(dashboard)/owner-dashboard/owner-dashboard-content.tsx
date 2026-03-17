@@ -189,6 +189,11 @@ export default function OwnerDashboardContent() {
 
   const m = metrics;
 
+  // Total AR balance across all buildings
+  const totalAR = useMemo(() => {
+    return buildings.reduce((sum, b) => sum + Number(b.totalBalance ?? 0), 0);
+  }, [buildings]);
+
   // Aggregate vacancy data from buildings if direct vacancy API failed
   const vacancySummary = useMemo(() => {
     if (vacancies.length > 0) {
@@ -226,6 +231,7 @@ export default function OwnerDashboardContent() {
               occupied: b.occupied,
               vacant: b.vacant,
               occupancy: b.totalUnits > 0 ? `${((b.occupied / b.totalUnits) * 100).toFixed(1)}%` : "N/A",
+              arBalance: fmt$(Number(b.totalBalance ?? 0)),
               arrears: fmt$(b.totalBalance),
               legalCases: b.legalCount,
             }))}
@@ -236,6 +242,7 @@ export default function OwnerDashboardContent() {
               { key: "occupied", label: "Occupied" },
               { key: "vacant", label: "Vacant" },
               { key: "occupancy", label: "Occupancy %" },
+              { key: "arBalance", label: "AR Balance" },
               { key: "arrears", label: "Arrears" },
               { key: "legalCases", label: "Legal" },
             ]}
@@ -246,7 +253,7 @@ export default function OwnerDashboardContent() {
                 ? [
                     { label: "Total Units", value: String(m.totalUnits) },
                     { label: "Occupancy", value: `${Number(m.occupancyRate).toFixed(1)}%` },
-                    { label: "Total AR", value: fmt$(m.totalBalance) },
+                    { label: "Total AR", value: fmt$(totalAR) },
                     { label: "Legal Cases", value: String(m.legalCaseCount) },
                   ]
                 : [],
@@ -265,7 +272,7 @@ export default function OwnerDashboardContent() {
           <SectionError label="portfolio metrics" />
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           <KpiCard label="Total Units" value={Number(m.totalUnits ?? 0)} icon={Building2} color="#C9A84C" />
           <KpiCard
             label="Occupancy Rate"
@@ -280,6 +287,12 @@ export default function OwnerDashboardContent() {
             color={m.vacant > 0 ? "#f59e0b" : "#C9A84C"}
             subtext={m.lostRent > 0 ? `${fmt$(m.lostRent)}/mo lost` : undefined}
             subtextColor="#ef4444"
+          />
+          <KpiCard
+            label="Total AR"
+            value={buildingsLoading ? "..." : fmt$(totalAR)}
+            icon={DollarSign}
+            color="#ef4444"
           />
           <KpiCard
             label="Lost Rent/Mo"
@@ -319,6 +332,7 @@ export default function OwnerDashboardContent() {
                   <SortTh label="Units" col="totalUnits" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
                   <SortTh label="Occupied" col="occupied" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
                   <SortTh label="Vacant" col="vacant" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                  <SortTh label="AR Balance" col="totalBalance" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
                   <th className="py-2 text-right font-medium px-2">Occupancy %</th>
                   <SortTh label="Violations" col="arrearsCount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
                   <SortTh label="Legal" col="legalCount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
@@ -342,6 +356,15 @@ export default function OwnerDashboardContent() {
                       <td className="py-2.5 text-right text-text-muted tabular-nums px-2">{b.occupied}</td>
                       <td className="py-2.5 text-right tabular-nums px-2">
                         <span className={b.vacant > 0 ? "text-amber-400" : "text-text-muted"}>{b.vacant}</span>
+                      </td>
+                      <td className="py-2.5 text-right tabular-nums px-2">
+                        <span className={
+                          Number(b.totalBalance ?? 0) > 50000 ? "text-red-400" :
+                          Number(b.totalBalance ?? 0) > 10000 ? "text-amber-400" :
+                          "text-text-muted"
+                        }>
+                          {fmt$(Number(b.totalBalance ?? 0))}
+                        </span>
                       </td>
                       <td className="py-2.5 text-right px-2">
                         <div className="flex items-center justify-end gap-2">
