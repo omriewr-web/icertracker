@@ -254,7 +254,7 @@ export default function ViolationsTab() {
                 <td className="px-4 py-3"><LifecycleBadge status={v.lifecycleStatus} /></td>
                 <td className="px-4 py-3"><CureBadge days={v.daysUntilCure} /></td>
                 <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                  {!v.linkedWorkOrderId && (
+                  {!v.linkedWorkOrderId && (v.class === "C" || v.class === "B") && ["INGESTED", "TRIAGED"].includes(v.lifecycleStatus) && (
                     <button
                       onClick={() => createWO.mutate(v.id)}
                       disabled={createWO.isPending}
