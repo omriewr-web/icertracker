@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "UNLICENSED",
-  "description": "AtlasPM - Rent Collection & Portfolio Management",
+  "description": "AtlasPM — The operating system for NYC buildings",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",

@@ -1,6 +1,6 @@
 # AtlasPM
 
-Rent Collection & Portfolio Management Platform.
+The operating system for NYC buildings.
 
 ---
 
