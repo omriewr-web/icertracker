@@ -291,7 +291,7 @@ export default function DailyBriefingContent() {
                   <span className="text-xs text-text-dim">
                     {s.lastTriggeredAt ? timeAgo(s.lastTriggeredAt) : s.createdAt ? timeAgo(s.createdAt) : ""}
                   </span>
-                  <Link href="/signals" className="text-xs text-accent hover:underline whitespace-nowrap">
+                  <Link href="/coeus" className="text-xs text-accent hover:underline whitespace-nowrap">
                     View →
                   </Link>
                 </div>
