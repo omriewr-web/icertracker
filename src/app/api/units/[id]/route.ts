@@ -27,6 +27,8 @@ export const PATCH = withAuth(async (req, { user, params }) => {
       ...(body.accessNotes !== undefined && { accessNotes: body.accessNotes }),
       ...(body.superName !== undefined && { superName: body.superName }),
       ...(body.superPhone !== undefined && { superPhone: body.superPhone }),
+      ...(body.vacantSince !== undefined && { vacantSince: body.vacantSince }),
+      ...(body.readyDate !== undefined && { readyDate: body.readyDate }),
     },
   });
   return NextResponse.json(unit);

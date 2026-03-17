@@ -84,16 +84,35 @@ export async function createTurnover(data: {
   });
   if (existing) return existing;
 
-  return prisma.turnoverWorkflow.create({
-    data: {
-      unitId: data.unitId,
-      buildingId: data.buildingId,
-      triggeredBy: data.triggeredBy || "MANUAL",
-      moveOutDate: data.moveOutDate ? new Date(data.moveOutDate) : null,
-      moveOutSource: data.moveOutSource || null,
-      assignedToUserId: data.assignedToUserId || null,
-      status: "PENDING_INSPECTION",
-    },
+  const moveOutDateParsed = data.moveOutDate ? new Date(data.moveOutDate) : null;
+
+  // Create turnover and set vacantSince on the unit if not already set
+  return prisma.$transaction(async (tx) => {
+    const turnover = await tx.turnoverWorkflow.create({
+      data: {
+        unitId: data.unitId,
+        buildingId: data.buildingId,
+        triggeredBy: data.triggeredBy || "MANUAL",
+        moveOutDate: moveOutDateParsed,
+        moveOutSource: data.moveOutSource || null,
+        assignedToUserId: data.assignedToUserId || null,
+        status: "PENDING_INSPECTION",
+      },
+    });
+
+    // Auto-set vacantSince from moveOutDate or now if not already set
+    const unit = await tx.unit.findUnique({
+      where: { id: data.unitId },
+      select: { vacantSince: true },
+    });
+    if (unit && !unit.vacantSince) {
+      await tx.unit.update({
+        where: { id: data.unitId },
+        data: { vacantSince: moveOutDateParsed || new Date() },
+      });
+    }
+
+    return turnover;
   });
 }
 

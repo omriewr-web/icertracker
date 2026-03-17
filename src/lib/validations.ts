@@ -484,6 +484,8 @@ export const unitUpdateSchema = z.object({
   accessNotes: z.string().nullable().optional(),
   superName: z.string().nullable().optional(),
   superPhone: z.string().nullable().optional(),
+  vacantSince: z.coerce.date().nullable().optional(),
+  readyDate: z.coerce.date().nullable().optional(),
 });
 
 // ── Signal Schema ───────────────────────────────────────────

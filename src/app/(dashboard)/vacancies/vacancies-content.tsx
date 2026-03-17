@@ -5,12 +5,13 @@ import Link from "next/link";
 import {
   DoorOpen, Wrench, CheckCircle, Clock, Tag, AlertTriangle,
   MoreHorizontal, Key, User, Package, HelpCircle, Hash,
-  ArrowRight, Hammer, DollarSign, Loader2,
+  ArrowRight, Hammer, DollarSign, Loader2, CalendarClock,
 } from "lucide-react";
 import {
   useVacancies, useUpdateVacancyStatus, useVacancyRent,
   useUpdateVacancyUnit, VacancyUnitView,
 } from "@/hooks/use-vacancies";
+import { useSession } from "next-auth/react";
 import { useBuildings } from "@/hooks/use-buildings";
 import { useMetrics } from "@/hooks/use-metrics";
 import KpiCard from "@/components/ui/kpi-card";
@@ -401,13 +402,37 @@ function RentModal({ unitId, action, currentRent, onClose }: {
 
 // ── Actions Dropdown ──────────────────────────────────────────
 
-function ActionsMenu({ unit, onApproveRent }: {
+function ActionsMenu({ unit, onApproveRent, isAdmin }: {
   unit: VacancyUnitView;
   onApproveRent: () => void;
+  isAdmin?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [dateField, setDateField] = useState<"vacantSince" | "readyDate" | null>(null);
+  const [dateValue, setDateValue] = useState("");
+  const [saving, setSaving] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  useClickOutside(ref, () => setOpen(false));
+  useClickOutside(ref, () => { setOpen(false); setDateField(null); });
+
+  async function saveDate(field: "vacantSince" | "readyDate") {
+    if (!dateValue) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/units/${unit.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: new Date(dateValue).toISOString() }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setDateField(null);
+      setOpen(false);
+      window.location.reload();
+    } catch {
+      // error silently
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div ref={ref} className="relative">
@@ -454,6 +479,53 @@ function ActionsMenu({ unit, onApproveRent }: {
               View Turnover Detail
             </Link>
           )}
+          {isAdmin && (
+            <>
+              <div className="border-t border-border my-1" />
+              <button
+                onClick={() => { setDateField("vacantSince"); setDateValue(unit.vacantSince?.split("T")[0] || ""); }}
+                className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors"
+              >
+                <CalendarClock className="w-3.5 h-3.5" />
+                Set Vacant Since
+              </button>
+              <button
+                onClick={() => { setDateField("readyDate"); setDateValue(unit.readyDate?.split("T")[0] || ""); }}
+                className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors"
+              >
+                <CalendarClock className="w-3.5 h-3.5" />
+                Set Ready Date
+              </button>
+            </>
+          )}
+          {dateField && (
+            <div className="px-3 py-2 border-t border-border">
+              <p className="text-[10px] text-text-dim uppercase mb-1">
+                {dateField === "vacantSince" ? "Vacant Since" : "Ready Date"}
+              </p>
+              <input
+                type="date"
+                value={dateValue}
+                onChange={(e) => setDateValue(e.target.value)}
+                className="w-full bg-bg border border-border rounded px-2 py-1 text-xs text-text-primary mb-1"
+              />
+              <div className="flex gap-1">
+                <button
+                  onClick={() => saveDate(dateField)}
+                  disabled={saving || !dateValue}
+                  className="flex-1 px-2 py-1 text-xs bg-accent text-white rounded disabled:opacity-50"
+                >
+                  {saving ? "..." : "Save"}
+                </button>
+                <button
+                  onClick={() => setDateField(null)}
+                  className="px-2 py-1 text-xs text-text-dim hover:text-text-muted"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -462,7 +534,12 @@ function ActionsMenu({ unit, onApproveRent }: {
 
 // ── Main Component ────────────────────────────────────────────
 
+const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN", "ACCOUNT_ADMIN"];
+
 export default function VacanciesContent() {
+  const { data: session } = useSession();
+  const isAdmin = ADMIN_ROLES.includes(session?.user?.role || "");
+
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [filterDays, setFilterDays] = useState<string>("");
   const [filterBuilding, setFilterBuilding] = useState<string>("");
@@ -682,6 +759,7 @@ export default function VacanciesContent() {
                     <ActionsMenu
                       unit={u}
                       onApproveRent={() => setRentModal({ unitId: u.id, action: "approve", currentRent: u.proposedRent })}
+                      isAdmin={isAdmin}
                     />
                   </td>
                 </tr>

@@ -11,6 +11,12 @@ const statusSchema = z.object({
   status: z.nativeEnum(VacancyStatus),
 });
 
+// Statuses that represent a vacant unit
+const VACANCY_STATUSES: VacancyStatus[] = [
+  "VACANT", "PRE_TURNOVER", "TURNOVER", "READY_TO_SHOW",
+  "RENT_PROPOSED", "RENT_APPROVED", "LISTED", "LEASED",
+];
+
 export const PATCH = withAuth(async (req, { user, params }) => {
   const { unitId } = await params;
   const denied = await assertUnitAccess(user, unitId);
@@ -19,19 +25,32 @@ export const PATCH = withAuth(async (req, { user, params }) => {
   const { status } = await parseBody(req, statusSchema);
   const now = new Date();
 
-  // Get current unit for building context
+  // Get current unit state
   const unit = await prisma.unit.findUnique({
     where: { id: unitId },
-    select: { buildingId: true, vacancyStatus: true },
+    select: { buildingId: true, vacancyStatus: true, vacantSince: true, readyDate: true },
   });
   if (!unit) return NextResponse.json({ error: "Unit not found" }, { status: 404 });
 
   if (status === "TURNOVER" || status === "PRE_TURNOVER") {
     // Transition to turnover: unit update + turnover record creation in transaction
     const result = await prisma.$transaction(async (tx) => {
+      const updateData: any = {
+        vacancyStatus: status,
+        statusChangedAt: now,
+      };
+      // Auto-set vacantSince if not already set
+      if (!unit.vacantSince) {
+        updateData.vacantSince = now;
+      }
+      // Clear readyDate when going back to turnover
+      if (unit.readyDate) {
+        updateData.readyDate = null;
+      }
+
       const updated = await tx.unit.update({
         where: { id: unitId },
-        data: { vacancyStatus: status, statusChangedAt: now },
+        data: updateData,
       });
 
       // Upsert active turnover
@@ -57,11 +76,17 @@ export const PATCH = withAuth(async (req, { user, params }) => {
   }
 
   if (status === "OCCUPIED") {
-    // Transition to occupied: set isVacant=false + close active turnover
+    // Transition to occupied: clear vacancy fields + close active turnover
     const result = await prisma.$transaction(async (tx) => {
       const updated = await tx.unit.update({
         where: { id: unitId },
-        data: { vacancyStatus: "OCCUPIED", isVacant: false, statusChangedAt: now },
+        data: {
+          vacancyStatus: "OCCUPIED",
+          isVacant: false,
+          statusChangedAt: now,
+          vacantSince: null,
+          readyDate: null,
+        },
       });
 
       await tx.turnoverWorkflow.updateMany({
@@ -75,16 +100,30 @@ export const PATCH = withAuth(async (req, { user, params }) => {
     return NextResponse.json(result);
   }
 
-  // If transitioning to READY_TO_SHOW, set readyDate
-  const extraData: any = {};
-  if (status === "READY_TO_SHOW") {
-    extraData.readyDate = now;
+  // Build update data for other status transitions
+  const updateData: any = {
+    vacancyStatus: status,
+    statusChangedAt: now,
+  };
+
+  // Auto-set vacantSince if transitioning to any vacancy status and not set
+  if (VACANCY_STATUSES.includes(status) && !unit.vacantSince) {
+    updateData.vacantSince = now;
   }
 
-  // Default: simple status update
+  // Auto-set readyDate when transitioning to READY_TO_SHOW
+  if (status === "READY_TO_SHOW") {
+    updateData.readyDate = now;
+  }
+
+  // Clear readyDate if moving backwards from READY_TO_SHOW
+  if (unit.vacancyStatus === "READY_TO_SHOW" && status !== "READY_TO_SHOW") {
+    updateData.readyDate = null;
+  }
+
   const updated = await prisma.unit.update({
     where: { id: unitId },
-    data: { vacancyStatus: status, statusChangedAt: now, ...extraData },
+    data: updateData,
   });
 
   return NextResponse.json(updated);
