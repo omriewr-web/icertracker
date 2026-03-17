@@ -33,24 +33,33 @@ import { useAppStore } from "@/stores/app-store";
 
 type Section = "INTELLIGENCE" | "FINANCIAL" | "OPERATIONS" | "LEGAL" | "SETTINGS";
 
-const navItems: { href: string; label: string; icon: typeof LayoutDashboard; perm: string; section: Section }[] = [
-  { href: "/", label: "Command Center", icon: LayoutDashboard, perm: "dash", section: "INTELLIGENCE" },
+interface NavItem {
+  href: string;
+  label: string;
+  subtitle?: string;
+  icon: typeof LayoutDashboard;
+  perm: string;
+  section: Section;
+}
+
+const navItems: NavItem[] = [
+  { href: "/", label: "Argus", subtitle: "Portfolio Overview", icon: LayoutDashboard, perm: "dash", section: "INTELLIGENCE" },
   { href: "/owner-dashboard", label: "Owner View", icon: Building2, perm: "owner", section: "INTELLIGENCE" },
-  { href: "/coeus", label: "Coeus", icon: Radio, perm: "dash", section: "INTELLIGENCE" },
+  { href: "/coeus", label: "Coeus", subtitle: "AI Assistant", icon: Radio, perm: "dash", section: "INTELLIGENCE" },
   { href: "/daily", label: "Daily Briefing", icon: CalendarClock, perm: "dash", section: "INTELLIGENCE" },
-  { href: "/alerts", label: "Arrears Alerts", icon: AlertTriangle, perm: "fin", section: "FINANCIAL" },
+  { href: "/alerts", label: "Arrears Alerts", subtitle: "Collection Flags", icon: AlertTriangle, perm: "fin", section: "FINANCIAL" },
   { href: "/collections", label: "Collections", icon: DollarSign, perm: "collections", section: "FINANCIAL" },
   { href: "/collections/report", label: "AR Report", icon: ClipboardList, perm: "collections", section: "FINANCIAL" },
   { href: "/vacancies", label: "Vacancies", icon: DoorOpen, perm: "vac", section: "OPERATIONS" },
   { href: "/leases", label: "Leases", icon: FileText, perm: "lease", section: "OPERATIONS" },
   { href: "/maintenance", label: "Work Orders", icon: Wrench, perm: "maintenance", section: "OPERATIONS" },
   { href: "/projects", label: "Projects", icon: FolderKanban, perm: "maintenance", section: "OPERATIONS" },
-  { href: "/themis", label: "Themis", icon: Scale, perm: "maintenance", section: "OPERATIONS" },
+  { href: "/themis", label: "Themis", subtitle: "Legal Pipeline", icon: Scale, perm: "maintenance", section: "OPERATIONS" },
   { href: "/utilities", label: "Utilities", icon: Gauge, perm: "utilities", section: "OPERATIONS" },
   { href: "/compliance", label: "Compliance", icon: Shield, perm: "compliance", section: "OPERATIONS" },
   { href: "/legal", label: "Legal Cases", icon: Scale, perm: "legal", section: "LEGAL" },
   { href: "/reports", label: "Reports", icon: BarChart3, perm: "reports", section: "SETTINGS" },
-  { href: "/data", label: "Data Management", icon: Database, perm: "upload", section: "SETTINGS" },
+  { href: "/data", label: "Data Management", subtitle: "Import & Settings", icon: Database, perm: "upload", section: "SETTINGS" },
   { href: "/users", label: "Users", icon: Users, perm: "users", section: "SETTINGS" },
   { href: "/settings/rgb-orders", label: "RGB Orders", icon: ScrollText, perm: "edit", section: "SETTINGS" },
 ];
@@ -143,7 +152,14 @@ export default function Sidebar() {
                   )}
                 >
                   <item.icon className="w-4 h-4 shrink-0" />
-                  {!sidebarCollapsed && <span>{item.label}</span>}
+                  {!sidebarCollapsed && (
+                    <span className="min-w-0">
+                      <span className="block leading-tight">{item.label}</span>
+                      {item.subtitle && (
+                        <span className="block text-[10px] leading-tight text-text-dim font-normal">{item.subtitle}</span>
+                      )}
+                    </span>
+                  )}
                 </Link>
               );
             })}
