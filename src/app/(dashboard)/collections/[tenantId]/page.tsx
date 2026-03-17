@@ -84,8 +84,8 @@ function getStatusDisplay(dbStatus: string, arrearsDays?: number): { label: stri
 
 function ScoreBadge({ score }: { score: number }) {
   const color =
-    score >= 70 ? "bg-red-500/15 text-red-400 ring-red-500/30" :
-    score >= 40 ? "bg-amber-500/15 text-amber-400 ring-amber-500/30" :
+    score <= 39 ? "bg-red-500/15 text-red-400 ring-red-500/30" :
+    score <= 69 ? "bg-amber-500/15 text-amber-400 ring-amber-500/30" :
     "bg-green-500/15 text-green-400 ring-green-500/30";
   return (
     <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full ring-1 font-mono tabular-nums", color)}>
