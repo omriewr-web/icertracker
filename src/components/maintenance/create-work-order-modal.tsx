@@ -6,6 +6,7 @@ import Button from "@/components/ui/button";
 import { useCreateWorkOrder } from "@/hooks/use-work-orders";
 import { useBuildings } from "@/hooks/use-buildings";
 import { useVendors } from "@/hooks/use-vendors";
+import AIEnhanceButton from "@/components/ui/ai-enhance-button";
 
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 const CATEGORIES = ["PLUMBING", "ELECTRICAL", "HVAC", "APPLIANCE", "GENERAL", "OTHER"] as const;
@@ -97,6 +98,7 @@ export default function CreateWorkOrderModal({ open, onClose }: Props) {
         <div>
           <label className="block text-xs text-text-dim mb-1">Description</label>
           <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent resize-none" rows={3} placeholder="Detailed description..." />
+          <AIEnhanceButton value={form.description} context="work_order_description" onEnhanced={(v) => setForm({ ...form, description: v })} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>

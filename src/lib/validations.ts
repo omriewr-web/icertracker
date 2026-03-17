@@ -534,3 +534,43 @@ export const deduplicateMergeSchema = z.object({
   keepId: z.string().min(1),
   mergeIds: z.array(z.string().min(1)).min(1),
 });
+
+// ── AI Text Enhancement Schema ──────────────────────────────
+
+// Context-aware max lengths for AI text enhancement
+const CONTEXT_MAX_LENGTH: Record<string, number> = {
+  legal_demand_letter: 6000,
+  legal_note: 4000,
+  collection_note: 2000,
+  work_order_description: 2000,
+  work_order_note: 2000,
+  violation_note: 2000,
+  tenant_note: 2000,
+  general: 2000,
+};
+
+export const enhanceTextSchema = z.object({
+  text: z.string().min(10, "Text must be at least 10 characters"),
+  context: z.enum([
+    "collection_note",
+    "legal_note",
+    "work_order_description",
+    "work_order_note",
+    "violation_note",
+    "tenant_note",
+    "legal_demand_letter",
+    "general",
+  ]),
+}).superRefine((data, ctx) => {
+  const maxLen = CONTEXT_MAX_LENGTH[data.context] ?? 2000;
+  if (data.text.length > maxLen) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.too_big,
+      maximum: maxLen,
+      type: "string",
+      inclusive: true,
+      path: ["text"],
+      message: `Text too long for context "${data.context}". Max ${maxLen} characters.`,
+    });
+  }
+});

@@ -36,6 +36,7 @@ import { fmt$, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import { normalizeCollectionStatus, getStatusColor } from "@/lib/collections/types";
+import AIEnhanceButton from "@/components/ui/ai-enhance-button";
 
 // ── Action type config ──
 
@@ -465,6 +466,7 @@ export default function TenantCollectionPage() {
                 rows={3}
                 className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-dim focus:outline-none focus:border-accent resize-none"
               />
+              <AIEnhanceButton value={noteContent} context="collection_note" onEnhanced={(v) => setNoteContent(v)} />
               <div className="flex flex-wrap items-end gap-3">
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] text-text-dim uppercase tracking-wider">Action Type</label>
@@ -526,6 +528,7 @@ export default function TenantCollectionPage() {
                 rows={2}
                 className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-dim focus:outline-none focus:border-accent resize-none"
               />
+              <AIEnhanceButton value={statusNotes} context="collection_note" onEnhanced={(v) => setStatusNotes(v)} />
               <Button
                 size="sm"
                 onClick={() => {

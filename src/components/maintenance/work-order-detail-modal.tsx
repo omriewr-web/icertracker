@@ -15,6 +15,7 @@ import LoadingSpinner from "@/components/ui/loading-spinner";
 import { formatDate } from "@/lib/utils";
 import { Trash2, Upload, ImageIcon, FolderKanban } from "lucide-react";
 import type { WorkOrderActivityEntry } from "@/hooks/use-work-orders";
+import AIEnhanceButton from "@/components/ui/ai-enhance-button";
 
 const STATUSES = ["OPEN", "IN_PROGRESS", "ON_HOLD", "COMPLETED"] as const;
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
@@ -282,6 +283,7 @@ export default function WorkOrderDetailModal({ workOrderId, onClose }: Props) {
                   className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent resize-none"
                   rows={3}
                 />
+                <AIEnhanceButton value={commentText} context="work_order_note" onEnhanced={(v) => setCommentText(v)} />
                 <Button size="sm" onClick={handleAddComment} disabled={!commentText.trim() || addComment.isPending}>
                   {addComment.isPending ? "Adding..." : "Add Comment"}
                 </Button>

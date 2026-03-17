@@ -17,6 +17,7 @@ import {
 import StagePipeline from "./stage-pipeline";
 import { formatDate, fmt$ } from "@/lib/utils";
 import LoadingSpinner from "@/components/ui/loading-spinner";
+import AIEnhanceButton from "@/components/ui/ai-enhance-button";
 
 interface Props {
   tenantId: string | null;
@@ -401,6 +402,7 @@ export default function LegalModal({ tenantId, tenantName, buildingId, onClose }
                 className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent resize-none"
                 rows={2}
               />
+              <AIEnhanceButton value={noteText} context="legal_note" onEnhanced={(v) => setNoteText(v)} />
               <Button size="sm" onClick={handleAddNote} disabled={!noteText.trim() || createNote.isPending}>
                 Add Note
               </Button>
