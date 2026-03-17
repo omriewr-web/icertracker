@@ -249,6 +249,14 @@ model Unit {
   superName            String?
   superPhone           String?
   isResidential        Boolean               @default(true)
+  // Rent regulation fields
+  isRentControlled     Boolean               @default(false)
+  regulationType       RegulationType        @default(UNKNOWN)
+  dhcrRegistrationId   String?
+  lastDhcrRegistrationYear Int?
+  mciMonthlyIncrease   Decimal?              @db.Decimal(10, 2)
+  mciExpirationDate    DateTime?
+  unitRooms            Int?
   building             Building              @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   tenant               Tenant?
   vacancyInfo          VacancyInfo?
@@ -299,6 +307,11 @@ model Tenant {
   monthsOwed         Decimal             @default(0) @db.Decimal(5, 1)
   leaseStatus        String              @default("active")
   collectionScore    Int                 @default(0)
+  // Rent stabilization tracking
+  leaseType          TenantLeaseType     @default(UNKNOWN)
+  rgbOrderApplied    String?
+  iaiMonthlyIncrease Decimal?            @db.Decimal(10, 2)
+  iaiStartDate       DateTime?
   overrides          Json?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -973,6 +986,20 @@ enum LeaseStatus {
   RENEWED
   TERMINATED
   PENDING
+}
+
+enum RegulationType {
+  STABILIZED
+  CONTROLLED
+  UNREGULATED
+  UNKNOWN
+}
+
+enum TenantLeaseType {
+  ONE_YEAR
+  TWO_YEAR
+  MONTH_TO_MONTH
+  UNKNOWN
 }
 
 enum OccupancyStatus {
@@ -2137,6 +2164,23 @@ model CronLog {
 
   @@index([jobName, startedAt])
   @@map("cron_logs")
+}
+
+// ── RGB Orders (Rent Guidelines Board) ──────────────────────────
+
+model RgbOrder {
+  id              String   @id @default(cuid())
+  orderNumber     String   @unique
+  effectiveFrom   DateTime
+  effectiveTo     DateTime
+  oneYearPct      Decimal  @db.Decimal(5, 4)
+  twoYearPct      Decimal  @db.Decimal(5, 4)
+  twoYearY1Pct    Decimal? @db.Decimal(5, 4)
+  twoYearY2Pct    Decimal? @db.Decimal(5, 4)
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  @@map("rgb_orders")
 }
 
 // ── Project Tracker ─────────────────────────────────────────────
