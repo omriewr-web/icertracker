@@ -38,6 +38,8 @@ export const GET = withAuth(async (req, { user, params }) => {
         name: true,
         balance: true,
         legalRent: true,
+        prefRent: true,
+        isStabilized: true,
         collectionScore: true,
         arrearsDays: true,
         leaseExpiration: true,
@@ -45,6 +47,8 @@ export const GET = withAuth(async (req, { user, params }) => {
         unit: {
           select: {
             unitNumber: true,
+            regulationType: true,
+            rentStabilized: true,
             building: { select: { address: true } },
           },
         },
@@ -90,8 +94,16 @@ export const GET = withAuth(async (req, { user, params }) => {
 
   const balance = toNumber(tenant.balance);
   const legalRent = toNumber(tenant.legalRent);
+  const prefRent = toNumber(tenant.prefRent);
   const collectionScore = tenant.collectionScore ?? 0;
   const arrearsDays = tenant.arrearsDays ?? 0;
+
+  // Actual monthly obligation: preferential rent if set, else legal rent if set
+  const obligationLabel = prefRent > 0
+    ? `$${prefRent.toFixed(2)} (preferential rent)`
+    : legalRent > 0
+      ? `$${legalRent.toFixed(2)} (legal rent)`
+      : "not set";
   const status = collectionCase?.status || latestSnapshot?.collectionStatus || "CURRENT";
 
   const daysSinceLastNote = recentNotes.length > 0
@@ -113,7 +125,9 @@ Total balance: $${balance.toFixed(2)} (${arrearsDays} days outstanding)
 Aging: ${aging}
 Collection score: ${collectionScore}/100
 Status: ${status}
-Legal rent: ${legalRent > 0 ? `$${legalRent.toFixed(2)}` : "not set"}
+Monthly obligation: ${obligationLabel}
+Rent stabilized: ${tenant.isStabilized ? "Yes" : "No"}
+Regulation type: ${tenant.unit.regulationType}
 In legal: ${legalCase ? `Yes — stage ${legalCase.stage}, filed ${legalCase.createdAt.toISOString().split("T")[0]}` : "No"}
 Recent activity:
 ${noteLines}
