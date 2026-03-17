@@ -142,8 +142,8 @@ export default function LegalContent() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Legal Cases</h1>
-          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Themis — Justice Pipeline</span>
+          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Themis</h1>
+          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Legal Pipeline</span>
         </div>
         {tab === "cases" && (
           <ExportButton
@@ -214,13 +214,6 @@ export default function LegalContent() {
             <KpiCard label="No Attorney" value={legalStats?.noAttorney ?? 0} icon={UserXIcon} color="#E05C5C" />
             <KpiCard label="No Assignee" value={legalStats?.noAssignee ?? 0} icon={UserMinus} color="#E09A3E" />
             <KpiCard label="Pending Review" value={legalStats?.pendingReview ?? 0} icon={ClipboardCheck} color="#C9A84C" />
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <KpiCard label="Active Cases" value={legalTenants.length} icon={Scale} color="#8B5CF6" />
-            <KpiCard label="Suggested Referrals" value={recommended.length} color="#F97316" />
-            <KpiCard label="Total Balance (Legal)" value={fmt$(legalTenants.reduce((s, t) => s + t.balance, 0))} color="#EF4444" />
-            <KpiCard label="In Court+" value={stageCounts.COURT_DATE + stageCounts.STIPULATION + stageCounts.JUDGMENT + stageCounts.WARRANT + stageCounts.EVICTION} color="#8B5CF6" />
           </div>
 
           <div className="flex gap-2 flex-wrap">
