@@ -516,62 +516,33 @@ export default function TenantCollectionPage() {
 
             {aiQuery.data && (
               <div className="space-y-4">
-                {/* Risk Score */}
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-text-dim uppercase tracking-wider">Risk Score</span>
-                  <span className={cn(
-                    "text-sm px-2.5 py-0.5 rounded-full font-bold uppercase",
-                    aiQuery.data.riskScore === "CRITICAL" ? "bg-red-500/10 text-red-400" :
-                    aiQuery.data.riskScore === "HIGH" ? "bg-orange-500/10 text-orange-400" :
-                    aiQuery.data.riskScore === "MEDIUM" ? "bg-yellow-500/10 text-yellow-400" :
-                    "bg-green-500/10 text-green-400"
-                  )}>
-                    {aiQuery.data.riskScore ?? "—"}
-                  </span>
-                </div>
-
-                {/* Recommended Action */}
-                {aiQuery.data.recommendedAction && (
-                  <div>
-                    <p className="text-xs text-text-dim uppercase tracking-wider mb-1">Recommended Action</p>
-                    <p className="text-sm text-text-primary">{aiQuery.data.recommendedAction}</p>
+                {/* Structured recommendations */}
+                {aiQuery.data.recommendations?.length > 0 ? (
+                  <div className="space-y-3">
+                    {aiQuery.data.recommendations.map((rec: any, i: number) => {
+                      const urgencyColor =
+                        rec.urgency === "High" ? "bg-red-500/10 text-red-400" :
+                        rec.urgency === "Medium" ? "bg-yellow-500/10 text-yellow-400" :
+                        "bg-green-500/10 text-green-400";
+                      return (
+                        <div key={i} className="bg-bg border border-border rounded-lg p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium text-text-primary">{rec.title}</span>
+                            <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-semibold uppercase", urgencyColor)}>
+                              {rec.urgency}
+                            </span>
+                          </div>
+                          <p className="text-xs text-text-muted">{rec.explanation}</p>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
-
-                {/* Reasoning */}
-                {aiQuery.data.reasoning && (
-                  <div>
-                    <p className="text-xs text-text-dim uppercase tracking-wider mb-1">Reasoning</p>
-                    <p className="text-sm text-text-muted">{aiQuery.data.reasoning}</p>
+                ) : aiQuery.data.fallback ? (
+                  /* Fallback: raw text from AI */
+                  <div className="bg-bg border border-border rounded-lg p-3 text-sm text-text-muted whitespace-pre-wrap">
+                    {aiQuery.data.fallback}
                   </div>
-                )}
-
-                {/* Suggested Follow-Up */}
-                {aiQuery.data.suggestedFollowUpDays != null && (
-                  <div>
-                    <p className="text-xs text-text-dim uppercase tracking-wider mb-1">Suggested Follow-Up</p>
-                    <p className="text-sm text-blue-400">In {aiQuery.data.suggestedFollowUpDays} days</p>
-                  </div>
-                )}
-
-                {/* Draft Note */}
-                {aiQuery.data.draftNote && (
-                  <div>
-                    <p className="text-xs text-text-dim uppercase tracking-wider mb-1">Draft Note</p>
-                    <div className="bg-bg border border-border rounded-lg p-3 text-sm text-text-muted">
-                      {aiQuery.data.draftNote}
-                    </div>
-                    <button
-                      onClick={() => {
-                        setNoteContent(aiQuery.data.draftNote);
-                        toast.success("Draft note copied to form");
-                      }}
-                      className="mt-2 text-xs text-accent hover:text-accent-light"
-                    >
-                      Use as note &rarr;
-                    </button>
-                  </div>
-                )}
+                ) : null}
 
                 <button
                   onClick={handleGetAI}

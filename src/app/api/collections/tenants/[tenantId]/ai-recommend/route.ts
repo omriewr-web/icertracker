@@ -6,11 +6,22 @@ import { withAuth } from "@/lib/api-helpers";
 import { assertTenantAccess } from "@/lib/data-scope";
 import { AI_MODEL } from "@/lib/ai-config";
 import { toNumber } from "@/lib/utils/decimal";
+import type { AIRecommendation, AIRecommendResponse, AIRecommendFallbackResponse } from "@/lib/collections/types";
 
 export const dynamic = "force-dynamic";
 
-const SYSTEM_PROMPT = `You are a collections advisor for a NYC property management company. Analyze this tenant's data and return ONLY valid JSON with no extra text:
-{ "riskScore": "LOW"|"MEDIUM"|"HIGH"|"CRITICAL", "recommendedAction": "string", "suggestedFollowUpDays": number, "draftNote": "string", "reasoning": "string" }`;
+const SYSTEM_PROMPT = `You are Atlas AI, a collections advisor for a NYC property management company.
+You analyze tenant payment data and collection history to recommend the next best actions for the property manager.
+Be specific, practical, and prioritized. You understand NYC housing law, rent stabilization, and the legal eviction process.
+
+You MUST return ONLY valid JSON in this exact format, with no extra text before or after:
+{
+  "recommendations": [
+    { "title": "string", "explanation": "string", "urgency": "High" | "Medium" | "Low" }
+  ]
+}
+
+Provide 3–5 specific recommended actions in priority order.`;
 
 export const GET = withAuth(async (req, { user, params }) => {
   const { tenantId } = await params;
@@ -20,12 +31,15 @@ export const GET = withAuth(async (req, { user, params }) => {
 
   // ── Gather context ──
 
-  const [tenant, latestSnapshot, snapshotTrend, recentNotes, legalCase] = await Promise.all([
+  const [tenant, latestSnapshot, collectionCase, recentNotes, legalCase] = await Promise.all([
     prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
         name: true,
         balance: true,
+        legalRent: true,
+        collectionScore: true,
+        arrearsDays: true,
         leaseExpiration: true,
         leaseStatus: true,
         unit: {
@@ -47,15 +61,12 @@ export const GET = withAuth(async (req, { user, params }) => {
         balance61_90: true,
         balance90plus: true,
         collectionStatus: true,
-        snapshotDate: true,
       },
     }),
 
-    prisma.aRSnapshot.findMany({
-      where: { tenantId },
-      orderBy: { snapshotDate: "desc" },
-      take: 6,
-      select: { totalBalance: true, month: true },
+    prisma.collectionCase.findFirst({
+      where: { tenantId, isActive: true },
+      select: { status: true },
     }),
 
     prisma.collectionNote.findMany({
@@ -75,49 +86,41 @@ export const GET = withAuth(async (req, { user, params }) => {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
   }
 
-  // ── Build user message ──
+  // ── Build context message ──
 
-  const context = [
-    `Tenant: ${tenant.name}`,
-    `Unit: ${tenant.unit.unitNumber}, Building: ${tenant.unit.building.address}`,
-    `Current Balance: $${toNumber(tenant.balance).toFixed(2)}`,
-    `Lease Status: ${tenant.leaseStatus}`,
-    `Lease Expiration: ${tenant.leaseExpiration?.toISOString().split("T")[0] ?? "Unknown"}`,
-  ];
+  const balance = toNumber(tenant.balance);
+  const legalRent = toNumber(tenant.legalRent);
+  const collectionScore = tenant.collectionScore ?? 0;
+  const arrearsDays = tenant.arrearsDays ?? 0;
+  const status = collectionCase?.status || latestSnapshot?.collectionStatus || "CURRENT";
 
-  if (latestSnapshot) {
-    context.push(
-      `\nLatest AR Snapshot (${latestSnapshot.snapshotDate.toISOString().split("T")[0]}):`,
-      `  Collection Status: ${latestSnapshot.collectionStatus}`,
-      `  Total Balance: $${toNumber(latestSnapshot.totalBalance).toFixed(2)}`,
-      `  0-30 days: $${toNumber(latestSnapshot.balance0_30).toFixed(2)}`,
-      `  31-60 days: $${toNumber(latestSnapshot.balance31_60).toFixed(2)}`,
-      `  61-90 days: $${toNumber(latestSnapshot.balance61_90).toFixed(2)}`,
-      `  90+ days: $${toNumber(latestSnapshot.balance90plus).toFixed(2)}`,
-    );
-  }
+  const daysSinceLastNote = recentNotes.length > 0
+    ? Math.round((Date.now() - new Date(recentNotes[0].createdAt).getTime()) / (1000 * 60 * 60 * 24))
+    : -1;
 
-  if (snapshotTrend.length > 0) {
-    context.push(`\nBalance Trend (last ${snapshotTrend.length} months):`);
-    for (const s of snapshotTrend.reverse()) {
-      context.push(`  ${s.month.toISOString().split("T")[0]}: $${toNumber(s.totalBalance).toFixed(2)}`);
-    }
-  }
+  const aging = latestSnapshot
+    ? `Current $${toNumber(latestSnapshot.balance0_30).toFixed(2)} | 30+ $${toNumber(latestSnapshot.balance31_60).toFixed(2)} | 60+ $${toNumber(latestSnapshot.balance61_90).toFixed(2)} | 90+ $${toNumber(latestSnapshot.balance90plus).toFixed(2)}`
+    : "No AR snapshot available";
 
-  if (recentNotes.length > 0) {
-    context.push(`\nLast ${recentNotes.length} Collection Notes:`);
-    for (const n of recentNotes) {
-      context.push(`  [${n.createdAt.toISOString().split("T")[0]}] ${n.actionType}: ${n.content}`);
-    }
-  } else {
-    context.push("\nNo collection notes on record.");
-  }
+  const noteLines = recentNotes.length > 0
+    ? recentNotes.map((n) =>
+        `- ${n.createdAt.toISOString().split("T")[0]} ${n.actionType}: ${n.content}`
+      ).join("\n")
+    : "No collection notes on record.";
 
-  if (legalCase) {
-    context.push(`\nActive Legal Case: Stage=${legalCase.stage}, Filed=${legalCase.createdAt.toISOString().split("T")[0]}`);
-  }
+  const userMessage = `Tenant: ${tenant.name}, Unit ${tenant.unit.unitNumber} at ${tenant.unit.building.address}
+Total balance: $${balance.toFixed(2)} (${arrearsDays} days outstanding)
+Aging: ${aging}
+Collection score: ${collectionScore}/100
+Status: ${status}
+Legal rent: ${legalRent > 0 ? `$${legalRent.toFixed(2)}` : "not set"}
+In legal: ${legalCase ? `Yes — stage ${legalCase.stage}, filed ${legalCase.createdAt.toISOString().split("T")[0]}` : "No"}
+Recent activity:
+${noteLines}
+Days since last contact: ${daysSinceLastNote >= 0 ? daysSinceLastNote : "never contacted"}
 
-  const userMessage = context.join("\n");
+Based on this information, provide 3–5 specific recommended actions this property manager should take, in priority order.
+For each action include: action title, brief explanation, and urgency level (High/Medium/Low).`;
 
   // ── Call Anthropic ──
 
@@ -132,7 +135,7 @@ export const GET = withAuth(async (req, { user, params }) => {
 
     const message = await client.messages.create({
       model: AI_MODEL,
-      max_tokens: 600,
+      max_tokens: 1000,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
     });
@@ -147,10 +150,35 @@ export const GET = withAuth(async (req, { user, params }) => {
       raw = raw.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
     }
 
-    const result = JSON.parse(raw);
-    return NextResponse.json(result);
-  } catch (err: any) {
-    console.error("[AI Recommend] Error:", err.message);
+    const generatedAt = new Date().toISOString();
+
+    // Try parsing as structured recommendations
+    try {
+      const parsed = JSON.parse(raw);
+      const recommendations: AIRecommendation[] = (parsed.recommendations ?? []).map((r: any) => ({
+        title: String(r.title ?? ""),
+        explanation: String(r.explanation ?? ""),
+        urgency: ["High", "Medium", "Low"].includes(r.urgency) ? r.urgency : "Medium",
+      }));
+
+      const response: AIRecommendResponse = {
+        recommendations,
+        generatedAt,
+        tenantName: tenant.name,
+        totalBalance: balance,
+      };
+      return NextResponse.json(response);
+    } catch {
+      // Fallback: return raw text if not parseable as JSON
+      const fallback: AIRecommendFallbackResponse = {
+        fallback: raw,
+        generatedAt,
+      };
+      return NextResponse.json(fallback);
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[AI Recommend] Error:", message);
     return NextResponse.json({ error: "AI recommendation unavailable" }, { status: 503 });
   }
 }, "collections");
