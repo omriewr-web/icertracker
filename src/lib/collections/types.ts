@@ -16,3 +16,51 @@ export interface AIRecommendFallbackResponse {
   fallback: string;
   generatedAt: string;
 }
+
+/** AR Report types */
+
+export interface ARAgingBuildingRow {
+  buildingId: string;
+  buildingAddress: string;
+  current: number;
+  days30: number;
+  days60: number;
+  days90: number;
+  days120: number;
+  total: number;
+  pctOfAR: number;
+}
+
+export interface ARTenantDetailRow {
+  tenantId: string;
+  tenantName: string;
+  buildingAddress: string;
+  unit: string;
+  balance: number;
+  current: number;
+  days30: number;
+  days60: number;
+  days90: number;
+  days120: number;
+  status: string;
+  daysSinceNote: number | null;
+  lastNote: string | null;
+}
+
+export interface ARReportData {
+  generatedAt: string;
+  period: { month: string; year: number };
+  summary: {
+    totalBalance: number;
+    tenantCount: number;
+    avgDaysOutstanding: number;
+    largestBalance: number;
+  };
+  agingByBuilding: ARAgingBuildingRow[];
+  tenants: ARTenantDetailRow[];
+  activity: {
+    notesByType: Record<string, number>;
+    statusChanges: number;
+    top5ByBalance: Array<{ tenantName: string; balance: number; lastNoteDate: string | null }>;
+  };
+}

@@ -22,6 +22,7 @@ import {
   Radio,
   Building2,
   FolderKanban,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/permissions";
@@ -38,6 +39,7 @@ const navItems: { href: string; label: string; icon: typeof LayoutDashboard; per
   { href: "/daily", label: "Daily Briefing", icon: CalendarClock, perm: "dash", section: "INTELLIGENCE" },
   { href: "/alerts", label: "Arrears Alerts", icon: AlertTriangle, perm: "fin", section: "FINANCIAL" },
   { href: "/collections", label: "Collections", icon: DollarSign, perm: "collections", section: "FINANCIAL" },
+  { href: "/collections/report", label: "AR Report", icon: ClipboardList, perm: "collections", section: "FINANCIAL" },
   { href: "/vacancies", label: "Vacancies", icon: DoorOpen, perm: "vac", section: "OPERATIONS" },
   { href: "/leases", label: "Leases", icon: FileText, perm: "lease", section: "OPERATIONS" },
   { href: "/maintenance", label: "Work Orders", icon: Wrench, perm: "maintenance", section: "OPERATIONS" },

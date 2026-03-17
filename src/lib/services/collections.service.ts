@@ -575,3 +575,196 @@ export async function sendToLegal(
 
   return { legalCaseId: result.id };
 }
+
+// ── getFullARReport — aggregated aging report ─────────────────
+
+import type { ARReportData, ARAgingBuildingRow, ARTenantDetailRow } from "@/lib/collections/types";
+
+interface FullARReportFilters {
+  buildingId?: string;
+  month?: string; // YYYY-MM
+}
+
+export async function getFullARReport(
+  user: ScopeUser,
+  filters: FullARReportFilters = {}
+): Promise<ARReportData> {
+  const scope = getTenantScope(user, filters.buildingId);
+  if (scope === EMPTY_SCOPE) {
+    const now = new Date();
+    return {
+      generatedAt: now.toISOString(),
+      period: { month: String(now.getMonth() + 1).padStart(2, "0"), year: now.getFullYear() },
+      summary: { totalBalance: 0, tenantCount: 0, avgDaysOutstanding: 0, largestBalance: 0 },
+      agingByBuilding: [],
+      tenants: [],
+      activity: { notesByType: {}, statusChanges: 0, top5ByBalance: [] },
+    };
+  }
+
+  // Parse month filter
+  const now = new Date();
+  let reportMonth: number;
+  let reportYear: number;
+  if (filters.month && /^\d{4}-\d{2}$/.test(filters.month)) {
+    const [y, m] = filters.month.split("-").map(Number);
+    reportYear = y;
+    reportMonth = m;
+  } else {
+    reportYear = now.getFullYear();
+    reportMonth = now.getMonth() + 1;
+  }
+
+  const monthStart = new Date(reportYear, reportMonth - 1, 1);
+  const monthEnd = new Date(reportYear, reportMonth, 0, 23, 59, 59, 999);
+
+  // Fetch tenants with balance > 0
+  const tenants = await prisma.tenant.findMany({
+    where: {
+      ...(scope as object),
+      isDeleted: false,
+      balance: { gt: 0 },
+    },
+    select: {
+      id: true,
+      name: true,
+      balance: true,
+      arrearsDays: true,
+      unit: {
+        select: {
+          unitNumber: true,
+          building: { select: { id: true, address: true } },
+        },
+      },
+      collectionCases: {
+        where: { isActive: true },
+        take: 1,
+        select: { status: true },
+      },
+      collectionNotes: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { content: true, createdAt: true },
+      },
+      arSnapshots: {
+        orderBy: { snapshotDate: "desc" },
+        take: 1,
+        select: {
+          balance0_30: true,
+          balance31_60: true,
+          balance61_90: true,
+          balance90plus: true,
+          totalBalance: true,
+        },
+      },
+    },
+    orderBy: { balance: "desc" },
+  });
+
+  // Build tenant detail rows
+  const tenantRows: ARTenantDetailRow[] = tenants.map((t) => {
+    const snap = t.arSnapshots[0];
+    const balance = Number(t.balance);
+    const lastNoteDate = t.collectionNotes[0]?.createdAt ?? null;
+    const daysSinceNote = lastNoteDate
+      ? Math.round((Date.now() - new Date(lastNoteDate).getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+
+    return {
+      tenantId: t.id,
+      tenantName: t.name,
+      buildingAddress: t.unit.building.address,
+      unit: t.unit.unitNumber,
+      balance,
+      current: snap ? Number(snap.balance0_30) : balance,
+      days30: snap ? Number(snap.balance31_60) : 0,
+      days60: snap ? Number(snap.balance61_90) : 0,
+      days90: snap ? Number(snap.balance90plus) : 0,
+      days120: t.arrearsDays >= 120 && snap ? Number(snap.balance90plus) : 0,
+      status: t.collectionCases[0]?.status ?? "CURRENT",
+      daysSinceNote,
+      lastNote: t.collectionNotes[0]?.content ?? null,
+    };
+  });
+
+  // Summary
+  const totalBalance = tenantRows.reduce((s, t) => s + t.balance, 0);
+  const tenantCount = tenantRows.length;
+  const largestBalance = tenantRows.length > 0 ? tenantRows[0].balance : 0;
+  const totalWeightedDays = tenants.reduce((s, t) => s + Number(t.balance) * t.arrearsDays, 0);
+  const avgDaysOutstanding = totalBalance > 0 ? Math.round(totalWeightedDays / totalBalance) : 0;
+
+  // Aging by building
+  const buildingMap = new Map<string, ARAgingBuildingRow>();
+  for (const t of tenantRows) {
+    const key = t.buildingAddress;
+    const existing = buildingMap.get(key);
+    if (existing) {
+      existing.current += t.current;
+      existing.days30 += t.days30;
+      existing.days60 += t.days60;
+      existing.days90 += t.days90;
+      existing.days120 += t.days120;
+      existing.total += t.balance;
+    } else {
+      const bid = tenants.find((x) => x.unit.building.address === key)?.unit.building.id ?? "";
+      buildingMap.set(key, {
+        buildingId: bid,
+        buildingAddress: key,
+        current: t.current,
+        days30: t.days30,
+        days60: t.days60,
+        days90: t.days90,
+        days120: t.days120,
+        total: t.balance,
+        pctOfAR: 0,
+      });
+    }
+  }
+  const agingByBuilding = Array.from(buildingMap.values())
+    .map((b) => ({ ...b, pctOfAR: totalBalance > 0 ? Math.round((b.total / totalBalance) * 10000) / 100 : 0 }))
+    .sort((a, b) => b.total - a.total);
+
+  // Activity for the month
+  const tenantIds = tenants.map((t) => t.id);
+
+  const [notesThisMonth, statusChanges] = await Promise.all([
+    tenantIds.length > 0
+      ? prisma.collectionNote.findMany({
+          where: {
+            tenantId: { in: tenantIds },
+            createdAt: { gte: monthStart, lte: monthEnd },
+          },
+          select: { actionType: true },
+        })
+      : Promise.resolve([]),
+    tenantIds.length > 0
+      ? prisma.collectionCase.count({
+          where: {
+            tenantId: { in: tenantIds },
+            lastActionDate: { gte: monthStart, lte: monthEnd },
+          },
+        })
+      : Promise.resolve(0),
+  ]);
+
+  const notesByType: Record<string, number> = {};
+  for (const n of notesThisMonth) {
+    notesByType[n.actionType] = (notesByType[n.actionType] ?? 0) + 1;
+  }
+
+  const top5ByBalance = tenantRows.slice(0, 5).map((t) => ({
+    tenantName: t.tenantName,
+    balance: t.balance,
+    lastNoteDate: t.lastNote ? (tenants.find((x) => x.id === t.tenantId)?.collectionNotes[0]?.createdAt?.toISOString() ?? null) : null,
+  }));
+
+  return {
+    generatedAt: new Date().toISOString(),
+    period: { month: String(reportMonth).padStart(2, "0"), year: reportYear },
+    summary: { totalBalance, tenantCount, avgDaysOutstanding, largestBalance },
+    agingByBuilding,
+    tenants: tenantRows,
+    activity: { notesByType, statusChanges, top5ByBalance },
+  };
+}
