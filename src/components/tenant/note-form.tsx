@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Button from "@/components/ui/button";
 import { useCreateNote } from "@/hooks/use-notes";
+import AIEnhanceButton from "@/components/ui/ai-enhance-button";
 
 const CATEGORIES = ["GENERAL", "COLLECTION", "PAYMENT", "LEGAL", "LEASE", "MAINTENANCE"] as const;
 const catColors: Record<string, string> = {
@@ -46,9 +47,12 @@ export default function NoteForm({ tenantId }: { tenantId: string }) {
         className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent resize-none"
         rows={3}
       />
-      <Button size="sm" onClick={handleSubmit} disabled={!text.trim() || createNote.isPending}>
-        {createNote.isPending ? "Adding..." : "Add Note"}
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button size="sm" onClick={handleSubmit} disabled={!text.trim() || createNote.isPending}>
+          {createNote.isPending ? "Adding..." : "Add Note"}
+        </Button>
+        <AIEnhanceButton value={text} context="tenant_note" onEnhanced={(v) => setText(v)} />
+      </div>
     </div>
   );
 }

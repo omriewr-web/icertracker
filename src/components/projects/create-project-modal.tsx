@@ -6,6 +6,7 @@ import Button from "@/components/ui/button";
 import { useCreateProject, useLinkWorkOrder, useLinkViolation } from "@/hooks/use-projects";
 import { useBuildings } from "@/hooks/use-buildings";
 import { useVendors } from "@/hooks/use-vendors";
+import AIEnhanceButton from "@/components/ui/ai-enhance-button";
 
 const CATEGORIES = [
   "TURNOVER", "CAPITAL_IMPROVEMENT", "VIOLATION_REMEDIATION", "LOCAL_LAW",
@@ -150,10 +151,12 @@ export default function CreateProjectModal({ open, onClose, prefill }: Props) {
         <div>
           <label className="block text-xs text-text-dim mb-1">Description</label>
           <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent resize-none" rows={2} placeholder="Project description..." />
+          <AIEnhanceButton value={form.description} context="work_order_description" onEnhanced={(v) => setForm({ ...form, description: v })} />
         </div>
         <div>
           <label className="block text-xs text-text-dim mb-1">Scope of Work</label>
           <textarea value={form.scopeOfWork} onChange={(e) => setForm({ ...form, scopeOfWork: e.target.value })} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent resize-none" rows={2} placeholder="Detailed scope..." />
+          <AIEnhanceButton value={form.scopeOfWork} context="work_order_description" onEnhanced={(v) => setForm({ ...form, scopeOfWork: v })} />
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div>

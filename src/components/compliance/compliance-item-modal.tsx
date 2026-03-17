@@ -7,6 +7,7 @@ import { useBuildings } from "@/hooks/use-buildings";
 import { useVendors } from "@/hooks/use-vendors";
 import { useCreateComplianceItem, useUpdateComplianceItem } from "@/hooks/use-compliance";
 import type { ComplianceItemView } from "@/types";
+import AIEnhanceButton from "@/components/ui/ai-enhance-button";
 
 interface Props {
   open: boolean;
@@ -155,9 +156,11 @@ export default function ComplianceItemModal({ open, onClose, item, defaultBuildi
         </div>
         <Field label="Description">
           <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent" />
+          <AIEnhanceButton value={form.description} context="violation_note" onEnhanced={(v) => setForm({ ...form, description: v })} />
         </Field>
         <Field label="Notes">
           <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent" />
+          <AIEnhanceButton value={form.notes} context="violation_note" onEnhanced={(v) => setForm({ ...form, notes: v })} />
         </Field>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
