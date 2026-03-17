@@ -121,6 +121,7 @@ export default function TenantCollectionPage() {
   const [noteFollowUp, setNoteFollowUp] = useState("");
 
   // Status editor state
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [statusNotes, setStatusNotes] = useState("");
 
   // Edit modal state
@@ -509,8 +510,8 @@ export default function TenantCollectionPage() {
             )}
             <div className="space-y-2">
               <select
-                value={currentStatus}
-                onChange={(e) => handleStatusChange(e.target.value)}
+                value={pendingStatus ?? currentStatus}
+                onChange={(e) => setPendingStatus(e.target.value)}
                 disabled={updateStatus.isPending}
                 className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent"
               >
@@ -525,6 +526,17 @@ export default function TenantCollectionPage() {
                 rows={2}
                 className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-dim focus:outline-none focus:border-accent resize-none"
               />
+              <Button
+                size="sm"
+                onClick={() => {
+                  const target = pendingStatus ?? currentStatus;
+                  handleStatusChange(target);
+                  setPendingStatus(null);
+                }}
+                disabled={updateStatus.isPending || (!pendingStatus && !statusNotes.trim())}
+              >
+                {updateStatus.isPending ? "Saving..." : "Save Status"}
+              </Button>
             </div>
           </div>
 
