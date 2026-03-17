@@ -38,12 +38,12 @@ export default function Header() {
         <OrgSwitcher />
         <button
           onClick={() => setAiPanelOpen(true)}
-          aria-label="Open Bella"
+          aria-label="Open Atlas AI"
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm text-accent bg-accent/10 hover:bg-accent/20 border border-accent/30 transition-colors"
-          title="Bella"
+          title="Atlas AI"
         >
           <Brain className="w-4 h-4" />
-          <span className="hidden sm:inline">Bella</span>
+          <span className="hidden sm:inline">Atlas AI</span>
         </button>
         <span className="text-sm text-text-muted hidden sm:inline">
           {session?.user?.name}{" "}

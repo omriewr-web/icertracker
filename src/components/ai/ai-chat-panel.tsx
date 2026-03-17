@@ -80,7 +80,7 @@ export default function AiChatPanel() {
         <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
           <div className="flex items-center gap-2">
             <Brain className="w-5 h-5 text-accent" />
-            <h2 className="font-semibold text-text-primary">Bella</h2>
+            <h2 className="font-semibold text-text-primary">Atlas AI</h2>
             {aiTenantId && (
               <span className="text-xs bg-accent/20 text-accent px-2 py-0.5 rounded-full">Tenant Analysis</span>
             )}
@@ -139,7 +139,7 @@ export default function AiChatPanel() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={aiTenantId ? "Ask about this tenant..." : "Ask Bella anything..."}
+              placeholder={aiTenantId ? "Ask about this tenant..." : "Ask Atlas AI anything..."}
               rows={1}
               className="flex-1 bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-dim focus:outline-none focus:border-accent resize-none max-h-24"
               style={{ minHeight: "38px" }}
@@ -182,9 +182,9 @@ function EmptyState({ onQuickAction, tenantMode }: { onQuickAction: (prompt: str
   return (
     <div className="flex flex-col items-center justify-center h-full px-4">
       <Sparkles className="w-10 h-10 text-accent mb-3" />
-      <h3 className="text-text-primary font-medium mb-1">Bella</h3>
+      <h3 className="text-text-primary font-medium mb-1">Atlas AI</h3>
       <p className="text-text-dim text-xs mb-6 text-center max-w-sm">
-        Hi, I'm Bella — your AtlasPM assistant. I have access to your full portfolio data. Ask me anything about your tenants, buildings, collections, or legal cases.
+        Hi, I'm Atlas AI — your AtlasPM assistant. I have access to your full portfolio data. Ask me anything about your tenants, buildings, collections, or legal cases.
       </p>
       <div className="w-full space-y-2">
         {quickActions.map((qa) => (
