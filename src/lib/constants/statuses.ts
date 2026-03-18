@@ -91,6 +91,42 @@ export function getCollectionStatusColor(displayLabel: string): StatusStyle {
   return COLLECTION_STATUS_COLORS[displayLabel] ?? { bg: "bg-gray-500/10", text: "text-gray-400" };
 }
 
+// ── Collection case statuses (written to CollectionCase.status) ──
+
+/** Canonical values for CollectionCase.status (plain String field, not enum). */
+export const COLLECTION_CASE_STATUSES = [
+  "monitoring",
+  "demand_sent",
+  "legal_referred",
+  "payment_plan",
+  "resolved",
+] as const;
+
+export type CollectionCaseStatus = (typeof COLLECTION_CASE_STATUSES)[number];
+
+/** For use in UI filter dropdowns and select options */
+export const COLLECTION_CASE_OPTIONS: Array<{ value: CollectionCaseStatus; label: string }> = [
+  { value: "monitoring", label: "Monitoring" },
+  { value: "demand_sent", label: "Demand Sent" },
+  { value: "legal_referred", label: "Legal Referred" },
+  { value: "payment_plan", label: "Payment Plan" },
+  { value: "resolved", label: "Resolved" },
+];
+
+/**
+ * Status options for the tenant profile page status selector.
+ * These map DB enum values (ARSnapshot.collectionStatus) to display labels+colors.
+ */
+export const COLLECTION_PROFILE_STATUS_OPTIONS = [
+  { dbValue: "CURRENT",      label: "Active",       ...COLLECTION_STATUS_COLORS["Active"] },
+  { dbValue: "LATE",         label: "Late",          ...COLLECTION_STATUS_COLORS["Late"] },
+  { dbValue: "DELINQUENT",   label: "Delinquent",    ...COLLECTION_STATUS_COLORS["Delinquent"] },
+  { dbValue: "PAYMENT_PLAN", label: "Payment Plan",  ...COLLECTION_STATUS_COLORS["Payment Plan"] },
+  { dbValue: "LEGAL",        label: "Legal",          ...COLLECTION_STATUS_COLORS["Legal"] },
+  { dbValue: "HARDSHIP",     label: "Hardship",       ...COLLECTION_STATUS_COLORS["Hardship"] },
+  { dbValue: "WRITTEN_OFF",  label: "Written Off",    ...COLLECTION_STATUS_COLORS["Written Off"] },
+] as const;
+
 // ── Legal stages ──────────────────────────────────────────────
 
 export const LEGAL_STAGE_LABELS: Record<string, string> = {

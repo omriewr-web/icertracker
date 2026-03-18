@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getTenantScope, getBuildingScope, EMPTY_SCOPE, canAccessBuilding } from "@/lib/data-scope";
 import type { CollectionActionType, Prisma } from "@prisma/client";
+import { COLLECTION_CASE_STATUSES } from "@/lib/constants/statuses";
 
 // ── Helpers ───────────────────────────────────────────────────
 

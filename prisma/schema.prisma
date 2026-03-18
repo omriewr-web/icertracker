@@ -1294,7 +1294,7 @@ model CollectionCase {
   assignedUserId String?
   balanceOwed    Decimal     @default(0) @db.Decimal(10, 2)
   daysLate       Int         @default(0)
-  status         String      @default("new_arrears") // new_arrears | reminder_sent | payment_plan | notice_served | legal_review | legal_filed
+  status         String      @default("monitoring") // Canonical values: monitoring | demand_sent | legal_referred | payment_plan | resolved (see src/lib/constants/statuses.ts)
   lastActionDate DateTime?
   nextActionDate DateTime?
   notes          String?     @db.Text

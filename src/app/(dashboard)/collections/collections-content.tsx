@@ -38,17 +38,12 @@ import { fmt$, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import ExportButton from "@/components/ui/export-button";
 import { normalizeCollectionStatus, getStatusColor } from "@/lib/collections/types";
+import { COLLECTION_CASE_OPTIONS } from "@/lib/constants/statuses";
 import AIEnhanceButton from "@/components/ui/ai-enhance-button";
 
 // ── Status config (values for dropdowns / API calls) ──
 
-const COLLECTION_STATUSES = [
-  { value: "monitoring", label: "Monitoring" },
-  { value: "demand_sent", label: "Demand Sent" },
-  { value: "legal_referred", label: "Legal Referred" },
-  { value: "payment_plan", label: "Payment Plan" },
-  { value: "resolved", label: "Resolved" },
-];
+const COLLECTION_STATUSES = COLLECTION_CASE_OPTIONS;
 
 // ── Aging badge ──
 
@@ -157,9 +152,23 @@ export default function CollectionsContent() {
   const [bulkValue, setBulkValue] = useState("");
   const [bulkNote, setBulkNote] = useState("");
 
-  // Alerts state
+  // Alerts state — persist dismissals in localStorage (keyed by date so they auto-expire daily)
   const [alertsDismissed, setAlertsDismissed] = useState<Set<string>>(new Set());
   const [alertsExpanded, setAlertsExpanded] = useState(false);
+
+  // Hydration-safe: read localStorage only after mount
+  useEffect(() => {
+    try {
+      const key = `atlas-dismissed-alerts-${new Date().toISOString().split("T")[0]}`;
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const ids: string[] = JSON.parse(stored);
+        if (Array.isArray(ids) && ids.length > 0) {
+          setAlertsDismissed(new Set(ids));
+        }
+      }
+    } catch {}
+  }, []);
 
   // Follow-up inline form state
   const [followUpTenantId, setFollowUpTenantId] = useState<string | null>(null);
@@ -182,7 +191,14 @@ export default function CollectionsContent() {
 
   const dismissAlert = useCallback((tenantId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setAlertsDismissed((prev) => new Set(prev).add(tenantId));
+    setAlertsDismissed((prev) => {
+      const next = new Set(prev).add(tenantId);
+      try {
+        const key = `atlas-dismissed-alerts-${new Date().toISOString().split("T")[0]}`;
+        localStorage.setItem(key, JSON.stringify([...next]));
+      } catch {}
+      return next;
+    });
   }, []);
 
   // Quick action modals
@@ -234,7 +250,14 @@ export default function CollectionsContent() {
       { tenantId: followUpTenantId, data: { content: followUpText, actionType: followUpType } },
       {
         onSuccess: () => {
-          setAlertsDismissed((prev) => new Set(prev).add(followUpTenantId!));
+          setAlertsDismissed((prev) => {
+            const next = new Set(prev).add(followUpTenantId!);
+            try {
+              const key = `atlas-dismissed-alerts-${new Date().toISOString().split("T")[0]}`;
+              localStorage.setItem(key, JSON.stringify([...next]));
+            } catch {}
+            return next;
+          });
           setFollowUpTenantId(null);
           setFollowUpText("");
           setFollowUpType("CALLED");
@@ -385,7 +408,7 @@ export default function CollectionsContent() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Collections</h1>
           <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Financial — A/R Pipeline</span>
@@ -418,10 +441,10 @@ export default function CollectionsContent() {
 
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KpiCard label="Total AR Balance" value={fmt$(dashboard?.totalBalance ?? 0)} icon={DollarSign} color="#e05c5c" />
-        <KpiCard label="Non-Paying Tenants" value={dashboard?.tenantCount ?? 0} icon={AlertTriangle} color="#e09a3e" />
-        <KpiCard label="In Legal" value={dashboard?.legalCount ?? 0} icon={Scale} color="#8B5CF6" />
-        <KpiCard label="Follow-Ups Due" value={dashboard?.followUpsDue ?? 0} subtext="Scheduled follow-ups due today" icon={Phone} color="#3B82F6" />
+        <KpiCard label="Total AR Balance" value={fmt$(dashboard?.totalBalance ?? 0)} icon={DollarSign} color="#e05c5c" onClick={() => { setStatusFilter(""); setCollectionStatusFilter(""); setStaleFilter(false); }} />
+        <KpiCard label="Non-Paying Tenants" value={dashboard?.tenantCount ?? 0} icon={AlertTriangle} color="#e09a3e" onClick={() => { setStatusFilter(""); setCollectionStatusFilter(""); setStaleFilter(false); }} />
+        <KpiCard label="In Legal" value={dashboard?.legalCount ?? 0} icon={Scale} color="#8B5CF6" onClick={() => { setStatusFilter("LEGAL"); setCollectionStatusFilter(""); setStaleFilter(false); }} />
+        <KpiCard label="Follow-Ups Due" value={dashboard?.followUpsDue ?? 0} subtext="Scheduled follow-ups due today" icon={Phone} color="#3B82F6" onClick={() => { setStatusFilter(""); setCollectionStatusFilter(""); setStaleFilter(true); }} />
       </div>
 
       {/* ── Collection Alerts Banner ── */}
@@ -455,20 +478,20 @@ export default function CollectionsContent() {
                         onClick={() => router.push(`/collections/${alert.tenantId}`)}
                         className="flex items-center gap-3 px-4 py-2.5 hover:bg-card-hover transition-colors cursor-pointer border-l-2 border-l-red-500"
                       >
-                        <div className="flex-1 min-w-0 flex items-center gap-4">
-                          <span className="text-sm text-text-primary font-medium truncate w-36">{alert.tenantName}</span>
-                          <span className="text-xs text-text-dim truncate w-40">{alert.buildingAddress} — {alert.unit}</span>
+                        <div className="flex-1 min-w-0 flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-4">
+                          <span className="text-sm text-text-primary font-medium truncate w-full sm:w-36">{alert.tenantName}</span>
+                          <span className="text-xs text-text-dim truncate hidden sm:inline w-40">{alert.buildingAddress} — {alert.unit}</span>
                           <span className="text-xs text-red-400 font-mono w-20 text-right">{fmt$(alert.balance)}</span>
-                          <span className="text-xs truncate flex-1 text-red-400">
+                          <span className="text-xs truncate flex-1 text-red-400 hidden sm:inline">
                             {alert.alertMessage}
                           </span>
                           {alert.daysSinceContact != null && (
-                            <span className="text-[10px] text-text-dim whitespace-nowrap">{alert.daysSinceContact}d since contact</span>
+                            <span className="text-[10px] text-text-dim whitespace-nowrap hidden sm:inline">{alert.daysSinceContact}d since contact</span>
                           )}
                         </div>
                         <button
                           onClick={(e) => openFollowUp(alert, e)}
-                          className="px-2 py-1 text-[11px] font-medium text-accent border border-accent/30 rounded hover:bg-accent/10 transition-colors shrink-0"
+                          className="px-2 py-1 text-[11px] font-medium text-accent border border-accent/30 rounded hover:bg-accent/10 transition-colors shrink-0 hidden sm:inline-flex"
                         >
                           Send Follow-up
                         </button>
@@ -534,20 +557,20 @@ export default function CollectionsContent() {
                         onClick={() => router.push(`/collections/${alert.tenantId}`)}
                         className="flex items-center gap-3 px-4 py-2.5 hover:bg-card-hover transition-colors cursor-pointer border-l-2 border-l-amber-500"
                       >
-                        <div className="flex-1 min-w-0 flex items-center gap-4">
-                          <span className="text-sm text-text-primary font-medium truncate w-36">{alert.tenantName}</span>
-                          <span className="text-xs text-text-dim truncate w-40">{alert.buildingAddress} — {alert.unit}</span>
+                        <div className="flex-1 min-w-0 flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-4">
+                          <span className="text-sm text-text-primary font-medium truncate w-full sm:w-36">{alert.tenantName}</span>
+                          <span className="text-xs text-text-dim truncate hidden sm:inline w-40">{alert.buildingAddress} — {alert.unit}</span>
                           <span className="text-xs text-red-400 font-mono w-20 text-right">{fmt$(alert.balance)}</span>
-                          <span className="text-xs truncate flex-1 text-amber-400">
+                          <span className="text-xs truncate flex-1 text-amber-400 hidden sm:inline">
                             {alert.alertMessage}
                           </span>
                           {alert.daysSinceContact != null && (
-                            <span className="text-[10px] text-text-dim whitespace-nowrap">{alert.daysSinceContact}d since contact</span>
+                            <span className="text-[10px] text-text-dim whitespace-nowrap hidden sm:inline">{alert.daysSinceContact}d since contact</span>
                           )}
                         </div>
                         <button
                           onClick={(e) => openFollowUp(alert, e)}
-                          className="px-2 py-1 text-[11px] font-medium text-accent border border-accent/30 rounded hover:bg-accent/10 transition-colors shrink-0"
+                          className="px-2 py-1 text-[11px] font-medium text-accent border border-accent/30 rounded hover:bg-accent/10 transition-colors shrink-0 hidden sm:inline-flex"
                         >
                           Send Follow-up
                         </button>
@@ -664,11 +687,9 @@ export default function CollectionsContent() {
               className="bg-bg border border-border rounded-lg px-2.5 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent min-w-[160px]"
             >
               <option value="">All</option>
-              <option value="monitoring">Monitoring</option>
-              <option value="demand_sent">Demand Sent</option>
-              <option value="legal_referred">Legal Referred</option>
-              <option value="payment_plan">Payment Plan</option>
-              <option value="resolved">Resolved</option>
+              {COLLECTION_STATUSES.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
               <option value="no_case">No Case</option>
             </select>
           </div>
@@ -725,11 +746,9 @@ export default function CollectionsContent() {
               className="bg-bg border border-border rounded-lg px-2 py-1 text-sm text-text-primary focus:outline-none focus:border-accent"
             >
               <option value="">Select status…</option>
-              <option value="monitoring">Monitoring</option>
-              <option value="demand_sent">Demand Sent</option>
-              <option value="legal_referred">Legal Referred</option>
-              <option value="payment_plan">Payment Plan</option>
-              <option value="resolved">Resolved</option>
+              {COLLECTION_STATUSES.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
             </select>
           )}
           {bulkAction === "add_note" && (
@@ -874,7 +893,7 @@ export default function CollectionsContent() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t border-border">
               <p className="text-xs text-text-dim">
-                Page {page} of {totalPages} ({tenantsData!.total} total)
+                Page {page} of {totalPages} ({tenantsData?.total ?? 0} total)
               </p>
               <div className="flex gap-2">
                 <button

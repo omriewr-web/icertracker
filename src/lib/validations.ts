@@ -437,7 +437,13 @@ export const collectionNoteCreateSchema = z.object({
 });
 
 export const collectionStatusUpdateSchema = z.object({
-  status: z.string().min(1),
+  status: z.enum([
+    // CollectionCase.status values (canonical, from statuses.ts)
+    "monitoring", "demand_sent", "legal_referred", "payment_plan", "resolved",
+    // CollectionStatus enum values (ARSnapshot / Tenant status transitions)
+    "CURRENT", "LATE", "DELINQUENT", "CHRONIC", "PAYMENT_PLAN", "LEGAL",
+    "VACATE_PENDING", "HARDSHIP", "WRITTEN_OFF",
+  ]),
 });
 
 export const aiChatSchema = z.object({

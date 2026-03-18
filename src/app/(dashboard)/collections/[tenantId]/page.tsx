@@ -36,6 +36,7 @@ import { fmt$, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import { normalizeCollectionStatus, getStatusColor } from "@/lib/collections/types";
+import { COLLECTION_PROFILE_STATUS_OPTIONS } from "@/lib/constants/statuses";
 import AIEnhanceButton from "@/components/ui/ai-enhance-button";
 
 // ── Action type config ──
@@ -59,21 +60,7 @@ const ACTION_ICON_MAP: Record<string, typeof Phone> = Object.fromEntries(
 
 // ── Status display mapping (UI only, no schema change) ──
 
-interface StatusOption {
-  dbValue: string;
-  label: string;
-  color: { bg: string; text: string };
-}
-
-const STATUS_OPTIONS: StatusOption[] = [
-  { dbValue: "CURRENT",      label: "Active",              color: { bg: "bg-green-500/10", text: "text-green-400" } },
-  { dbValue: "LATE",         label: "Late",                color: { bg: "bg-yellow-500/10", text: "text-yellow-400" } },
-  { dbValue: "DELINQUENT",   label: "Payment Plan / Follow Up", color: { bg: "bg-orange-500/10", text: "text-orange-400" } },
-  { dbValue: "PAYMENT_PLAN", label: "Payment Plan",        color: { bg: "bg-blue-500/10", text: "text-blue-400" } },
-  { dbValue: "LEGAL",        label: "Legal",               color: { bg: "bg-purple-500/10", text: "text-purple-400" } },
-  { dbValue: "HARDSHIP",     label: "Hardship",            color: { bg: "bg-sky-500/10", text: "text-sky-400" } },
-  { dbValue: "WRITTEN_OFF",  label: "Written Off",         color: { bg: "bg-gray-500/10", text: "text-gray-400" } },
-];
+const STATUS_OPTIONS = COLLECTION_PROFILE_STATUS_OPTIONS;
 
 function getStatusDisplay(dbStatus: string, arrearsDays?: number): { label: string; color: { bg: string; text: string } } {
   const label = normalizeCollectionStatus(dbStatus, arrearsDays);
@@ -352,6 +339,11 @@ export default function TenantCollectionPage() {
               {tenant?.actualRent != null && Number(tenant.actualRent) > 0 && (
                 <span className="text-xs text-text-dim">
                   Rent: <span className="text-text-muted font-mono">{fmt$(Number(tenant.actualRent))}</span>/mo
+                </span>
+              )}
+              {tenant?.legalRent != null && Number(tenant.legalRent) > 0 && (
+                <span className="text-xs text-text-dim">
+                  Legal Rent: <span className="text-text-muted font-mono">{fmt$(Number(tenant.legalRent))}</span>/mo
                 </span>
               )}
             </div>
