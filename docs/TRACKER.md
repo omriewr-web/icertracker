@@ -1,6 +1,6 @@
 # AtlasPM — Project Tracker
 
-Last Updated: 2026-03-18
+Last Updated: 2026-03-18 (Bug 6 fix session)
 
 ---
 
@@ -37,14 +37,25 @@ Last Updated: 2026-03-18
 - [x] W5-B: Demo walkthrough (docs/DEMO-WALKTHROUGH.md — 15-min, 29-step guide)
 - [x] W5-C: README + onboarding guide (README.md + docs/CLIENT-ONBOARDING.md)
 
+### Bug Fixes
+- [x] Bug 1: Owner data leak (commit ebfe048)
+- [x] Bug 2: Org scoping fail-closed (verified OK, no fix needed)
+- [x] Bug 3: Owner dashboard violations column (W3-E)
+- [x] Bug 4: Building legal count display (W3-E)
+- [x] Bug 5: Owner routes leak into /data pages (commit b44c562)
+- [x] Bug 6: Collections status vocabulary drift (commit 08bc00f — see docs/BUGFIX-REPORT-BUG6-2026-03-18.md)
+- [x] Bug 7: Public request honeypot not working (commit d306999)
+
 ### Additional
 - [x] reset:demo script (scripts/reset-demo.ts — FK-safe demo data cleanup)
 - [x] Onboarding-ready checklist (docs/ONBOARDING-READY.md)
+- [x] seed-demo.ts ViolationWhereUniqueInput — confirmed already correct (source_externalId matches @@unique)
 
 ---
 
 ## Active Work
-- None — all waves complete and deployed to myatlaspm.com
+- Bug 6 fixed — awaiting deploy
+- Next: Build `npm run reset:demo` script, deploy, onboard real portfolio
 
 ## Deployment
 - Production: https://www.myatlaspm.com
@@ -55,3 +66,4 @@ Last Updated: 2026-03-18
 - Sentry configuration warnings (instrumentation file migration recommended by @sentry/nextjs)
 - Prisma 5.22.0 → 7.x upgrade available (major version, not urgent)
 - ESLint config needs interactive setup (npm run lint prompts for config selection)
+- Existing DB rows with old CollectionCase.status values (new_arrears, reminder_sent) still work via normalizer but should be migrated to canonical values (monitoring, demand_sent) when convenient
