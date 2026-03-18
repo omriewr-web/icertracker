@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { assertUnitAccess } from "@/lib/data-scope";
 import { z } from "zod";
+import { syncVacancyState } from "@/lib/services/vacancy.service";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,7 @@ export const POST = withAuth(async (req, { user, params }) => {
       },
     });
 
+    if (Object.keys(statusUpdate).length > 0) await syncVacancyState(unitId);
     return NextResponse.json(updated);
   }
 
@@ -69,6 +71,7 @@ export const POST = withAuth(async (req, { user, params }) => {
       },
     });
 
+    await syncVacancyState(unitId);
     return NextResponse.json(updated);
   }
 

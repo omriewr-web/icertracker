@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { paymentCreateSchema } from "@/lib/validations";
 import { assertTenantAccess } from "@/lib/data-scope";
+import { recalculateTenantBalance } from "@/lib/services/collections.service";
 
 export const dynamic = "force-dynamic";
 
@@ -37,5 +38,9 @@ export const POST = withAuth(async (req, { user, params }) => {
     },
     include: { recorder: { select: { name: true } } },
   });
+
+  // Recalculate tenant balance after payment recorded
+  await recalculateTenantBalance(id);
+
   return NextResponse.json(payment, { status: 201 });
 }, "pay");

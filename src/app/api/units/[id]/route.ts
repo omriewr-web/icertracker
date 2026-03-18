@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { assertUnitAccess } from "@/lib/data-scope";
 import { unitUpdateSchema } from "@/lib/validations";
+import { syncVacancyState } from "@/lib/services/vacancy.service";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,7 @@ export const PATCH = withAuth(async (req, { user, params }) => {
   const denied = await assertUnitAccess(user, id);
   if (denied) return denied;
   const body = await parseBody(req, unitUpdateSchema);
+  const vacancyFieldChanged = body.isVacant !== undefined || body.vacancyStatus !== undefined;
   const unit = await prisma.unit.update({
     where: { id },
     data: {
@@ -31,6 +33,11 @@ export const PATCH = withAuth(async (req, { user, params }) => {
       ...(body.readyDate !== undefined && { readyDate: body.readyDate }),
     },
   });
+
+  if (vacancyFieldChanged) {
+    await syncVacancyState(id);
+  }
+
   return NextResponse.json(unit);
 }, "edit");
 
