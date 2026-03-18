@@ -40,7 +40,6 @@ export default function LegalContent() {
   // Filters
   const [searchText, setSearchText] = useState("");
   const [stageFilter, setStageFilter] = useState<string[]>([]);
-  const [statusFilter, setStatusFilter] = useState("");
   const [buildingFilter, setBuildingFilter] = useState("");
   const [courtQuickFilter, setCourtQuickFilter] = useState<"" | "today" | "week">("");
 
@@ -83,7 +82,7 @@ export default function LegalContent() {
     return result;
   }, [legalTenants, searchText, stageFilter, buildingFilter]);
 
-  const hasFilters = searchText || stageFilter.length > 0 || statusFilter || buildingFilter;
+  const hasFilters = searchText || stageFilter.length > 0 || buildingFilter;
 
   const stageCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -134,15 +133,14 @@ export default function LegalContent() {
   function clearFilters() {
     setSearchText("");
     setStageFilter([]);
-    setStatusFilter("");
     setBuildingFilter("");
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Themis</h1>
+          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Legal Cases</h1>
           <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Legal Pipeline</span>
         </div>
         {tab === "cases" && (
@@ -209,11 +207,11 @@ export default function LegalContent() {
         <div className="space-y-6">
           {/* Portfolio stat cards */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <KpiCard label="Active Cases" value={legalStats?.activeCases ?? legalTenants.length} icon={Gavel} color="#8B5CF6" />
-            <KpiCard label="Court This Week" value={legalStats?.courtThisWeek ?? 0} icon={CalendarClock} color="#E09A3E" />
-            <KpiCard label="No Attorney" value={legalStats?.noAttorney ?? 0} icon={UserXIcon} color="#E05C5C" />
-            <KpiCard label="No Assignee" value={legalStats?.noAssignee ?? 0} icon={UserMinus} color="#E09A3E" />
-            <KpiCard label="Pending Review" value={legalStats?.pendingReview ?? 0} icon={ClipboardCheck} color="#C9A84C" />
+            <KpiCard label="Active Cases" value={legalStats?.activeCases ?? legalTenants.length} icon={Gavel} color="#8B5CF6" onClick={() => setStageFilter([])} />
+            <KpiCard label="Court This Week" value={legalStats?.courtThisWeek ?? 0} icon={CalendarClock} color="#E09A3E" onClick={() => setStageFilter(["COURT_SCHEDULED"])} />
+            <KpiCard label="No Attorney" value={legalStats?.noAttorney ?? 0} icon={UserXIcon} color="#E05C5C" onClick={() => setStageFilter([])} />
+            <KpiCard label="No Assignee" value={legalStats?.noAssignee ?? 0} icon={UserMinus} color="#E09A3E" onClick={() => setStageFilter([])} />
+            <KpiCard label="Pending Review" value={legalStats?.pendingReview ?? 0} icon={ClipboardCheck} color="#C9A84C" onClick={() => setStageFilter(["PENDING_REVIEW"])} />
           </div>
 
           <div className="flex gap-2 flex-wrap">
@@ -234,7 +232,7 @@ export default function LegalContent() {
 
           {/* Filters */}
           <div className="flex gap-2 flex-wrap items-center">
-            <div className="relative flex-1 min-w-[200px] max-w-xs">
+            <div className="relative flex-1 min-w-0 sm:min-w-[200px] max-w-xs">
               <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-text-dim" />
               <input
                 value={searchText}

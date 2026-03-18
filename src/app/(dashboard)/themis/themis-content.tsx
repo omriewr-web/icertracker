@@ -351,8 +351,8 @@ export default function ThemisContent() {
       <div className="flex items-center gap-3 mb-4">
         <Scale className="w-6 h-6 text-accent" />
         <div>
-          <h1 className="text-xl font-semibold text-text-primary font-display tracking-wide">Themis</h1>
-          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase">Justice &amp; Legal Defense Vault</span>
+          <h1 className="text-xl font-semibold text-text-primary font-display tracking-wide">Legal Defense</h1>
+          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase">Violation Response Packages</span>
         </div>
       </div>
 

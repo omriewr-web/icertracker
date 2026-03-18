@@ -17,6 +17,7 @@ import PropertiesTable from "./properties-table";
 import BuildingInfo from "./building-info";
 import { useAppStore } from "@/stores/app-store";
 import ExportButton from "@/components/ui/export-button";
+import EmptyState from "@/components/ui/empty-state";
 import { ArgusThreatMap, type RiskBuilding } from "./argus-threat-map";
 import { BuildingIntelPanel } from "./building-intel-panel";
 import { ArrearsBarPanel } from "./arrears-bar-panel";
@@ -44,9 +45,9 @@ export default function DashboardContent() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Argus</h1>
+          <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Portfolio Overview</h1>
           <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Portfolio Overview</span>
         </div>
         <div className="flex items-center gap-2">
@@ -139,7 +140,7 @@ export default function DashboardContent() {
               >
                 Argus Threat Map
               </div>
-              <div className="text-xs font-semibold text-text-primary">NYC Portfolio — Live</div>
+              <div className="text-xs font-semibold text-text-primary">{selectedPortfolio || "All Properties"} — Live</div>
             </div>
             <Link
               href="/coeus"
@@ -179,7 +180,7 @@ export default function DashboardContent() {
         <BuildingInfo building={selectedBuilding} onClose={() => setSelectedBuildingId(null)} />
       )}
 
-      {buildings && buildings.length > 0 && (
+      {buildings && buildings.length > 0 ? (
         <>
           <div className="bg-atlas-navy-3 border border-border rounded-xl p-5 chart-container">
             <h3 className="text-sm font-medium text-text-muted mb-4">Arrears by Building — Legal vs. Non-Legal Exposure</h3>
@@ -191,7 +192,14 @@ export default function DashboardContent() {
             <PropertiesTable buildings={buildings} />
           </div>
         </>
-      )}
+      ) : buildings && buildings.length === 0 ? (
+        <EmptyState
+          icon={Building2}
+          title="No buildings in your portfolio"
+          description="Import your buildings to see portfolio metrics, arrears, and compliance data."
+          action={{ label: "Import Data", href: "/data" }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -209,7 +217,7 @@ function CoeusWidget() {
       <div className="bg-atlas-navy-3 border border-border rounded-xl p-4 hover:bg-card-hover transition-colors card-hover-lift">
         <div className="flex items-center gap-3">
           <Radio className="w-5 h-5 text-accent" />
-          <span className="text-xs font-semibold text-accent uppercase tracking-wider">Coeus Intelligence</span>
+          <span className="text-xs font-semibold text-accent uppercase tracking-wider">Active Signals</span>
           <div className="flex items-center gap-4 text-sm">
             {critical > 0 && (
               <span className="text-text-primary">

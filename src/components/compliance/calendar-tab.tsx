@@ -2,8 +2,10 @@
 
 import { useState, useMemo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { useComplianceItems } from "@/hooks/use-compliance";
-import LoadingSpinner from "@/components/ui/loading-spinner";
+import { CalendarSkeleton } from "@/components/ui/skeleton";
+import EmptyState from "@/components/ui/empty-state";
 
 export default function CalendarTab() {
   const { data: items, isLoading } = useComplianceItems();
@@ -41,7 +43,17 @@ export default function CalendarTab() {
     return map;
   }, [items, year, month]);
 
-  if (isLoading) return <LoadingSpinner />;
+  if (isLoading) return <CalendarSkeleton />;
+
+  if (!items || items.length === 0) {
+    return (
+      <EmptyState
+        icon={CalendarDays}
+        title="No compliance items scheduled"
+        description="Add compliance items in the Tracker tab to see them on the calendar."
+      />
+    );
+  }
 
   const now = new Date();
 

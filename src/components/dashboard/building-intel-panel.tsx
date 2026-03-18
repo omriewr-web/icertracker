@@ -188,7 +188,7 @@ export function BuildingIntelPanel({ building }: { building: RiskBuilding | null
                   background: "rgba(200,144,26,.08)",
                 }}
               >
-                Themis — Generate Defense ↗
+                Legal Defense — Generate Package ↗
               </a>
             </>
           ) : (
@@ -207,7 +207,7 @@ export function BuildingIntelPanel({ building }: { building: RiskBuilding | null
                 background: "rgba(0,196,96,.08)",
               }}
             >
-              Argus — View Full Report ↗
+              View Full Report ↗
             </a>
           )}
         </div>
