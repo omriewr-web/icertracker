@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/api-helpers";
 import { analyzeImport } from "@/lib/importer/analyzeImport";
 import { REQUIRED_FIELDS } from "@/lib/importer/headerAliases";
+import { checkRowLimit } from "@/lib/importer/validateUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,9 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       importType: importType ?? undefined,
       organizationId: user.organizationId,
     });
+
+    const rowLimitError = checkRowLimit(result.previewRows.length);
+    if (rowLimitError) return rowLimitError;
 
     // Determine required fields for this import type
     const fileType = result.fileTypeGuess;

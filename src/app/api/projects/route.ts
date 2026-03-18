@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { withAuth } from "@/lib/api-helpers";
+import { withAuth, parseBody } from "@/lib/api-helpers";
 import { getBuildingScope, EMPTY_SCOPE, assertBuildingAccess } from "@/lib/data-scope";
 import { getDisplayAddress } from "@/lib/building-matching";
 import { toNumber } from "@/lib/utils/decimal";
+import { projectCreateSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
@@ -81,11 +82,8 @@ export const GET = withAuth(async (req, { user }) => {
 }, "maintenance");
 
 export const POST = withAuth(async (req, { user }) => {
-  const body = await req.json();
+  const body = await parseBody(req, projectCreateSchema);
 
-  if (!body.buildingId) {
-    return NextResponse.json({ error: "buildingId is required" }, { status: 400 });
-  }
   const forbidden = await assertBuildingAccess(user, body.buildingId);
   if (forbidden) return forbidden;
 
@@ -101,9 +99,9 @@ export const POST = withAuth(async (req, { user }) => {
         code: body.code || null,
         name: body.name,
         description: body.description || null,
-        category: body.category,
-        status: body.status || "PLANNED",
-        priority: body.priority || "MEDIUM",
+        category: body.category as any,
+        status: body.status as any || "PLANNED",
+        priority: body.priority as any || "MEDIUM",
         scopeOfWork: body.scopeOfWork || null,
         estimatedBudget: body.estimatedBudget ?? null,
         ownerVisible: body.ownerVisible ?? false,

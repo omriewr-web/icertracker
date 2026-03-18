@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { routeParser } from "@/lib/parsers/router";
+import { checkRowLimit } from "@/lib/importer/validateUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,9 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   if (!parsed.success || parsed.data.length === 0) {
     return NextResponse.json({ error: "Could not parse file", errors: parsed.errors }, { status: 400 });
   }
+
+  const rowLimitError = checkRowLimit(parsed.data.length);
+  if (rowLimitError) return rowLimitError;
 
   const orgId = user.organizationId;
 

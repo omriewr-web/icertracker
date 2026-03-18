@@ -4,6 +4,7 @@ import { withAuth } from "@/lib/api-helpers";
 import { routeParser } from "@/lib/parsers/router";
 import { normalizeAddress } from "@/lib/building-matching";
 import { getOrgScope } from "@/lib/data-scope";
+import { checkRowLimit } from "@/lib/importer/validateUpload";
 import type { WorkOrderPriority, WorkOrderCategory, WorkOrderStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +41,9 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   if (!parsed.success || parsed.data.length === 0) {
     return NextResponse.json({ error: "Could not parse file", errors: parsed.errors }, { status: 400 });
   }
+
+  const rowLimitError = checkRowLimit(parsed.data.length);
+  if (rowLimitError) return rowLimitError;
 
   const orgScope = getOrgScope(user);
   const orgId = user.organizationId;

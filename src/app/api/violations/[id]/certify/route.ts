@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { withAuth } from "@/lib/api-helpers";
+import { withAuth, parseBody } from "@/lib/api-helpers";
 import { assertBuildingAccess } from "@/lib/data-scope";
+import { violationCertifySchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export const POST = withAuth(async (req, { user, params }) => {
     return NextResponse.json({ error: "PM or ADMIN role required" }, { status: 403 });
   }
 
-  const body = await req.json().catch(() => ({}));
+  const body = await parseBody(req, violationCertifySchema);
   const notes = body.notes ?? null;
 
   const violation = await prisma.violation.findUnique({

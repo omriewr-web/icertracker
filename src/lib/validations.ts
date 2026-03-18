@@ -482,7 +482,7 @@ export const unitUpdateSchema = z.object({
   askingRent: z.number().min(0).nullable().optional(),
   vacancyStatus: z.enum(["VACANT", "PRE_TURNOVER", "TURNOVER", "READY_TO_SHOW", "RENT_PROPOSED", "RENT_APPROVED", "LISTED", "LEASED", "OCCUPIED"]).nullable().optional(),
   bedroomCount: z.number().int().min(0).max(20).nullable().optional(),
-  bathroomCount: z.number().int().min(0).max(20).nullable().optional(),
+  bathroomCount: z.number().min(0).max(20).multipleOf(0.5).nullable().optional(),
   squareFeet: z.number().int().min(0).nullable().optional(),
   legalRent: z.number().min(0).nullable().optional(),
   accessType: z.enum(["MASTER_KEY", "SUPER", "LOCKBOX", "COMBINATION"]).nullable().optional(),
@@ -573,4 +573,98 @@ export const enhanceTextSchema = z.object({
       message: `Text too long for context "${data.context}". Max ${maxLen} characters.`,
     });
   }
+});
+
+// ── Project Schemas ─────────────────────────────────────────
+
+const PROJECT_CATEGORIES = [
+  "TURNOVER", "CAPITAL_IMPROVEMENT", "VIOLATION_REMEDIATION", "LOCAL_LAW",
+  "FACADE", "ROOF", "BOILER", "PLUMBING", "ELECTRICAL", "APARTMENT_RENO",
+  "ELEVATOR", "FIRE_SAFETY", "GENERAL_MAINTENANCE", "COSMETIC", "OTHER",
+] as const;
+
+const PROJECT_STATUSES = [
+  "PLANNED", "ESTIMATING", "PENDING_APPROVAL", "APPROVED", "IN_PROGRESS",
+  "PAUSED", "SUBSTANTIALLY_COMPLETE", "COMPLETED", "CLOSED", "CANCELLED",
+] as const;
+
+const PROJECT_PRIORITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
+
+export const projectCreateSchema = z.object({
+  buildingId: z.string().min(1),
+  unitId: z.string().nullable().optional(),
+  managerId: z.string().nullable().optional(),
+  vendorId: z.string().nullable().optional(),
+  code: z.string().nullable().optional(),
+  name: z.string().min(1),
+  description: z.string().nullable().optional(),
+  category: z.enum(PROJECT_CATEGORIES),
+  status: z.enum(PROJECT_STATUSES).optional().default("PLANNED"),
+  priority: z.enum(PROJECT_PRIORITIES).optional().default("MEDIUM"),
+  scopeOfWork: z.string().nullable().optional(),
+  estimatedBudget: z.number().nullable().optional(),
+  ownerVisible: z.boolean().optional().default(false),
+  requiresApproval: z.boolean().optional().default(false),
+  startDate: z.string().nullable().optional(),
+  targetEndDate: z.string().nullable().optional(),
+});
+
+export const projectUpdateSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+  category: z.enum(PROJECT_CATEGORIES).optional(),
+  status: z.enum(PROJECT_STATUSES).optional(),
+  priority: z.enum(PROJECT_PRIORITIES).optional(),
+  scopeOfWork: z.string().nullable().optional(),
+  code: z.string().nullable().optional(),
+  managerId: z.string().nullable().optional(),
+  vendorId: z.string().nullable().optional(),
+  ownerVisible: z.boolean().optional(),
+  requiresApproval: z.boolean().optional(),
+  estimatedBudget: z.number().nullable().optional(),
+  approvedBudget: z.number().nullable().optional(),
+  actualCost: z.number().nullable().optional(),
+  contingency: z.number().nullable().optional(),
+  startDate: z.string().nullable().optional(),
+  targetEndDate: z.string().nullable().optional(),
+  actualEndDate: z.string().nullable().optional(),
+});
+
+export const budgetLineCreateSchema = z.object({
+  category: z.string().min(1),
+  description: z.string().nullable().optional(),
+  estimated: z.number(),
+  actual: z.number().nullable().optional(),
+});
+
+export const changeOrderCreateSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().nullable().optional(),
+  amount: z.number(),
+  status: z.enum(["DRAFT", "SUBMITTED", "APPROVED", "REJECTED"]).optional().default("DRAFT"),
+});
+
+export const milestoneCreateSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().nullable().optional(),
+  dueDate: z.string().nullable().optional(),
+});
+
+export const milestoneUpdateSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+  status: z.string().optional(),
+  dueDate: z.string().nullable().optional(),
+});
+
+export const linkViolationSchema = z.object({
+  violationId: z.string().min(1),
+});
+
+export const linkWorkOrderSchema = z.object({
+  workOrderId: z.string().min(1),
+});
+
+export const violationCertifySchema = z.object({
+  notes: z.string().nullable().optional(),
 });
