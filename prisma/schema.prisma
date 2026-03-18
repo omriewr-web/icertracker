@@ -74,6 +74,7 @@ model User {
 
   @@index([organizationId])
   @@index([managerId])
+  uploadedDocuments  Document[]
   @@map("users")
 }
 
@@ -218,6 +219,7 @@ model Building {
   @@index([bbl])
   @@index([block, lot])
   @@index([buildingStatus])
+  documents        Document[]
   @@map("buildings")
 }
 
@@ -228,7 +230,7 @@ model Unit {
   unitType             String?
   unitCategory         String? // "residential", "commercial", "parking", "laundry", "super", "other"
   bedroomCount         Int?
-  bathroomCount        Int?
+  bathroomCount        Decimal?            @db.Decimal(3, 1)
   squareFeet           Int?
   legalRent            Decimal?              @db.Decimal(10, 2) // DHCR registered rent
   rentStabilized       Boolean               @default(false)
@@ -276,6 +278,7 @@ model Unit {
   utilityMeterRecords  UtilityMeter[]
   turnoverWorkflows    TurnoverWorkflow[]
   leasingActivities    LeasingActivity[]
+  documents            Document[]
 
   @@unique([buildingId, unitNumber])
   @@map("units")
@@ -342,6 +345,7 @@ model Tenant {
   @@index([collectionScore])
   @@index([unitId, balance])
   @@index([isDeleted])
+  documents          Document[]
   @@map("tenants")
 }
 
@@ -1036,6 +1040,20 @@ enum ImportType {
   BUILDING
   DHCR
   TENANT_MASTER
+  UNITS
+  TENANTS
+  WORK_ORDERS
+  LEGAL_CASES
+  AR_BALANCES
+  UTILITIES
+  VENDORS
+  YARDI_RENT_ROLL
+  APPFOLIO_RENT_ROLL
+  APPFOLIO_AR_AGING
+  DHCR_REGISTRATION
+  GENERIC_AR_AGING
+  CONED_BILL
+  ATLAS_TEMPLATE
 }
 
 enum ImportRowStatus {
@@ -2138,10 +2156,17 @@ model ImportLog {
   userId         String
   importType     String
   fileName       String?
+  fileSize       Int?
+  fileHash       String?
+  parserUsed     String?
+  sourceFormat   String?
+  totalRows      Int       @default(0)
   rowsInserted   Int       @default(0)
   rowsUpdated    Int       @default(0)
+  rowsSkipped    Int       @default(0)
   rowsFailed     Int       @default(0)
   rowErrors      Json?
+  warningsJson   Json?
   status         String    @default("RUNNING")
   startedAt      DateTime  @default(now())
   completedAt    DateTime?
@@ -2149,6 +2174,7 @@ model ImportLog {
   @@index([userId])
   @@index([importType])
   @@index([startedAt])
+  @@index([fileHash])
   @@map("import_logs")
 }
 
@@ -2432,4 +2458,44 @@ model OutreachMessage {
   @@index([tenantId])
   @@index([status])
   @@map("outreach_messages")
+}
+
+// ── Document Management ────────────────────────────────────────
+
+enum DocumentType {
+  LEASE
+  VIOLATION_CERTIFICATE
+  INSURANCE_CERT
+  PERMIT
+  INSPECTION_REPORT
+  LEGAL_DOCUMENT
+  OTHER
+}
+
+model Document {
+  id             String       @id @default(cuid())
+  organizationId String?
+  buildingId     String?
+  unitId         String?
+  tenantId       String?
+  docType        DocumentType
+  fileName       String
+  fileUrl        String
+  fileSize       Int?
+  uploadedById   String
+  notes          String?      @db.Text
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  building       Building?    @relation(fields: [buildingId], references: [id])
+  unit           Unit?        @relation(fields: [unitId], references: [id])
+  tenant         Tenant?      @relation(fields: [tenantId], references: [id])
+  uploadedBy     User         @relation(fields: [uploadedById], references: [id])
+
+  @@index([organizationId])
+  @@index([buildingId])
+  @@index([unitId])
+  @@index([tenantId])
+  @@index([docType])
+  @@map("documents")
 }
