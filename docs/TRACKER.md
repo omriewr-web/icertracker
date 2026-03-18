@@ -1,6 +1,6 @@
 # AtlasPM — Project Tracker
 
-Last Updated: 2026-03-18 (Bug 6 fix session)
+Last Updated: 2026-03-18 (Permission system v2 session)
 
 ---
 
@@ -51,11 +51,19 @@ Last Updated: 2026-03-18 (Bug 6 fix session)
 - [x] Onboarding-ready checklist (docs/ONBOARDING-READY.md)
 - [x] seed-demo.ts ViolationWhereUniqueInput — confirmed already correct (source_externalId matches @@unique)
 
+### Permission System v2
+- [x] P1: Schema — UserAccessGrant model + permission fields on User (commit 753c0cd)
+- [x] P2: Types — 8 modules, 4 levels, 7 presets in src/lib/permissions/types.ts
+- [x] P3: Presets — PERMISSION_PRESETS + PRESET_DANGEROUS_DEFAULTS in src/lib/permissions/presets.ts
+- [x] P4: Engine — can(), getEffectiveLevel(), createGrantsFromPreset(), getUserWithGrants() in src/lib/permissions/engine.ts
+- [x] P5: Seed — 10 existing users seeded with grants via scripts/seed-permissions.ts
+- [x] P6: Middleware — role-based route protection for /users, /owner-dashboard, OWNER blocked paths
+
 ---
 
 ## Active Work
-- Bug 6 fixed — awaiting deploy
-- Next: Build `npm run reset:demo` script, deploy, onboard real portfolio
+- Permission system v2 complete — not yet deployed
+- Next: Wire can() into new API routes, build permission management UI, deploy
 
 ## Deployment
 - Production: https://www.myatlaspm.com
@@ -67,3 +75,5 @@ Last Updated: 2026-03-18 (Bug 6 fix session)
 - Prisma 5.22.0 → 7.x upgrade available (major version, not urgent)
 - ESLint config needs interactive setup (npm run lint prompts for config selection)
 - Existing DB rows with old CollectionCase.status values (new_arrears, reminder_sent) still work via normalizer but should be migrated to canonical values (monitoring, demand_sent) when convenient
+- Permission system v2 runs alongside existing role system — old routes still use hasPermission(), new routes should use can()
+- No permission management UI yet — grants managed via seed script or direct DB
