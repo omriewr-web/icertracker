@@ -21,13 +21,43 @@ export default withAuth(
       return NextResponse.redirect(new URL("/onboarding", req.url));
     }
 
-    // OWNER role: block internal management pages — owners only see owner/* and read-only dashboards
-    if (token?.role === "OWNER") {
+    // Skip route-level role checks for API routes (handled by withAuth in route handlers)
+    if (pathname.startsWith("/api/")) {
+      return response;
+    }
+
+    const role = token?.role as string | undefined;
+
+    // ── Role-based route protection ──
+    // Uses existing role as proxy until grant-based middleware is wired.
+    // OWNER: only owner dashboards + limited read-only operational pages
+    if (role === "OWNER") {
       const OWNER_BLOCKED = ["/data", "/users", "/collections", "/alerts", "/settings"];
       const isBlocked = OWNER_BLOCKED.some((p) => pathname === p || pathname.startsWith(p + "/"));
       if (isBlocked) {
         return NextResponse.redirect(new URL("/owner-dashboard", req.url));
       }
+    }
+
+    // /settings/users requires admin-level role
+    if (pathname.startsWith("/settings/users") || pathname === "/users") {
+      const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN", "ACCOUNT_ADMIN"];
+      if (role && !ADMIN_ROLES.includes(role)) {
+        return NextResponse.redirect(new URL("/", req.url));
+      }
+    }
+
+    // /owner-dashboard requires OWNER or admin role
+    if (pathname.startsWith("/owner-dashboard") || pathname.startsWith("/owner/")) {
+      const OWNER_ALLOWED = ["OWNER", "SUPER_ADMIN", "ADMIN", "ACCOUNT_ADMIN", "PM"];
+      if (role && !OWNER_ALLOWED.includes(role)) {
+        return NextResponse.redirect(new URL("/", req.url));
+      }
+    }
+
+    // Users with no recognized role and not admin → redirect to dashboard
+    if (token && !role) {
+      return NextResponse.redirect(new URL("/", req.url));
     }
 
     return response;
