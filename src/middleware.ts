@@ -6,6 +6,30 @@ export default withAuth(
     const response = NextResponse.next();
     const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
     response.headers.set("x-request-id", requestId);
+
+    const token = req.nextauth.token;
+    const pathname = req.nextUrl.pathname;
+
+    // Redirect users who haven't completed onboarding
+    if (
+      token &&
+      !token.onboardingComplete &&
+      !pathname.startsWith("/onboarding") &&
+      !pathname.startsWith("/api/") &&
+      !pathname.startsWith("/login")
+    ) {
+      return NextResponse.redirect(new URL("/onboarding", req.url));
+    }
+
+    // OWNER role: block internal management pages — owners only see owner/* and read-only dashboards
+    if (token?.role === "OWNER") {
+      const OWNER_BLOCKED = ["/data", "/users", "/collections", "/alerts", "/settings"];
+      const isBlocked = OWNER_BLOCKED.some((p) => pathname === p || pathname.startsWith(p + "/"));
+      if (isBlocked) {
+        return NextResponse.redirect(new URL("/owner-dashboard", req.url));
+      }
+    }
+
     return response;
   },
   { pages: { signIn: "/login" } },
