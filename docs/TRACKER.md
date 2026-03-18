@@ -23,32 +23,32 @@ Treat as client zero — full onboarding experience, no shortcuts.
 | Wave 1 | Data Trust | ✅ Complete | 4/4 |
 | Wave 2 | Security | ✅ Complete | 4/4 |
 | Wave 3 | Product Refinement | ✅ Complete | 6/6 |
-| Wave 4 | Workflow Tests | 🔴 In Progress | 0/4 |
-| Wave 5 | Demo Readiness | 🔴 In Progress | 0/3 |
+| Wave 4 | Workflow Tests | ✅ Complete | 4/4 — 99 tests passing |
+| Wave 5 | Demo Readiness | ✅ Complete | 3/3 |
 
 ### Wave 4 Tasks
-- [ ] W4-A: Collections workflow tests
-- [ ] W4-B: Import workflow tests
-- [ ] W4-C: Vacancy lifecycle tests
-- [ ] W4-D: Owner data visibility tests
+- [x] W4-A: Collections workflow tests
+- [x] W4-B: Import workflow tests
+- [x] W4-C: Vacancy lifecycle tests
+- [x] W4-D: Owner data visibility tests
 
 ### Wave 5 Tasks
-- [ ] W5-A: Realistic portfolio seed (5 portfolios, ~1,200 units)
-- [ ] W5-B: Demo walkthrough path (15-minute script)
-- [ ] W5-C: README + client onboarding guide
+- [x] W5-A: Realistic portfolio seed (5 portfolios, ~1,200 units)
+- [x] W5-B: Demo walkthrough path (15-minute script)
+- [x] W5-C: README + client onboarding guide
 
 ---
 
 ## PHASE 2: Codex Bug Fixes
 | # | Description | Status | Notes |
 |---|-------------|--------|-------|
-| 1 | Owner data leak | ✅ Fixed | Blocked OWNER on 5 tenant-level collections GET routes |
-| 2 | Org scoping fail-closed | ✅ Verified OK | getBuildingScope returns EMPTY_SCOPE for no-assignment users |
+| 1 | Owner data leak | ✅ Fixed | commit ebfe048 — Blocked OWNER on 5 tenant-level collections GET routes |
+| 2 | Org scoping fail-closed | ✅ Verified OK | No fix needed — getBuildingScope returns EMPTY_SCOPE correctly |
 | 3 | Owner dashboard violations column | ✅ Fixed | W3-E — now shows real violation count |
 | 4 | Building legal count display | ✅ Fixed | W3-E — legalCaseCount no longer hardcoded to 0 |
-| 5 | Owner routes leak into /data pages | ✅ Fixed | Middleware blocks OWNER from /data, /collections, /alerts, /users, /settings |
-| 6 | Collections status vocabulary drift | 🟡 Confirmed present | Tracked as W1-C — String field, no DB constraint violations |
-| 7 | Public request honeypot not working | ✅ Fixed | Form now reads honeypot from DOM and sends in POST body |
+| 5 | Owner routes leak into /data pages | ✅ Fixed | commit b44c562 — Middleware blocks OWNER from /data, /collections, /alerts, /users, /settings |
+| 6 | Collections status vocabulary drift | ⚠️ Confirmed open | Severe — UI, DB, and statuses.ts out of sync. Must fix before real onboarding |
+| 7 | Public request honeypot not working | ✅ Fixed | commit d306999 — Form now reads honeypot from DOM and sends in POST body |
 
 ---
 
@@ -82,9 +82,9 @@ Treat as client zero — full onboarding experience, no shortcuts.
 ## Active Terminals
 | Terminal | Task | Status |
 |----------|------|--------|
-| T1 | Codex bug fixes | ✅ Complete (Bugs 1, 5, 7 fixed; 2, 6 verified) |
-| T2 | Wave 4 workflow tests | 🔴 Not started |
-| T3 | Wave 5 demo seed + docs | 🔴 Not started |
+| T1 | Codex bug fixes | ✅ Complete — Bugs 1, 5, 7 fixed; Bug 2 verified; Bug 6 deferred |
+| T2 | Wave 4 workflow tests | ✅ Complete — 99 tests passing across W4-A, W4-B, W4-C, W4-D |
+| T3 | Wave 5 demo seed + docs | ✅ Complete — seed-demo.ts, DEMO-WALKTHROUGH.md, README.md, CLIENT-ONBOARDING.md |
 
 ---
 
@@ -93,16 +93,25 @@ Treat as client zero — full onboarding experience, no shortcuts.
 - Prisma Decimal serialization inconsistency across endpoints
 - Yardi import: 2-row merged header diagnosed, fix not confirmed
 - Reset script not yet built (needed before real onboarding)
-- Collections status vocabulary drift (W1-C) — UI and schema comment use different values
-- seed-demo.ts has pre-existing TS error (buildingId_externalId_source not in ViolationWhereUniqueInput)
+- seed-demo.ts line 270: ViolationWhereUniqueInput field name mismatch — TS error, needs fix
+- Collections status vocabulary drift (Bug 6): UI, DB, and statuses.ts out of sync — must resolve before Yardi import
+
+## Next Up
+1. Fix Bug 6 — collections status vocabulary drift
+2. Fix seed-demo.ts TypeScript error line 270
+3. Build `npm run reset:demo` script
+4. Deploy + run reset
+5. Onboard real portfolio as client zero
 
 ---
 
 ## Recently Completed
-- 2026-03-18: Waves 1-3 complete and deployed
-- 2026-03-18: Bug fixes — Owner data leak (Bug 1), Owner nav leak (Bug 5), Honeypot (Bug 7)
-- 2026-03-18: Verified — Org scoping fail-closed (Bug 2), Status drift confirmed (Bug 6)
-- 2026-03-18: TRACKER.md created
+- 2026-03-18: All 5 waves complete
+- 2026-03-18: 99 tests passing (W4 full suite)
+- 2026-03-18: Demo seed, walkthrough, README, onboarding guide created
+- 2026-03-18: Bugs 1, 5, 7 fixed and deployed
+- 2026-03-18: Bug 2 verified OK, Bug 6 confirmed open and deferred
+- 2026-03-18: TRACKER.md created and synced to completion state
 
 ---
 
