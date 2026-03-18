@@ -87,7 +87,42 @@ model User {
   @@index([organizationId])
   @@index([managerId])
   uploadedDocuments  Document[]
+  preferences        UserPreferences?
   @@map("users")
+}
+
+model UserPreferences {
+  id                     String   @id @default(cuid())
+  userId                 String   @unique
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  displayName            String?
+  jobTitle               String?
+  mobile                 String?
+  timezone               String   @default("America/New_York")
+
+  defaultView            String   @default("dashboard")
+
+  briefingItems          String[] @default([])
+  briefingTime           String   @default("morning")
+
+  alertWorkOrderAssigned Boolean  @default(true)
+  alertTenant30Days      Boolean  @default(true)
+  alertTenant60Days      Boolean  @default(true)
+  alertTenant90Days      Boolean  @default(true)
+  alertViolationClassC   Boolean  @default(true)
+  alertViolationAll      Boolean  @default(false)
+  alertLeaseExpiring30   Boolean  @default(true)
+  alertWorkOrderOverdue  Boolean  @default(true)
+  alertChannel           String   @default("in_app")
+  quietHoursEnabled      Boolean  @default(false)
+  quietHoursStart        String?
+  quietHoursEnd          String?
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@map("user_preferences")
 }
 
 model UserAccessGrant {
