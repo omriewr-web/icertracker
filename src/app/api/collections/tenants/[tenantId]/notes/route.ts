@@ -8,6 +8,7 @@ import { collectionNoteCreateSchema } from "@/lib/validations";
 export const dynamic = "force-dynamic";
 
 export const GET = withAuth(async (req, { user, params }) => {
+  if (user.role === "OWNER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { tenantId } = await params;
 
   const tenant = await prisma.tenant.findUnique({
