@@ -73,10 +73,39 @@ model User {
   prometheusIntakes       PrometheusIntake[]    @relation("PrometheusCreator")
   verifiedDrafts          WorkOrderDraft[]      @relation("DraftVerifier")
 
+  // ── Permission system v2 fields ──
+  permissionPreset     String    @default("property_manager")
+  canExportSensitive   Boolean   @default(false)
+  canDeleteRecords     Boolean   @default(false)
+  canBulkUpdate        Boolean   @default(false)
+  canManageUsers       Boolean   @default(false)
+  canManageOrgSettings Boolean   @default(false)
+  termsAcceptedAt      DateTime?
+  termsAcceptedIp      String?
+  accessGrants         UserAccessGrant[]
+
   @@index([organizationId])
   @@index([managerId])
   uploadedDocuments  Document[]
   @@map("users")
+}
+
+model UserAccessGrant {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgId        String
+  module       String
+  level        String
+  scopeType    String   @default("org")
+  scopeId      String?
+  restrictions Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, orgId, module, scopeType, scopeId])
+  @@index([userId, orgId])
+  @@map("user_access_grants")
 }
 
 model UserProperty {
