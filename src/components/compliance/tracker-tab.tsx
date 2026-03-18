@@ -7,17 +7,16 @@ import EmptyState from "@/components/ui/empty-state";
 import { useAppStore } from "@/stores/app-store";
 import Button from "@/components/ui/button";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
-import LoadingSpinner from "@/components/ui/loading-spinner";
+import { TableTabSkeleton } from "@/components/ui/skeleton";
 import { fmt$, formatDate } from "@/lib/utils";
 import ComplianceItemModal from "./compliance-item-modal";
+import { COMPLIANCE_STATUS_COLORS } from "@/lib/constants/statuses";
 import type { ComplianceItemView } from "@/types";
 
 const STATUS_COLORS: Record<string, string> = {
-  COMPLIANT: "bg-green-500/10 text-green-400",
-  NON_COMPLIANT: "bg-red-500/10 text-red-400",
-  PENDING: "bg-yellow-500/10 text-yellow-400",
-  OVERDUE: "bg-red-500/10 text-red-400",
-  SCHEDULED: "bg-blue-500/10 text-blue-400",
+  ...Object.fromEntries(
+    Object.entries(COMPLIANCE_STATUS_COLORS).map(([k, v]) => [k, `${v.bg} ${v.text}`])
+  ),
   NOT_APPLICABLE: "bg-card-hover text-text-dim",
 };
 
@@ -36,7 +35,7 @@ export default function TrackerTab() {
   const deleteMutation = useDeleteComplianceItem();
   const generateMutation = useGenerateComplianceDefaults();
 
-  if (isLoading) return <LoadingSpinner />;
+  if (isLoading) return <TableTabSkeleton rows={8} />;
 
   return (
     <div className="space-y-4">

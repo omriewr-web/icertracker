@@ -34,6 +34,7 @@ model User {
   passwordHash        String
   role                UserRole            @default(COLLECTOR)
   active              Boolean             @default(true)
+  onboardingComplete  Boolean             @default(false)
   organizationId      String?
   managerId           String?
   createdAt           DateTime            @default(now())
@@ -281,6 +282,8 @@ model Unit {
   documents            Document[]
 
   @@unique([buildingId, unitNumber])
+  @@index([vacancyStatus])
+  @@index([buildingId, isVacant])
   @@map("units")
 }
 
@@ -926,6 +929,7 @@ model Violation {
   @@index([isOpen])
   @@index([hearingDate])
   @@index([respondByDate])
+  @@index([respondByDate, isOpen])
   @@index([lifecycleStatus])
   @@index([pmVerifiedById])
   @@index([source, currentStatus])
@@ -1252,6 +1256,8 @@ model Organization {
   id             String          @id @default(cuid())
   name           String
   slug           String          @unique
+  phone          String?
+  website        String?
   plan           String          @default("trial")
   isActive       Boolean         @default(true)
   createdAt      DateTime        @default(now())
@@ -1594,6 +1600,7 @@ model CollectionNote {
   author       User                 @relation(fields: [authorId], references: [id])
 
   @@index([tenantId])
+  @@index([tenantId, createdAt])
   @@index([buildingId])
   @@index([authorId])
   @@index([followUpDate])
@@ -2175,6 +2182,7 @@ model ImportLog {
   @@index([importType])
   @@index([startedAt])
   @@index([fileHash])
+  @@index([organizationId, importType])
   @@map("import_logs")
 }
 
@@ -2189,6 +2197,7 @@ model CronLog {
   error       String?
 
   @@index([jobName, startedAt])
+  @@index([jobName, status])
   @@map("cron_logs")
 }
 
@@ -2325,6 +2334,7 @@ model ProjectMilestone {
   project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
+  @@index([projectId, status])
   @@map("project_milestones")
 }
 
