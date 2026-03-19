@@ -84,7 +84,7 @@ export const GET = withAuth(async (req, { user }) => {
       buildingId: u.building.id,
       buildingAddress: getDisplayAddress(u.building),
       bedroomCount: u.bedroomCount,
-      bathroomCount: u.bathroomCount,
+      bathroomCount: u.bathroomCount != null ? toNumber(u.bathroomCount) : null,
       squareFeet: u.squareFeet,
       legalRent: legal || null,
       askingRent: asking || null,

@@ -32,7 +32,18 @@
       "Bash(ls -la /c/Users/omrid/Documents/icertracker/src/app/\\\\\\(dashboard\\\\\\)/ | grep -E \"page.tsx|page\" || echo \"Checking directory\")",
       "Bash(ls /c/Users/omrid/Documents/icertracker/src/app/\\\\\\(dashboard\\\\\\)/)",
       "Bash(ls /c/Users/omrid/Documents/icertracker/src/app/\\\\\\(dashboard\\\\\\)/collections/)",
-      "Bash(wc -l /c/Users/omrid/AppData/Local/Temp/claude/C--Users-omrid-Documents-icertracker/tasks/*.output 2>/dev/null || echo \"Files not ready yet\")"
+      "Bash(wc -l /c/Users/omrid/AppData/Local/Temp/claude/C--Users-omrid-Documents-icertracker/tasks/*.output 2>/dev/null || echo \"Files not ready yet\")",
+      "Bash(npx dotenv:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(brew install:*)",
+      "Bash(npx vercel:*)",
+      "Bash(printf:*)",
+      "Bash(dotenv:*)",
+      "Bash(for flag:*)",
+      "Bash(git reset:*)",
+      "Bash(git diff:*)"
     ]
   }
 }

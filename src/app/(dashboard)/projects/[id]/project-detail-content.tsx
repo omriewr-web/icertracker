@@ -72,7 +72,7 @@ export default function ProjectDetailContent() {
   if (!project) return <div className="p-8 text-text-dim">Project not found</div>;
 
   const p = project;
-  const stats: ProjectStats = p.stats;
+  const stats: ProjectStats = p.stats ?? { health: "ON_TRACK", isOverdue: false, daysElapsed: null, daysRemaining: null, nextAction: null, budgetUsedPct: 0, milestoneProgress: "0 / 0" };
   const healthColor = HEALTH_HEX[stats.health] || HEALTH_HEX.ON_TRACK;
 
   // Phase pipeline logic

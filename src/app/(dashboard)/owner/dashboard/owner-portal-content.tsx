@@ -80,12 +80,12 @@ export default function OwnerPortalContent() {
 
       {/* Portfolio KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <KpiCard label="Total Units" value={portfolio.totalUnits} icon={Home} />
-        <KpiCard label="Occupied" value={portfolio.occupied} icon={Users} color="#4caf82" />
-        <KpiCard label="Vacant" value={portfolio.vacant} icon={DoorOpen} color="#e05c5c" />
-        <KpiCard label="Occupancy" value={`${portfolio.occupancyRate}%`} icon={Building2} color="#c9a84c" />
-        <KpiCard label="Total AR" value={fmt$(collections.totalAR)} icon={DollarSign} color="#e09a3e" />
-        <KpiCard label="In Legal" value={collections.tenantsInLegal} icon={Scale} color="#e05c5c" />
+        <KpiCard label="Total Units" value={portfolio.totalUnits} icon={Home} href="/data" />
+        <KpiCard label="Occupied" value={portfolio.occupied} icon={Users} color="#4caf82" href="/data" />
+        <KpiCard label="Vacant" value={portfolio.vacant} icon={DoorOpen} color="#e05c5c" href="/vacancies" />
+        <KpiCard label="Occupancy" value={`${portfolio.occupancyRate}%`} icon={Building2} color="#c9a84c" href="/vacancies" />
+        <KpiCard label="Total AR" value={fmt$(collections.totalAR)} icon={DollarSign} color="#e09a3e" href="/collections" />
+        <KpiCard label="In Legal" value={collections.tenantsInLegal} icon={Scale} color="#e05c5c" href="/legal" />
       </div>
 
       {/* Collections Summary */}

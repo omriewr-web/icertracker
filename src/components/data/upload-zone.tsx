@@ -213,7 +213,7 @@ export default function UploadZone() {
               </div>
 
               {/* Stats grid */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="bg-bg border border-border rounded-lg p-3 text-center">
                   <p className="text-2xl font-bold text-text-primary font-display">{detection.rowCount.toLocaleString()}</p>
                   <p className="text-xs text-text-dim">

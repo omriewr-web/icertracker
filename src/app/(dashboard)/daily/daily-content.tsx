@@ -240,36 +240,42 @@ export default function DailyBriefingContent() {
             value={`${Number(m.occupancyRate ?? 0).toFixed(1)}%`}
             icon={Building2}
             color={m.occupancyRate > 95 ? "#22c55e" : m.occupancyRate >= 90 ? "#f59e0b" : "#ef4444"}
+            href="/vacancies"
           />
           <KpiCard
             label="Total AR Balance"
             value={fmt$(Number(m.totalBalance ?? 0))}
             icon={DollarSign}
             color="#C9A84C"
+            href="/collections"
           />
           <KpiCard
             label="Critical Signals"
             value={signalsLoading ? "..." : signalCount}
             icon={AlertTriangle}
             color={signalCount > 0 ? "#ef4444" : "#22c55e"}
+            href="/coeus"
           />
           <KpiCard
             label="Open Legal Cases"
             value={Number(m.legalCaseCount ?? 0)}
             icon={Scale}
             color={m.legalCaseCount > 0 ? "#ef4444" : "#C9A84C"}
+            href="/legal"
           />
           <KpiCard
             label="Expiring Leases"
             value={Number(m.expiringSoon ?? 0)}
             icon={FileText}
             color={m.expiringSoon > 0 ? "#f59e0b" : "#C9A84C"}
+            href="/leases"
           />
           <KpiCard
             label="Vacant Units"
             value={Number(m.vacant ?? 0)}
             icon={Users}
             color={m.vacant > 0 ? "#f59e0b" : "#C9A84C"}
+            href="/vacancies"
           />
         </div>
       )}

@@ -161,11 +161,11 @@ export default function BuildingFormModal() {
         <div className="space-y-5">
           {/* Property Info */}
           <SectionLabel>Property Info</SectionLabel>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <InputField label="Yardi ID *" value={form.yardiId} onChange={(v) => setForm({ ...form, yardiId: v })} />
             <InputField label="Address *" value={form.address} onChange={(v) => setForm({ ...form, address: v })} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <InputField label="Alt Address" value={form.altAddress} onChange={(v) => setForm({ ...form, altAddress: v })} />
             <InputField label="Entity" value={form.entity} onChange={(v) => setForm({ ...form, entity: v })} />
           </div>
@@ -179,22 +179,22 @@ export default function BuildingFormModal() {
             <InputField label="Lot" value={form.lot} onChange={(v) => setForm({ ...form, lot: v })} />
             <InputField label="Type" value={form.type} onChange={(v) => setForm({ ...form, type: v })} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <InputField label="EIN Number" value={form.einNumber} onChange={(v) => setForm({ ...form, einNumber: v })} />
             <InputField label="Total Units" value={form.totalUnits} onChange={(v) => setForm({ ...form, totalUnits: v })} type="number" />
           </div>
 
           {/* Management */}
           <SectionLabel>Management Team</SectionLabel>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <InputField label="Owner" value={form.owner} onChange={(v) => setForm({ ...form, owner: v })} />
             <InputField label="Manager" value={form.manager} onChange={(v) => setForm({ ...form, manager: v })} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <InputField label="AR Team" value={form.arTeam} onChange={(v) => setForm({ ...form, arTeam: v })} />
             <InputField label="AP Team" value={form.apTeam} onChange={(v) => setForm({ ...form, apTeam: v })} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <InputField label="Head of Portfolio" value={form.headPortfolio} onChange={(v) => setForm({ ...form, headPortfolio: v })} />
             <InputField label="Mgmt Start Date" value={form.mgmtStartDate} onChange={(v) => setForm({ ...form, mgmtStartDate: v })} type="date" />
           </div>

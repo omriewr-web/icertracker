@@ -18,7 +18,7 @@ import { fmt$ } from "@/lib/utils";
 export default function AlertsContent() {
   const { data: tenants, isLoading } = useTenants();
   const { data: metrics } = useMetrics();
-  const { setTenantCreateOpen } = useAppStore();
+  const { setTenantCreateOpen, setArrearsFilter } = useAppStore();
 
   const arrearsTenants = useMemo(
     () => (tenants || []).filter((t) => t.balance > 0 && t.arrearsCategory !== "current"),
@@ -46,10 +46,10 @@ export default function AlertsContent() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KpiCard label="Total in Arrears" value={arrearsTenants.length} icon={AlertTriangle} />
-        <KpiCard label="Total Owed" value={fmt$(totalArrears)} color="#EF4444" />
-        <KpiCard label="30 Day" value={arrears30Tenants.length} icon={Clock} color="#3B82F6" subtext={arrears30Total > 0 ? fmt$(arrears30Total) : undefined} />
-        <KpiCard label="60 Day" value={arrears60Tenants.length} icon={CalendarClock} color="#F59E0B" subtext={arrears60Total > 0 ? fmt$(arrears60Total) : undefined} />
+        <KpiCard label="Total in Arrears" value={arrearsTenants.length} icon={AlertTriangle} onClick={() => setArrearsFilter("")} />
+        <KpiCard label="Total Owed" value={fmt$(totalArrears)} color="#EF4444" href="/collections" />
+        <KpiCard label="30 Day" value={arrears30Tenants.length} icon={Clock} color="#3B82F6" subtext={arrears30Total > 0 ? fmt$(arrears30Total) : undefined} onClick={() => setArrearsFilter("30")} />
+        <KpiCard label="60 Day" value={arrears60Tenants.length} icon={CalendarClock} color="#F59E0B" subtext={arrears60Total > 0 ? fmt$(arrears60Total) : undefined} onClick={() => setArrearsFilter("60")} />
       </div>
 
       <FilterBar />

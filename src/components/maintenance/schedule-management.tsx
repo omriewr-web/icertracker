@@ -183,7 +183,7 @@ export default function ScheduleManagement() {
               rows={2}
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-text-dim mb-1">Building *</label>
               <select
@@ -212,7 +212,7 @@ export default function ScheduleManagement() {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-text-dim mb-1">Next Due Date *</label>
               <input

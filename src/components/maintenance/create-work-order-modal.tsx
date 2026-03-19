@@ -100,7 +100,7 @@ export default function CreateWorkOrderModal({ open, onClose }: Props) {
           <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent resize-none" rows={3} placeholder="Detailed description..." />
           <AIEnhanceButton value={form.description} context="work_order_description" onEnhanced={(v) => setForm({ ...form, description: v })} />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-text-dim mb-1">Priority</label>
             <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent">
@@ -121,7 +121,7 @@ export default function CreateWorkOrderModal({ open, onClose }: Props) {
             {buildings?.map((b) => <option key={b.id} value={b.id}>{b.address}</option>)}
           </select>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-text-dim mb-1">Unit</label>
             <select value={form.unitId} onChange={(e) => handleUnitChange(e.target.value)} className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent">
@@ -134,7 +134,7 @@ export default function CreateWorkOrderModal({ open, onClose }: Props) {
             <input value={form.tenantId ? units.find((u) => u.tenantId === form.tenantId)?.tenantName || form.tenantId : ""} readOnly className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-text-dim focus:outline-none" placeholder="Auto-populated from unit" />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-text-dim mb-1">Vendor</label>
             <select value={form.vendorId} onChange={(e) => setForm({ ...form, vendorId: e.target.value })} className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent">
@@ -147,7 +147,7 @@ export default function CreateWorkOrderModal({ open, onClose }: Props) {
             <input type="date" value={form.scheduledDate} onChange={(e) => setForm({ ...form, scheduledDate: e.target.value })} className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent" />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-text-dim mb-1">Due Date</label>
             <input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent" />

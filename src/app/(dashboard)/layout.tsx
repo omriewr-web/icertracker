@@ -22,9 +22,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             onClick={() => setSidebarOpen(false)}
           />
         )}
-        {/* Sidebar — hidden on mobile unless open */}
+        {/* Sidebar — hidden on mobile unless open, starts below header on mobile */}
         <div
-          className={`fixed inset-y-0 left-0 z-40 ${sidebarCollapsed ? "w-16" : "w-56"} transform transition-all duration-200 ease-in-out lg:relative lg:translate-x-0 lg:z-auto ${
+          className={`fixed top-[52px] bottom-0 left-0 z-40 lg:top-0 lg:relative ${sidebarCollapsed ? "w-16" : "w-56"} transform transition-all duration-200 ease-in-out lg:translate-x-0 lg:z-auto ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >

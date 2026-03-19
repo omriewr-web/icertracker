@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import Button from "@/components/ui/button";
 import Modal from "@/components/ui/modal";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
+import { TableTabSkeleton } from "@/components/ui/skeleton";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { formatDate, fmt$ } from "@/lib/utils";
 import toast from "react-hot-toast";
@@ -21,7 +22,7 @@ export default function BuildingsTab() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [dedupOpen, setDedupOpen] = useState(false);
 
-  if (isLoading) return <LoadingSpinner />;
+  if (isLoading) return <TableTabSkeleton rows={8} />;
 
   return (
     <div className="space-y-4">

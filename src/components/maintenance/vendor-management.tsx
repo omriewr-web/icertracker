@@ -142,11 +142,11 @@ export default function VendorManagement() {
         <form onSubmit={handleSubmit} className="space-y-3">
           <Input label="Name *" value={form.name} onChange={(v) => setForm({ ...form, name: v })} required />
           <Input label="Company" value={form.company} onChange={(v) => setForm({ ...form, company: v })} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="Email" type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
             <Input label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="Specialty" value={form.specialty} onChange={(v) => setForm({ ...form, specialty: v })} />
             <Input label="Hourly Rate ($)" type="number" value={form.hourlyRate} onChange={(v) => setForm({ ...form, hourlyRate: v })} />
           </div>

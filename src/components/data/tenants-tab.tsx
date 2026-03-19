@@ -7,7 +7,7 @@ import { useBuildings } from "@/hooks/use-buildings";
 import { useAppStore } from "@/stores/app-store";
 import Button from "@/components/ui/button";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
-import LoadingSpinner from "@/components/ui/loading-spinner";
+import { TableTabSkeleton } from "@/components/ui/skeleton";
 import { fmt$ } from "@/lib/utils";
 
 const ARREARS_OPTIONS = [
@@ -62,7 +62,7 @@ export default function TenantsTab() {
     return list;
   }, [allTenants, search, buildingFilter, arrearsFilter, leaseFilter]);
 
-  if (isLoading) return <LoadingSpinner />;
+  if (isLoading) return <TableTabSkeleton rows={10} />;
 
   return (
     <div className="space-y-4">

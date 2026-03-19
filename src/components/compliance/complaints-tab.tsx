@@ -2,14 +2,14 @@
 
 import { MessageSquare } from "lucide-react";
 import { useViolations } from "@/hooks/use-violations";
-import LoadingSpinner from "@/components/ui/loading-spinner";
+import { TableTabSkeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/empty-state";
 import { formatDate } from "@/lib/utils";
 
 export default function ComplaintsTab() {
   const { data: complaints, isLoading } = useViolations({ isComplaint: "true" });
 
-  if (isLoading) return <LoadingSpinner />;
+  if (isLoading) return <TableTabSkeleton rows={6} />;
 
   return (
     <div className="space-y-4">

@@ -116,12 +116,12 @@ export default function MaintenanceContent() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Work Orders</h1>
           <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Operations — Work Orders</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {tab === "orders" && (
             <>
               <div className="flex bg-card border border-border rounded-lg overflow-hidden">
@@ -193,15 +193,15 @@ export default function MaintenanceContent() {
       {tab === "orders" && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <KpiCard label="Total" value={stats.total} icon={Wrench} />
-            <KpiCard label="Open" value={stats.open} color="#3B82F6" />
-            <KpiCard label="In Progress" value={stats.inProgress} color="#F59E0B" />
-            <KpiCard label="Urgent" value={stats.urgent} color="#EF4444" />
-            <KpiCard label="Costs (Completed)" value={fmt$(stats.totalCost)} color="#10B981" />
+            <KpiCard label="Total" value={stats.total} icon={Wrench} onClick={() => { setFilterStatus("all"); setFilterPriority("all"); }} />
+            <KpiCard label="Open" value={stats.open} color="#3B82F6" onClick={() => { setFilterStatus("OPEN"); setFilterPriority("all"); }} />
+            <KpiCard label="In Progress" value={stats.inProgress} color="#F59E0B" onClick={() => { setFilterStatus("IN_PROGRESS"); setFilterPriority("all"); }} />
+            <KpiCard label="Urgent" value={stats.urgent} color="#EF4444" onClick={() => { setFilterStatus("all"); setFilterPriority("URGENT"); }} />
+            <KpiCard label="Costs (Completed)" value={fmt$(stats.totalCost)} color="#10B981" onClick={() => { setFilterStatus("COMPLETED"); setFilterPriority("all"); }} />
           </div>
 
           {view === "list" && (
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="bg-bg border border-border rounded-lg px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent">
                 <option value="all">All Status</option>
                 <option value="OPEN">Open</option>

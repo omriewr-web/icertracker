@@ -30,6 +30,7 @@ function LoginForm() {
     if (res?.error) {
       setError("Invalid username or password");
     } else {
+      // Check if user needs onboarding — middleware will redirect if needed
       router.push(callbackUrl);
       router.refresh();
     }
