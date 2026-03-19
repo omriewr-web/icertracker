@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
+import { getOrgScope } from "@/lib/data-scope";
 import { z } from "zod";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -36,9 +37,9 @@ const createSchema = z
 // ── GET ────────────────────────────────────────────────────────
 
 export const GET = withAuth(async (_req, { user }) => {
-  // RgbOrder is global NYC regulatory data (no organizationId column).
-  // Access is gated by the "edit" permission string.
+  const orgScope = getOrgScope(user);
   const orders = await prisma.rgbOrder.findMany({
+    where: { ...orgScope },
     orderBy: { effectiveFrom: "desc" },
   });
   return NextResponse.json(orders.map(normalizeOrder));
@@ -52,9 +53,12 @@ export const POST = withAuth(async (req, { user }) => {
   const from = new Date(data.effectiveFrom);
   const to = new Date(data.effectiveTo);
 
-  // Check overlapping date ranges
+  const orgScope = getOrgScope(user);
+
+  // Check overlapping date ranges within the same org
   const overlap = await prisma.rgbOrder.findFirst({
     where: {
+      ...orgScope,
       AND: [
         { effectiveFrom: { lt: to } },
         { effectiveTo: { gt: from } },
@@ -79,6 +83,7 @@ export const POST = withAuth(async (req, { user }) => {
       twoYearY1Pct: data.twoYearY1Pct ?? null,
       twoYearY2Pct: data.twoYearY2Pct ?? null,
       notes: data.notes ?? null,
+      // RgbOrder is global reference data — no org scoping needed.
     },
   });
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { withAuth } from "@/lib/api-helpers";
+import { withAuth, parseBody } from "@/lib/api-helpers";
+import { importStagingReviewSchema } from "@/lib/validations";
 import { commitRentRollImport } from "@/lib/importer/commit";
 import { startImportLog, completeImportLog } from "@/lib/utils/import-log";
 
@@ -49,12 +50,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
 
 // POST /api/import/staging — approve or reject a staging batch
 export const POST = withAuth(async (req: NextRequest, { user }) => {
-  const body = await req.json();
-  const { id, action, notes } = body as { id: string; action: "approve" | "reject"; notes?: string };
-
-  if (!id || !action) {
-    return NextResponse.json({ error: "Missing id or action" }, { status: 400 });
-  }
+  const { id, action, notes } = await parseBody(req, importStagingReviewSchema);
 
   const batch = await prisma.importStagingBatch.findUnique({ where: { id } });
   if (!batch) return NextResponse.json({ error: "Not found" }, { status: 404 });

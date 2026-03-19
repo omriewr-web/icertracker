@@ -91,8 +91,12 @@ export function checkRowLimit(rowCount: number, limit: number = MAX_ROWS): NextR
 export function safeParseXlsx(buffer: Buffer, opts?: Record<string, unknown>): { workbook: any; error?: never } | { workbook?: never; error: string } {
   try {
     // Dynamic import avoided — caller passes XLSX
+    // NOTE: xlsx@0.18.5 has known CVEs (prototype pollution GHSA-4r6h-8v6p-xvw6,
+    // ReDoS GHSA-5pgg-2g8v-p4x9). Mitigated by: file size limit (10MB), row limit (5000),
+    // extension/MIME validation, and server-only execution context.
+    // TODO: Replace xlsx with exceljs when feasible (17 files to migrate).
     const XLSX = require("xlsx");
-    const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true, ...opts });
+    const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true, WTF: false, ...opts });
     return { workbook };
   } catch (err: any) {
     return { error: err.message || "Failed to parse file. Ensure it is a valid Excel or CSV file." };

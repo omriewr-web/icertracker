@@ -5,7 +5,9 @@ import { jwtVerify } from "jose";
 // ── ODK Command Center — PIN-based auth, separate from NextAuth ──
 
 function getJoseSecret(): Uint8Array {
-  return new TextEncoder().encode(process.env.NEXTAUTH_SECRET || "");
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret) throw new Error("NEXTAUTH_SECRET is not set");
+  return new TextEncoder().encode(secret);
 }
 
 async function handleODK(req: NextRequest): Promise<NextResponse | null> {
@@ -50,6 +52,13 @@ const nextAuthMiddleware = withAuth(
 
     const token = req.nextauth.token;
     const pathname = req.nextUrl.pathname;
+
+    if (token?.active === false) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
 
     // Redirect users who haven't completed onboarding (SUPER_ADMIN skips)
     if (
@@ -124,6 +133,6 @@ export const config = {
      * - ODK/login, api/command/verify — ODK login (handled by handleODK above)
      * - _next/static, _next/image, favicon.ico — static assets
      */
-    "/((?!login|request|api/auth|api/health|api/work-orders/request|_next/static|_next/image|images|favicon.ico).*)",
+    "/((?!monitoring|login|request|api/auth|api/health|api/work-orders/request|_next/static|_next/image|images|favicon.ico).*)",
   ],
 };

@@ -92,7 +92,13 @@ export function createAnthropicAnalyzer(): AIImportAnalyzer | null {
         raw = raw.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
       }
 
-      return JSON.parse(raw) as AIImportResult;
+      let parsed: AIImportResult;
+      try {
+        parsed = JSON.parse(raw) as AIImportResult;
+      } catch {
+        throw new Error("AI returned invalid JSON. Please retry the import analysis.");
+      }
+      return parsed;
     },
   };
 }

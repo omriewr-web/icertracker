@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
+import { getOrgScope } from "@/lib/data-scope";
 import { z } from "zod";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -40,7 +41,7 @@ const patchSchema = z
 
 // ── PATCH ──────────────────────────────────────────────────────
 
-export const PATCH = withAuth(async (req: NextRequest, { params }) => {
+export const PATCH = withAuth(async (req: NextRequest, { user, params }) => {
   const { id } = await params;
   const data = await parseBody(req, patchSchema);
 
@@ -48,6 +49,9 @@ export const PATCH = withAuth(async (req: NextRequest, { params }) => {
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  // RgbOrder is global reference data (NYC Rent Guidelines Board orders).
+  // Access is gated by the "edit" permission string on withAuth.
 
   // Resolve final date range for overlap check
   const from = data.effectiveFrom ? new Date(data.effectiveFrom) : existing.effectiveFrom;
@@ -89,13 +93,15 @@ export const PATCH = withAuth(async (req: NextRequest, { params }) => {
 
 // ── DELETE ─────────────────────────────────────────────────────
 
-export const DELETE = withAuth(async (_req: NextRequest, { params }) => {
+export const DELETE = withAuth(async (_req: NextRequest, { user, params }) => {
   const { id } = await params;
 
   const order = await prisma.rgbOrder.findUnique({ where: { id } });
   if (!order) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  // RgbOrder is global reference data — access gated by "edit" permission.
 
   // Check if any tenant references this order number
   const referencedTenant = await prisma.tenant.findFirst({

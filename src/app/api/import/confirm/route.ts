@@ -339,7 +339,12 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const mapping: ColumnMappingEntry[] = JSON.parse(columnMappingRaw);
+  let mapping: ColumnMappingEntry[];
+  try {
+    mapping = JSON.parse(columnMappingRaw);
+  } catch {
+    return NextResponse.json({ error: "Invalid columnMapping: must be valid JSON" }, { status: 400 });
+  }
   const dataStartRow = parseInt(dataStartRowRaw, 10);
   const aiUsed = aiUsedRaw === "true";
   const mode = modeRaw || "stage";
