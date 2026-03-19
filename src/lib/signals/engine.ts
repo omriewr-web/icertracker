@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { LegalStage } from "@prisma/client";
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -1606,13 +1607,13 @@ async function detectWarrantNoMarshal(): Promise<DetectedSignal[]> {
 
 async function detectAdvancedCaseMissingAttorney(): Promise<DetectedSignal[]> {
   const signals: DetectedSignal[] = [];
-  const advancedStages: string[] = ["COURT_DATE", "STIPULATION", "JUDGMENT", "WARRANT", "EVICTION"];
+  const advancedStages: LegalStage[] = ["COURT_DATE", "STIPULATION", "JUDGMENT", "WARRANT", "EVICTION"];
 
   const cases = await prisma.legalCase.findMany({
     where: {
       isActive: true,
       inLegal: true,
-      stage: { in: advancedStages as any },
+      stage: { in: advancedStages },
       attorneyId: null,
       attorney: null,
     },

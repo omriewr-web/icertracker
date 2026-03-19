@@ -15,7 +15,7 @@ export default function PaymentForm({ tenantId }: { tenantId: string }) {
     const amt = parseFloat(amount);
     if (!amt || amt <= 0) return;
     createPayment.mutate(
-      { amount: amt, date, method: method || null, notes: notes || null } as any,
+      { amount: amt, date, method: method || undefined, notes: notes || undefined },
       {
         onSuccess: () => {
           setAmount("");

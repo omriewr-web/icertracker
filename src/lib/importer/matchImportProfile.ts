@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import type { ImportFingerprint, ProfileMatch, SuggestedMapping, MappingMethod } from "./types";
 import { CONFIDENCE_THRESHOLDS } from "./types";
 
@@ -119,9 +120,9 @@ export async function saveImportProfile(opts: {
       importType: opts.importType,
       sheetNamePattern: opts.sheetNamePattern,
       headerRowCount: opts.headerRowCount,
-      fingerprintJson: opts.fingerprint as any,
-      mappingJson: opts.mapping as any,
-      ignoredRulesJson: opts.ignoredRules as any,
+      fingerprintJson: opts.fingerprint as unknown as Prisma.InputJsonValue,
+      mappingJson: opts.mapping as unknown as Prisma.InputJsonValue,
+      ignoredRulesJson: (opts.ignoredRules ?? Prisma.JsonNull) as Prisma.InputJsonValue,
       createdById: opts.createdById,
     },
   });

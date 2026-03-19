@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { LeaseStatus } from "@prisma/client";
 import type { ParsedRentRollRow, ParsedVacantRow } from "@/lib/parsers/rent-roll.parser";
 import { findMatchingBuilding, fetchBuildingsForMatching, extractAddressFromEntity, generatePropertyId } from "@/lib/building-matching";
 import { recalculateTenantBalance } from "./collections.service";
@@ -268,7 +269,7 @@ export async function importRentRollData(
         }
       } else {
         // No active lease — create one
-        const leaseStatus = row.leaseExpiration
+        const leaseStatus: LeaseStatus = row.leaseExpiration
           ? (row.leaseExpiration < new Date() ? "EXPIRED" : "ACTIVE")
           : "MONTH_TO_MONTH";
 
@@ -286,7 +287,7 @@ export async function importRentRollData(
             moveOutDate: row.moveOutDate ?? null,
             monthlyRent: rentAmount || 0,
             currentBalance: row.currentBalance,
-            status: leaseStatus as any,
+            status: leaseStatus,
           },
           update: {
             leaseStart: row.moveInDate ?? undefined,

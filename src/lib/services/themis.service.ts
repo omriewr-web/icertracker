@@ -1,7 +1,7 @@
 // AI_GUARDRAIL: This service returns recommendations only.
 // It must never directly mutate financial records.
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma, WorkOrderCategory } from "@prisma/client";
 import Anthropic from "@anthropic-ai/sdk";
 import { triageWorkOrderTrade } from "@/lib/ai/asset-manager";
 import { AI_MODEL } from "@/lib/ai-config";
@@ -202,7 +202,7 @@ export async function findSimilarWorkOrders(
   const workOrders = await prisma.workOrder.findMany({
     where: {
       buildingId,
-      category: category as any,
+      category: category as WorkOrderCategory,
       status: "COMPLETED",
     },
     select: { id: true, title: true, description: true, completedDate: true },
@@ -653,7 +653,7 @@ export async function promoteDraftToWorkOrder(draftId: string, userId: string): 
         vendorId: draft.vendorId,
         assignedToId: draft.assignedToId,
         scheduledDate: draft.scheduledDate,
-        photos: draft.photoUrls as any,
+        photos: draft.photoUrls as Prisma.InputJsonValue,
         createdById: userId,
         sourceType: "themis",
         sourceId: draftId,

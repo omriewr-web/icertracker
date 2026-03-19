@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { normalizeAddress, fetchBuildingsForMatching, findMatchingBuilding } from "@/lib/building-matching";
-import { ViolationSource } from "@prisma/client";
+import { Prisma, ViolationSource } from "@prisma/client";
 import type { CommitResult, CommitContext } from "./types";
 
 interface ViolationRow {
@@ -69,7 +69,7 @@ export async function commitViolationImport(
           } else {
             errors.push(`Row ${row.rowIndex + 1}: No matching building for "${v.buildingAddress}"`);
             await tx.importRow.create({
-              data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: "SKIPPED", entityType: "violation", errors: [`No matching building`] },
+              data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as Prisma.InputJsonValue, status: "SKIPPED", entityType: "violation", errors: [`No matching building`] },
             });
             skipped++;
             continue;
@@ -108,13 +108,13 @@ export async function commitViolationImport(
         });
 
         await tx.importRow.create({
-          data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: "CREATED", entityType: "violation", entityId: violation.id },
+          data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as Prisma.InputJsonValue, status: "CREATED", entityType: "violation", entityId: violation.id },
         });
         imported++;
       } catch (e: any) {
         errors.push(`Row ${row.rowIndex + 1}: ${e.message}`);
         await tx.importRow.create({
-          data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: "ERROR", entityType: "violation", errors: [e.message] },
+          data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as Prisma.InputJsonValue, status: "ERROR", entityType: "violation", errors: [e.message] },
         }).catch(() => {});
         skipped++;
       }

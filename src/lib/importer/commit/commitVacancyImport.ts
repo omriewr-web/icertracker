@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { normalizeAddress, fetchBuildingsForMatching, findMatchingBuilding } from "@/lib/building-matching";
+import { Prisma } from "@prisma/client";
 import type { CommitResult, CommitContext } from "./types";
 
 interface VacancyRow {
@@ -53,7 +54,7 @@ export async function commitVacancyImport(
           } else {
             errors.push(`Row ${row.rowIndex + 1}: No matching building for "${v.buildingAddress}"`);
             await tx.importRow.create({
-              data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: "SKIPPED", entityType: "vacancy", errors: [`No matching building`] },
+              data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as Prisma.InputJsonValue, status: "SKIPPED", entityType: "vacancy", errors: [`No matching building`] },
             });
             skipped++;
             continue;
@@ -94,13 +95,13 @@ export async function commitVacancyImport(
         }
 
         await tx.importRow.create({
-          data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: existing ? "UPDATED" : "CREATED", entityType: "vacancy", entityId: vacancy.id },
+          data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as Prisma.InputJsonValue, status: existing ? "UPDATED" : "CREATED", entityType: "vacancy", entityId: vacancy.id },
         });
         imported++;
       } catch (e: any) {
         errors.push(`Row ${row.rowIndex + 1}: ${e.message}`);
         await tx.importRow.create({
-          data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as any, status: "ERROR", entityType: "vacancy", errors: [e.message] },
+          data: { importBatchId: ctx.importBatchId, rowIndex: row.rowIndex, rawData: row.raw as Prisma.InputJsonValue, status: "ERROR", entityType: "vacancy", errors: [e.message] },
         }).catch(() => {});
         skipped++;
       }

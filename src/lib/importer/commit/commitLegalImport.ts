@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { normalizeAddress } from "@/lib/building-matching";
 import { matchLegalCase, type LegalCaseRow, type TenantRecord } from "@/lib/legal-matching";
-import { LegalStage } from "@prisma/client";
+import { LegalStage, Prisma } from "@prisma/client";
 import type { CommitResult, CommitContext } from "./types";
 
 const STAGE_MAP: Record<string, LegalStage> = {
@@ -114,7 +114,7 @@ export async function commitLegalImport(
           await tx.importRow.create({
             data: {
               importBatchId: ctx.importBatchId, rowIndex: row.rowIndex,
-              rawData: row as any, status: match.matchType === "exact" ? "CREATED" : "UPDATED",
+              rawData: row as unknown as Prisma.InputJsonValue, status: match.matchType === "exact" ? "CREATED" : "UPDATED",
               entityType: "legal_case", entityId: match.tenant.id,
             },
           });
@@ -128,7 +128,7 @@ export async function commitLegalImport(
           await tx.legalImportQueue.create({
             data: {
               importBatchId: ctx.importBatchId, rowIndex: row.rowIndex,
-              rawData: row as any, matchType: match.matchType,
+              rawData: row as unknown as Prisma.InputJsonValue, matchType: match.matchType,
               matchConfidence: match.confidence,
               candidateTenantId: match.tenant?.id || null,
               candidateTenantName: match.tenant?.name || null,
