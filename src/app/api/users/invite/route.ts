@@ -82,7 +82,10 @@ export const POST = withAuth(async (req, { user }) => {
   const existingUsername = await prisma.user.findUnique({ where: { username } });
   const finalUsername = existingUsername ? `${username}${Date.now().toString(36).slice(-4)}` : username;
 
-  const orgId = user.organizationId!;
+  if (!user.organizationId) {
+    return NextResponse.json({ error: "Organization context required" }, { status: 400 });
+  }
+  const orgId = user.organizationId;
 
   // Determine dangerous privileges
   const presetDefaults = PRESET_DANGEROUS_DEFAULTS[preset];

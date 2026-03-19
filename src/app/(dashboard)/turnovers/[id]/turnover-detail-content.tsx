@@ -40,7 +40,19 @@ export default function TurnoverDetailContent({ id }: { id: string }) {
   const [showAddVendor, setShowAddVendor] = useState(false);
   const [vendorForm, setVendorForm] = useState({ vendorName: "", trade: "general", scheduledDate: "", cost: "", notes: "" });
 
-  if (isLoading || !turnover) return <PageSkeleton />;
+  if (isLoading) return <PageSkeleton />;
+
+  if (!turnover) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <p className="text-lg font-medium text-text-primary mb-2">Turnover not found</p>
+        <p className="text-sm text-text-muted mb-4">This turnover may have been removed or you may not have access to it.</p>
+        <Link href="/turnovers" className="text-accent hover:text-accent-light text-sm font-medium transition-colors">
+          Back to Turnovers
+        </Link>
+      </div>
+    );
+  }
 
   const daysActive = Math.ceil((Date.now() - new Date(turnover.createdAt).getTime()) / 86400000);
   const statusIndex = STATUSES.indexOf(turnover.status as typeof STATUSES[number]);

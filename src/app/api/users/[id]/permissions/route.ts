@@ -44,7 +44,10 @@ export const PATCH = withAuth(async (req, { user, params }) => {
   }
 
   const body = await parseBody(req, permissionUpdateSchema);
-  const orgId = user.organizationId!;
+  if (!user.organizationId) {
+    return NextResponse.json({ error: "Organization context required" }, { status: 400 });
+  }
+  const orgId = user.organizationId;
 
   // Capture old state for audit log
   const oldState = {
@@ -144,7 +147,7 @@ export const GET = withAuth(async (req, { user, params }) => {
   }
 
   const logs = await prisma.permissionAuditLog.findMany({
-    where: { affectedUser: userId, orgId: user.organizationId! },
+    where: { affectedUser: userId, orgId: user.organizationId ?? "" },
     orderBy: { createdAt: "desc" },
     take: 20,
   });

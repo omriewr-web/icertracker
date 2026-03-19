@@ -154,11 +154,13 @@ export async function syncBuildingViolations(
 const BATCH_SIZE = 10;
 
 export async function syncAllBuildings(
+  organizationId: string,
   sources?: string[],
   onProgress?: (synced: number, total: number, batchResults: SyncResult[]) => void
 ): Promise<SyncResult[]> {
   const buildings = await prisma.building.findMany({
     where: {
+      organizationId,
       block: { not: null },
       lot: { not: null },
     },

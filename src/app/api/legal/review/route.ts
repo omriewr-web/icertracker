@@ -24,8 +24,8 @@ function parseStage(value: string | undefined | null): LegalStage {
 
 // GET — List pending review items (scoped to user's org via candidate tenants)
 export const GET = withAuth(async (req: NextRequest, { user }) => {
-  const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
-  const orgFilter = isAdmin
+  const isSuperAdmin = user.role === 'SUPER_ADMIN';
+  const orgFilter = isSuperAdmin
     ? {}
     : user.organizationId
       ? { organizationId: user.organizationId }
@@ -55,13 +55,12 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
   });
   const orgTenantIds = orgTenants.map((t) => t.id);
 
+  // Only show items that belong to this org's tenants.
+  // Items with candidateTenantId=null are also scoped to the org via importBatchId.
   const items = await prisma.legalImportQueue.findMany({
     where: {
       status: "pending",
-      OR: [
-        { candidateTenantId: { in: orgTenantIds } },
-        { candidateTenantId: null },
-      ],
+      candidateTenantId: { in: orgTenantIds },
     },
     orderBy: { createdAt: "desc" },
   });

@@ -19,7 +19,14 @@ export const GET = withCronAuth(async () => {
     }
     const log = await prisma.cronLog.create({ data: { jobName: "violations", status: "RUNNING" } });
 
-    const results = await syncAllBuildings();
+    // Sync each org's buildings separately
+    const orgs = await prisma.organization.findMany({ select: { id: true } });
+    const allResults = [];
+    for (const org of orgs) {
+      const orgResults = await syncAllBuildings(org.id);
+      allResults.push(...orgResults);
+    }
+    const results = allResults;
     const totalNew = results.reduce((sum, r) => sum + r.newCount, 0);
     const totalUpdated = results.reduce((sum, r) => sum + r.updatedCount, 0);
     const errors = results.filter((r) => r.error);

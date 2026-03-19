@@ -136,6 +136,21 @@ export default function TenantCollectionPage() {
 
   if (isLoading) return <PageSkeleton />;
 
+  if (!profile?.tenant) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <p className="text-lg font-medium text-text-primary mb-2">Tenant not found</p>
+        <p className="text-sm text-text-muted mb-4">This tenant may have been removed or you may not have access to it.</p>
+        <button
+          onClick={() => router.push("/collections")}
+          className="text-accent hover:text-accent-light text-sm font-medium transition-colors"
+        >
+          Back to Collections
+        </button>
+      </div>
+    );
+  }
+
   const tenant = profile?.tenant;
   const snapshot = profile?.latestARSnapshot;
   const balanceHistory = profile?.balanceHistory ?? [];
