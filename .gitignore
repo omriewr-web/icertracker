@@ -10,3 +10,4 @@ prisma/*.db
 prisma/migrations/
 .vercel
 .env*.local
+.env.sentry-build-plugin
