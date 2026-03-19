@@ -12,7 +12,9 @@ import { useSignals } from "@/hooks/use-signals";
 import KpiCard from "@/components/ui/kpi-card";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { fmt$, pct } from "@/lib/utils";
-import BalanceChart from "./balance-chart";
+import dynamic from "next/dynamic";
+
+const BalanceChart = dynamic(() => import("./balance-chart"), { ssr: false });
 import PropertiesTable from "./properties-table";
 import BuildingInfo from "./building-info";
 import { useAppStore } from "@/stores/app-store";

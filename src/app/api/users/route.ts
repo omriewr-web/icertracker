@@ -37,7 +37,9 @@ export const GET = withAuth(async (req, { user }) => {
     moduleCount: u.accessGrants.filter((g) => g.level !== "none").length,
   }));
 
-  return NextResponse.json(mapped);
+  const response = NextResponse.json(mapped);
+  response.headers.set("Cache-Control", "private, max-age=60");
+  return response;
 }, "users");
 
 export const POST = withAuth(async (req, { user }) => {

@@ -19,12 +19,14 @@ export const GET = withAuth(async (req, { user }) => {
   }
 
   const vendors = await prisma.vendor.findMany({ where, orderBy: { name: "asc" }, take: 200 });
-  return NextResponse.json(
+  const response = NextResponse.json(
     vendors.map((v) => ({
       ...v,
       hourlyRate: v.hourlyRate ? toNumber(v.hourlyRate) : null,
     }))
   );
+  response.headers.set("Cache-Control", "private, max-age=60");
+  return response;
 }, "maintenance");
 
 export const POST = withAuth(async (req, { user }) => {

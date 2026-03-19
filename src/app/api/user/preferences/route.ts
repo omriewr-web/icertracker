@@ -42,7 +42,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
   }
 
   return NextResponse.json(prefs);
-});
+}, "dash");
 
 export const PATCH = withAuth(async (req: NextRequest, { user }) => {
   const body = await req.json();
@@ -64,4 +64,4 @@ export const PATCH = withAuth(async (req: NextRequest, { user }) => {
   });
 
   return NextResponse.json(prefs);
-});
+}, "dash");

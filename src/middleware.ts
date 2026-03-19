@@ -1,5 +1,5 @@
 import { withAuth } from "next-auth/middleware";
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest, type NextFetchEvent, type NextMiddleware } from "next/server";
 import { jwtVerify } from "jose";
 
 // ── ODK Command Center — PIN-based auth, separate from NextAuth ──
@@ -116,13 +116,14 @@ const nextAuthMiddleware = withAuth(
 
 // ── Combined middleware — ODK first, then NextAuth ──
 
-export default async function middleware(req: NextRequest) {
+export default async function middleware(req: NextRequest, event: NextFetchEvent) {
   // ODK routes use PIN-based auth, not NextAuth
   const odkResult = await handleODK(req);
   if (odkResult) return odkResult;
 
   // Everything else goes through NextAuth middleware
-  return (nextAuthMiddleware as any)(req, {} as any);
+  // nextAuthMiddleware expects NextRequestWithAuth, which withAuth populates at runtime
+  return (nextAuthMiddleware as NextMiddleware)(req, event);
 }
 
 export const config = {
