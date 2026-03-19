@@ -400,7 +400,7 @@ export default function CollectionsContent() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Collections</h1>
           <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Financial — A/R Pipeline</span>
@@ -468,13 +468,13 @@ export default function CollectionsContent() {
                     <div key={alert.tenantId}>
                       <div
                         onClick={() => router.push(`/collections/${alert.tenantId}`)}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-card-hover transition-colors cursor-pointer border-l-2 border-l-red-500"
+                        className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 px-4 py-2.5 hover:bg-card-hover transition-colors cursor-pointer border-l-2 border-l-red-500"
                       >
-                        <div className="flex-1 min-w-0 flex items-center gap-4">
-                          <span className="text-sm text-text-primary font-medium truncate w-36">{alert.tenantName}</span>
-                          <span className="text-xs text-text-dim truncate w-40">{alert.buildingAddress} — {alert.unit}</span>
-                          <span className="text-xs text-red-400 font-mono w-20 text-right">{fmt$(alert.balance)}</span>
-                          <span className="text-xs truncate flex-1 text-red-400">
+                        <div className="flex-1 min-w-0 flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-4">
+                          <span className="text-sm text-text-primary font-medium truncate w-full sm:w-36">{alert.tenantName}</span>
+                          <span className="text-xs text-text-dim truncate w-full sm:w-40">{alert.buildingAddress} — {alert.unit}</span>
+                          <span className="text-xs text-red-400 font-mono sm:w-20 sm:text-right">{fmt$(alert.balance)}</span>
+                          <span className="text-xs truncate flex-1 text-red-400 hidden sm:inline">
                             {alert.alertMessage}
                           </span>
                           {alert.daysSinceContact != null && (
@@ -547,13 +547,13 @@ export default function CollectionsContent() {
                     <div key={alert.tenantId}>
                       <div
                         onClick={() => router.push(`/collections/${alert.tenantId}`)}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-card-hover transition-colors cursor-pointer border-l-2 border-l-amber-500"
+                        className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 px-4 py-2.5 hover:bg-card-hover transition-colors cursor-pointer border-l-2 border-l-amber-500"
                       >
-                        <div className="flex-1 min-w-0 flex items-center gap-4">
-                          <span className="text-sm text-text-primary font-medium truncate w-36">{alert.tenantName}</span>
-                          <span className="text-xs text-text-dim truncate w-40">{alert.buildingAddress} — {alert.unit}</span>
-                          <span className="text-xs text-red-400 font-mono w-20 text-right">{fmt$(alert.balance)}</span>
-                          <span className="text-xs truncate flex-1 text-amber-400">
+                        <div className="flex-1 min-w-0 flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-4">
+                          <span className="text-sm text-text-primary font-medium truncate w-full sm:w-36">{alert.tenantName}</span>
+                          <span className="text-xs text-text-dim truncate w-full sm:w-40">{alert.buildingAddress} — {alert.unit}</span>
+                          <span className="text-xs text-red-400 font-mono sm:w-20 sm:text-right">{fmt$(alert.balance)}</span>
+                          <span className="text-xs truncate flex-1 text-amber-400 hidden sm:inline">
                             {alert.alertMessage}
                           </span>
                           {alert.daysSinceContact != null && (
@@ -964,7 +964,7 @@ export default function CollectionsContent() {
           </table>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-border">
               <p className="text-xs text-text-dim">
                 Page {page} of {totalPages} ({tenantsData!.total} total)
               </p>

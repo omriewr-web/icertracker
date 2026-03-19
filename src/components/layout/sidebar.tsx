@@ -27,6 +27,7 @@ import {
   Upload,
   MessageSquare,
   CreditCard,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/permissions";
@@ -103,11 +104,18 @@ export default function Sidebar() {
   return (
     <aside
       className={cn(
-        "h-full bg-atlas-navy-2 border-r border-border flex flex-col shrink-0 transition-all duration-200",
+        "h-full bg-atlas-navy-2 border-r border-border flex flex-col shrink-0 transition-all duration-200 relative",
         sidebarCollapsed ? "w-16" : "w-56"
       )}
     >
       <div className="p-3 border-b border-border overflow-hidden">
+        <button
+          onClick={() => setSidebarOpen(false)}
+          className="lg:hidden absolute top-3 right-3 p-1 rounded-lg text-text-dim hover:text-text-primary hover:bg-card-hover transition-colors z-10"
+          aria-label="Close sidebar"
+        >
+          <X className="w-5 h-5" />
+        </button>
         {sidebarCollapsed ? (
           <div className="flex justify-center py-1">
             <img

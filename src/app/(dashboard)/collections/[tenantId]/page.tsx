@@ -320,11 +320,11 @@ export default function TenantCollectionPage() {
       </button>
 
       {/* ── SECTION 1: Header ── */}
-      <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
+      <div className="bg-atlas-navy-3 border border-border rounded-xl p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-text-primary">{tenantName}</h1>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <h1 className="text-xl sm:text-2xl font-bold text-text-primary">{tenantName}</h1>
               <ScoreBadge score={collectionScore} />
               <button
                 onClick={openEditModal}
@@ -358,7 +358,7 @@ export default function TenantCollectionPage() {
           </div>
           <div className="text-right">
             <p className="text-xs text-text-dim uppercase tracking-wider">Total Balance</p>
-            <p className={cn("text-3xl font-bold font-mono", totalBalance > 0 ? "text-red-400" : "text-green-400")}>
+            <p className={cn("text-2xl sm:text-3xl font-bold font-mono", totalBalance > 0 ? "text-red-400" : "text-green-400")}>
               {fmt$(totalBalance)}
             </p>
           </div>
