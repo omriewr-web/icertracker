@@ -28,12 +28,14 @@ import {
   MessageSquare,
   CreditCard,
   X,
+  Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/permissions";
 import type { UserRole } from "@/types";
 import PropertySelector from "./property-selector";
 import { useAppStore } from "@/stores/app-store";
+import { useOnboarding } from "@/hooks/use-onboarding";
 
 type Section = "INTELLIGENCE" | "FINANCIAL" | "OPERATIONS" | "LEGAL" | "SETTINGS";
 
@@ -85,6 +87,7 @@ export default function Sidebar() {
   const { data: session } = useSession();
   const role = (session?.user?.role || "COLLECTOR") as UserRole;
   const { setSidebarOpen, sidebarCollapsed, toggleSidebarCollapsed } = useAppStore();
+  const { data: onboarding } = useOnboarding();
 
   const filteredItems = navItems.filter((item) => hasPermission(role, item.perm));
 
@@ -141,6 +144,33 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 py-2 overflow-y-auto" aria-label="Main navigation">
+        {onboarding && onboarding.percentComplete < 100 && (
+          <div className="mb-1">
+            <Link
+              href="/onboarding"
+              onClick={() => setSidebarOpen(false)}
+              title={sidebarCollapsed ? "Get Started" : undefined}
+              aria-current={pathname === "/onboarding" ? "page" : undefined}
+              className={cn(
+                "flex items-center gap-3 text-sm transition-all",
+                sidebarCollapsed ? "justify-center px-2 py-2.5" : "px-4 py-2",
+                pathname === "/onboarding"
+                  ? "text-accent bg-accent/10 nav-active-glow"
+                  : "text-[#c9a84c] hover:text-[#c9a84c] hover:bg-card-hover"
+              )}
+            >
+              <Rocket className="w-4 h-4 shrink-0" />
+              {!sidebarCollapsed && (
+                <span className="min-w-0 flex items-center gap-2">
+                  <span className="block leading-tight font-medium">Get Started</span>
+                  <span className="rounded bg-[#c9a84c]/20 px-1.5 py-0.5 text-[10px] font-semibold text-[#c9a84c]">
+                    {onboarding.percentComplete}%
+                  </span>
+                </span>
+              )}
+            </Link>
+          </div>
+        )}
         {sections.map(({ section, items }) => (
           <div key={section}>
             {!sidebarCollapsed && (
