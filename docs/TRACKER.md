@@ -125,6 +125,17 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - [x] INT-8: Comms AI — AI Enhance button in MessageComposer, thread summary button in ConversationView
 - [x] INT-9: Hooks — useTenantAttention, useBuildingAttention, useAttentionRankings, useActionCards, useLogDecision, useSummarizeThread
 
+### Auto-Repair Run (2026-03-19 21:30)
+- [x] M3: Cron timing-safe auth — collections-refresh now uses withCronAuth()
+- [x] H8: Tenant PATCH Decimal serialization — all Decimal fields normalized via toNumber()
+- [x] M8: Stage regression guard — advanceStage() rejects newStage <= currentStage
+- Verified already fixed: C1, C2, C3, C4, H2, H4, H5, H6, H10, M9
+
+**QA audit open findings — top 3 next repair candidates:**
+1. H9: SUPER_ADMIN organizationId! null dereference in 20+ routes
+2. H7: Signal engine N+1 sequential DB calls in loops
+3. H12: 7+ pages silently break on API failure (no isError checks)
+
 ## Active Work
 - Intelligence Layer V1 complete — cross-module attention scoring, action cards, decision learning loop, thread summaries
 - IMMEDIATE: Fix 3 Decimal serialization routes + 2 missing transactions + audit balance/vacancy sync call sites
