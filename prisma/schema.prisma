@@ -1767,9 +1767,12 @@ model UtilityAccount {
   tenant        Tenant?               @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   monthlyChecks UtilityMonthlyCheck[]
 
+  workflowState      String    @default("active_confirmed") // UtilityWorkflowState values as string
+
   @@index([utilityMeterId])
   @@index([tenantId])
   @@index([status])
+  @@index([workflowState])
   @@map("utility_accounts")
 }
 
@@ -1789,6 +1792,126 @@ model UtilityMonthlyCheck {
 
   @@unique([utilityAccountId, month, year])
   @@map("utility_monthly_checks")
+}
+
+// ── Utility Responsibility Tracking ─────────────────────────────
+
+enum UtilityWorkflowState {
+  tenant_to_open
+  tenant_open_confirmed
+  owner_hold
+  old_tenant_close_pending
+  closed_clean
+  closed_with_balance
+  active_confirmed
+}
+
+enum UtilityEventType {
+  account_opened
+  account_closed
+  responsibility_transferred
+  owner_hold_started
+  owner_hold_ended
+  tenant_confirmed_open
+  tenant_confirmed_closed
+  move_out_recorded
+  move_in_recorded
+  vacancy_started
+  vacancy_ended
+  proof_uploaded
+  balance_at_close_recorded
+  manual_note
+}
+
+enum UtilityTaskType {
+  tenant_open_account
+  tenant_close_account
+  confirm_owner_utility
+  confirm_tenant_confirmed
+  upload_close_proof
+  upload_open_proof
+  resolve_balance_at_close
+  transfer_needed
+}
+
+enum UtilityTaskStatus {
+  pending
+  in_progress
+  completed
+  skipped
+  escalated
+}
+
+model UtilityResponsibilityEvent {
+  id                  String               @id @default(cuid())
+  orgId               String
+  buildingId          String
+  unitId              String?
+  utilityMeterId      String
+  utilityAccountId    String?
+  eventType           UtilityEventType
+  workflowState       UtilityWorkflowState
+  fromPartyType       String?
+  fromPartyName       String?
+  fromTenantId        String?
+  toPartyType         String?
+  toPartyName         String?
+  toTenantId          String?
+  leaseStartSnapshot  DateTime?
+  leaseEndSnapshot    DateTime?
+  moveOutSnapshot     DateTime?
+  moveInSnapshot      DateTime?
+  providerName        String?
+  accountNumber       String?
+  triggeredBy         String?
+  triggeredByUserId   String?
+  notes               String?
+  proofFileUrl        String?
+  createdAt           DateTime  @default(now())
+
+  @@index([utilityMeterId])
+  @@index([unitId])
+  @@index([buildingId])
+  @@index([orgId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("utility_responsibility_events")
+}
+
+model UtilityTask {
+  id                  String            @id @default(cuid())
+  orgId               String
+  buildingId          String
+  unitId              String?
+  utilityMeterId      String?
+  utilityAccountId    String?
+  tenantId            String?
+  taskType            UtilityTaskType
+  status              UtilityTaskStatus @default(pending)
+  title               String
+  description         String?
+  dueAt               DateTime?
+  completedAt         DateTime?
+  completedByUserId   String?
+  assignedToUserId    String?
+  tenantNameSnapshot  String?
+  unitSnapshot        String?
+  providerSnapshot    String?
+  proofFileUrl        String?
+  notes               String?
+  triggeredBy         String?
+  triggerEventId      String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([orgId])
+  @@index([buildingId])
+  @@index([unitId])
+  @@index([utilityMeterId])
+  @@index([status])
+  @@index([dueAt])
+  @@index([tenantId])
+  @@map("utility_tasks")
 }
 
 // ── Operational Intelligence Engine ──────────────────────────────
