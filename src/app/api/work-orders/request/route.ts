@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { tenantRequestSchema } from "@/lib/validations";
 import { assertUnitBelongsToBuilding } from "@/lib/work-order-relations";
+import { WorkOrderPriority, WorkOrderCategory } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -150,8 +151,8 @@ export async function POST(req: NextRequest) {
         title: data.title,
         description: `${data.description}\n\n---\nSubmitted by: ${data.tenantName}\nContact: ${data.tenantContact}`,
         status: "PENDING_REVIEW",
-        priority: data.priority as any,
-        category: data.category as any,
+        priority: data.priority as WorkOrderPriority,
+        category: data.category as WorkOrderCategory,
         photos: data.photos ?? undefined,
         buildingId: data.buildingId,
         unitId: data.unitId || null,

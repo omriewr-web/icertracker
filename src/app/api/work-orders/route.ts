@@ -7,6 +7,7 @@ import { getDisplayAddress } from "@/lib/building-matching";
 import { WorkOrderView } from "@/types";
 import { toNumber } from "@/lib/utils/decimal";
 import { validateWorkOrderRelations } from "@/lib/work-order-relations";
+import { WorkOrderStatus, WorkOrderPriority, WorkOrderCategory } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -101,9 +102,9 @@ export const POST = withAuth(async (req, { user }) => {
     data: {
       title: data.title,
       description: data.description,
-      status: data.status as any,
-      priority: data.priority as any,
-      category: data.category as any,
+      status: data.status as WorkOrderStatus,
+      priority: data.priority as WorkOrderPriority,
+      category: data.category as WorkOrderCategory,
       photos: data.photos ?? undefined,
       estimatedCost: data.estimatedCost,
       actualCost: data.actualCost,

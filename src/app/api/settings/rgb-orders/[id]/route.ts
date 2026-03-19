@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
-import { getOrgScope } from "@/lib/data-scope";
 import { z } from "zod";
 
 // ── Helpers ────────────────────────────────────────────────────
