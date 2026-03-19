@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
   Building2, Users, DollarSign, Scale, DoorOpen, FolderKanban,
-  AlertTriangle, Shield, ChevronUp, ChevronDown, ExternalLink, ArrowRight,
+  AlertTriangle, Shield, ChevronUp, ChevronDown, ArrowRight,
 } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import KpiCard from "@/components/ui/kpi-card";
@@ -214,7 +214,7 @@ export default function OwnerDashboardContent() {
   return (
     <div className="space-y-6 animate-fade-in print:space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between print:mb-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 print:mb-2">
         <div>
           <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">
             Owner Dashboard
@@ -272,13 +272,14 @@ export default function OwnerDashboardContent() {
           <SectionError label="portfolio metrics" />
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          <KpiCard label="Total Units" value={Number(m.totalUnits ?? 0)} icon={Building2} color="#C9A84C" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
+          <KpiCard label="Total Units" value={Number(m.totalUnits ?? 0)} icon={Building2} color="#C9A84C" href="/data" />
           <KpiCard
             label="Occupancy Rate"
             value={`${Number(m.occupancyRate ?? 0).toFixed(1)}%`}
             icon={Users}
             color={pctColor(Number(m.occupancyRate ?? 0))}
+            href="/vacancies"
           />
           <KpiCard
             label="Vacant Units"
@@ -287,30 +288,35 @@ export default function OwnerDashboardContent() {
             color={m.vacant > 0 ? "#f59e0b" : "#C9A84C"}
             subtext={m.lostRent > 0 ? `${fmt$(m.lostRent)}/mo lost` : undefined}
             subtextColor="#ef4444"
+            href="/vacancies"
           />
           <KpiCard
             label="Total AR"
             value={buildingsLoading ? "..." : fmt$(totalAR)}
             icon={DollarSign}
             color="#ef4444"
+            href="/collections"
           />
           <KpiCard
             label="Lost Rent/Mo"
             value={fmt$(Number(m.lostRent ?? 0))}
             icon={DollarSign}
             color="#ef4444"
+            href="/vacancies"
           />
           <KpiCard
             label="Active Projects"
             value={projectsLoading ? "..." : projectCount}
             icon={FolderKanban}
             color="#C9A84C"
+            href="/projects"
           />
           <KpiCard
             label="Open Legal Cases"
             value={Number(m.legalCaseCount ?? 0)}
             icon={Scale}
             color={m.legalCaseCount > 0 ? "#ef4444" : "#C9A84C"}
+            href="/legal"
           />
         </div>
       )}
@@ -324,8 +330,8 @@ export default function OwnerDashboardContent() {
         ) : sortedBuildings.length === 0 ? (
           <p className="text-sm text-text-dim text-center py-6">No buildings in portfolio</p>
         ) : (
-          <div className="overflow-x-auto -mx-1">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[700px]">
               <thead>
                 <tr className="text-text-dim border-b border-border text-xs">
                   <SortTh label="Address" col="address" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
@@ -334,7 +340,7 @@ export default function OwnerDashboardContent() {
                   <SortTh label="Vacant" col="vacant" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
                   <SortTh label="AR Balance" col="totalBalance" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
                   <th className="py-2 text-right font-medium px-2">Occupancy %</th>
-                  <SortTh label="Violations" col="arrearsCount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                  <SortTh label="Violations" col="violationCount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
                   <SortTh label="Legal" col="legalCount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
                   <th className="py-2 px-2 w-8" />
                 </tr>
@@ -380,9 +386,9 @@ export default function OwnerDashboardContent() {
                         </div>
                       </td>
                       <td className="py-2.5 text-right tabular-nums px-2">
-                        {b.arrearsCount > 0 ? (
+                        {b.violationCount > 0 ? (
                           <span className="inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-500/20 text-red-400">
-                            {b.arrearsCount}
+                            {b.violationCount}
                           </span>
                         ) : (
                           <span className="text-text-dim">0</span>
@@ -620,13 +626,13 @@ export default function OwnerDashboardContent() {
                 <p className="text-xs text-text-dim mb-2">Top buildings by violations</p>
                 <div className="space-y-1">
                   {[...buildings]
-                    .sort((a, b) => (b.arrearsCount ?? 0) - (a.arrearsCount ?? 0))
+                    .sort((a, b) => (b.violationCount ?? 0) - (a.violationCount ?? 0))
                     .slice(0, 5)
-                    .filter((b) => b.arrearsCount > 0)
+                    .filter((b) => b.violationCount > 0)
                     .map((b) => (
                       <div key={b.id} className="flex items-center justify-between py-1.5 text-xs">
                         <span className="text-text-primary truncate max-w-[260px]">{b.address}</span>
-                        <span className="text-text-muted font-mono">{b.arrearsCount}</span>
+                        <span className="text-text-muted font-mono">{b.violationCount}</span>
                       </div>
                     ))}
                 </div>

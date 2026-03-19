@@ -7,7 +7,7 @@ import { useBuildings } from "@/hooks/use-buildings";
 import Button from "@/components/ui/button";
 import Modal from "@/components/ui/modal";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
-import LoadingSpinner from "@/components/ui/loading-spinner";
+import { TableTabSkeleton } from "@/components/ui/skeleton";
 import { fmt$ } from "@/lib/utils";
 
 export default function UnitsTab() {
@@ -26,7 +26,7 @@ export default function UnitsTab() {
     (u.tenantName && u.tenantName.toLowerCase().includes(search.toLowerCase()))
   );
 
-  if (isLoading) return <LoadingSpinner />;
+  if (isLoading) return <TableTabSkeleton rows={10} />;
 
   return (
     <div className="space-y-4">

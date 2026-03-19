@@ -86,19 +86,19 @@ export default function TenantCreateModal() {
         </div>
         <InputField label="Unit Number *" value={form.unitNumber} onChange={(v) => setForm({ ...form, unitNumber: v })} />
         <InputField label="Name *" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <InputField label="Email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} type="email" />
           <InputField label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <InputField label="Market Rent" value={form.marketRent} onChange={(v) => setForm({ ...form, marketRent: v })} type="number" />
           <InputField label="Legal Rent" value={form.legalRent} onChange={(v) => setForm({ ...form, legalRent: v })} type="number" />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <InputField label="Deposit" value={form.deposit} onChange={(v) => setForm({ ...form, deposit: v })} type="number" />
           <InputField label="Charge Code" value={form.chargeCode} onChange={(v) => setForm({ ...form, chargeCode: v })} />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <InputField label="Move-In Date" value={form.moveInDate} onChange={(v) => setForm({ ...form, moveInDate: v })} type="date" />
           <InputField label="Lease Expiration" value={form.leaseExpiration} onChange={(v) => setForm({ ...form, leaseExpiration: v })} type="date" />
         </div>

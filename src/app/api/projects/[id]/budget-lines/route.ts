@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { withAuth } from "@/lib/api-helpers";
+import { withAuth, parseBody } from "@/lib/api-helpers";
 import { assertBuildingAccess } from "@/lib/data-scope";
+import { budgetLineCreateSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export const POST = withAuth(async (req, { user, params }) => {
   const denied = await assertBuildingAccess(user, project.buildingId);
   if (denied) return denied;
 
-  const body = await req.json();
+  const body = await parseBody(req, budgetLineCreateSchema);
 
   const line = await prisma.projectBudgetLine.create({
     data: {

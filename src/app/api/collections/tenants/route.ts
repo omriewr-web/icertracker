@@ -4,6 +4,7 @@ import { getARReport } from "@/lib/services/collections.service";
 
 export const dynamic = "force-dynamic";
 export const GET = withAuth(async (req, { user }) => {
+  if (user.role === "OWNER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const url = new URL(req.url);
   const buildingId = url.searchParams.get("buildingId") || undefined;
   const status = url.searchParams.get("status") || undefined;

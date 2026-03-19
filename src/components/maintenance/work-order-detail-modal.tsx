@@ -169,7 +169,7 @@ export default function WorkOrderDetailModal({ workOrderId, onClose }: Props) {
                   tab === t ? "text-accent border-b-2 border-accent" : "text-text-dim hover:text-text-muted"
                 }`}
               >
-                {t === "themis" ? "Themis Package" : t.charAt(0).toUpperCase() + t.slice(1)}
+                {t === "themis" ? "Defense Package" : t.charAt(0).toUpperCase() + t.slice(1)}
                 {t === "comments" && wo.comments?.length ? ` (${wo.comments.length})` : ""}
                 {t === "activity" && activity?.length ? ` (${activity.length})` : ""}
               </button>
@@ -182,7 +182,7 @@ export default function WorkOrderDetailModal({ workOrderId, onClose }: Props) {
                 <p className="text-sm text-text-primary whitespace-pre-wrap">{wo.description}</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
                 <Field label="Building" value={wo.buildingAddress} />
                 <Field label="Unit" value={wo.unitNumber || "—"} />
                 <Field label="Tenant" value={wo.tenantName || "—"} />
@@ -373,11 +373,11 @@ export default function WorkOrderDetailModal({ workOrderId, onClose }: Props) {
                   }}
                   className="text-accent hover:bg-accent/15 transition-colors"
                 >
-                  Themis — Generate Package
+                  Generate Defense Package
                 </button>
               ) : (
                 <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', textAlign: 'center', padding: '20px' }} className="text-text-muted">
-                  Complete this work order to generate a Themis package
+                  Complete this work order to generate a defense package
                 </p>
               )}
 

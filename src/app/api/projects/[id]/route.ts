@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { withAuth } from "@/lib/api-helpers";
+import { withAuth, parseBody } from "@/lib/api-helpers";
 import { assertBuildingAccess } from "@/lib/data-scope";
 import { calculateHealth, calculatePercentComplete, computeProjectStats } from "@/lib/project-health";
 import { toNumber } from "@/lib/utils/decimal";
+import { projectUpdateSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
@@ -53,21 +54,21 @@ export const PATCH = withAuth(async (req, { user, params }) => {
   const denied = await assertBuildingAccess(user, existing.buildingId);
   if (denied) return denied;
 
-  const body = await req.json();
+  const body = await parseBody(req, projectUpdateSchema);
 
   const updateData: any = {};
   const fields = [
     "name", "description", "category", "status", "priority", "scopeOfWork",
     "code", "managerId", "vendorId", "ownerVisible", "requiresApproval",
-  ];
+  ] as const;
   for (const f of fields) {
     if (body[f] !== undefined) updateData[f] = body[f];
   }
-  const decimalFields = ["estimatedBudget", "approvedBudget", "actualCost", "contingency"];
+  const decimalFields = ["estimatedBudget", "approvedBudget", "actualCost", "contingency"] as const;
   for (const f of decimalFields) {
     if (body[f] !== undefined) updateData[f] = body[f];
   }
-  const dateFields = ["startDate", "targetEndDate", "actualEndDate"];
+  const dateFields = ["startDate", "targetEndDate", "actualEndDate"] as const;
   for (const f of dateFields) {
     if (body[f] !== undefined) updateData[f] = body[f] ? new Date(body[f]) : null;
   }

@@ -118,7 +118,7 @@ export default function CreateProjectModal({ open, onClose, prefill }: Props) {
           <label className="block text-xs text-text-dim mb-1">Project Name *</label>
           <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent" placeholder="e.g. 993 Summit Ave — Roof Replacement" />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-text-dim mb-1">Building *</label>
             <select value={form.buildingId} onChange={(e) => handleBuildingChange(e.target.value)} className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent">
@@ -134,7 +134,7 @@ export default function CreateProjectModal({ open, onClose, prefill }: Props) {
             </select>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-text-dim mb-1">Category *</label>
             <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent">
@@ -172,7 +172,7 @@ export default function CreateProjectModal({ open, onClose, prefill }: Props) {
             <input type="date" value={form.targetEndDate} onChange={(e) => setForm({ ...form, targetEndDate: e.target.value })} className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent" />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-text-dim mb-1">Vendor</label>
             <select value={form.vendorId} onChange={(e) => setForm({ ...form, vendorId: e.target.value })} className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent">

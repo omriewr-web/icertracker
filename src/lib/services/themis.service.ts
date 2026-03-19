@@ -675,7 +675,7 @@ export async function promoteDraftToWorkOrder(draftId: string, userId: string): 
     await tx.activityEvent.create({
       data: {
         eventType: "work_order_created",
-        title: `Work order created from Themis: ${draft.title}`,
+        title: `Work order created from Legal Defense: ${draft.title}`,
         relatedRecordType: "WorkOrder",
         relatedRecordId: wo.id,
         buildingId: draft.buildingId,

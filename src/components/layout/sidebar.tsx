@@ -29,6 +29,7 @@ import {
   CreditCard,
   X,
   Rocket,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/permissions";
@@ -49,10 +50,10 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: "/", label: "Argus", subtitle: "Portfolio Overview", icon: LayoutDashboard, perm: "dash", section: "INTELLIGENCE" },
+  { href: "/", label: "Portfolio", subtitle: "Portfolio Overview", icon: LayoutDashboard, perm: "dash", section: "INTELLIGENCE" },
   { href: "/owner-dashboard", label: "Owner View", icon: Building2, perm: "owner", section: "INTELLIGENCE" },
   { href: "/owner/dashboard", label: "Owner Portal", subtitle: "Portfolio Summary", icon: Building2, perm: "owner", section: "INTELLIGENCE" },
-  { href: "/coeus", label: "Coeus", subtitle: "AI Assistant", icon: Radio, perm: "dash", section: "INTELLIGENCE" },
+  { href: "/coeus", label: "Signals", subtitle: "AI Assistant", icon: Radio, perm: "dash", section: "INTELLIGENCE" },
   { href: "/daily", label: "Daily Briefing", icon: CalendarClock, perm: "dash", section: "INTELLIGENCE" },
   { href: "/alerts", label: "Arrears Alerts", subtitle: "Collection Flags", icon: AlertTriangle, perm: "fin", section: "FINANCIAL" },
   { href: "/collections", label: "Collections", icon: DollarSign, perm: "collections", section: "FINANCIAL" },
@@ -62,7 +63,7 @@ const navItems: NavItem[] = [
   { href: "/leases", label: "Leases", icon: FileText, perm: "lease", section: "OPERATIONS" },
   { href: "/maintenance", label: "Work Orders", icon: Wrench, perm: "maintenance", section: "OPERATIONS" },
   { href: "/projects", label: "Projects", icon: FolderKanban, perm: "maintenance", section: "OPERATIONS" },
-  { href: "/themis", label: "Themis", subtitle: "Legal Pipeline", icon: Scale, perm: "maintenance", section: "OPERATIONS" },
+  { href: "/themis", label: "Legal Defense", subtitle: "Violation Packages", icon: Scale, perm: "maintenance", section: "OPERATIONS" },
   { href: "/utilities", label: "Utilities", icon: Gauge, perm: "utilities", section: "OPERATIONS" },
   { href: "/compliance", label: "Compliance", icon: Shield, perm: "compliance", section: "OPERATIONS" },
   { href: "/legal", label: "Legal Cases", icon: Scale, perm: "legal", section: "LEGAL" },
@@ -72,6 +73,7 @@ const navItems: NavItem[] = [
   { href: "/settings/rgb-orders", label: "RGB Orders", subtitle: "Annual Rent Guidelines", icon: ScrollText, perm: "allProps", section: "SETTINGS" },
   { href: "/settings/legal-rent-import", label: "Legal Rent Import", subtitle: "Bulk update regulated rents", icon: Upload, perm: "upload", section: "SETTINGS" },
   { href: "/settings/billing", label: "Billing", subtitle: "Subscription & Invoices", icon: CreditCard, perm: "allProps", section: "SETTINGS" },
+  { href: "/settings/preferences", label: "Preferences", subtitle: "Your dashboard & alerts", icon: Settings, perm: "dash", section: "SETTINGS" },
 ];
 
 const sectionLabels: Record<Section, string> = {

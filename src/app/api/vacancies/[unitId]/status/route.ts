@@ -4,6 +4,7 @@ import { withAuth, parseBody } from "@/lib/api-helpers";
 import { assertUnitAccess } from "@/lib/data-scope";
 import { z } from "zod";
 import { VacancyStatus } from "@prisma/client";
+import { syncVacancyState } from "@/lib/services/vacancy.service";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,7 @@ export const PATCH = withAuth(async (req, { user, params }) => {
       return updated;
     });
 
+    await syncVacancyState(unitId);
     return NextResponse.json(result);
   }
 
@@ -97,6 +99,7 @@ export const PATCH = withAuth(async (req, { user, params }) => {
       return updated;
     });
 
+    await syncVacancyState(unitId);
     return NextResponse.json(result);
   }
 
@@ -126,5 +129,6 @@ export const PATCH = withAuth(async (req, { user, params }) => {
     data: updateData,
   });
 
+  await syncVacancyState(unitId);
   return NextResponse.json(updated);
 }, "vac");

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getTenantScope, getBuildingScope, EMPTY_SCOPE, canAccessBuilding } from "@/lib/data-scope";
 import type { CollectionActionType, Prisma } from "@prisma/client";
+import { COLLECTION_CASE_STATUSES } from "@/lib/constants/statuses";
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -574,6 +575,145 @@ export async function sendToLegal(
   });
 
   return { legalCaseId: result.id };
+}
+
+// ── recalculateTenantBalance — canonical balance update path ──
+
+interface RecalcResult {
+  tenantId: string;
+  balance: number;
+  arrearsCategory: string;
+  arrearsDays: number;
+  collectionScore: number;
+  monthsOwed: number;
+}
+
+/**
+ * Canonical function for recalculating a tenant's financial state.
+ * Called after: AR import, rent-roll import, manual payment entry.
+ * Future API ingestion plugs in here with one call.
+ */
+export async function recalculateTenantBalance(tenantId: string): Promise<RecalcResult> {
+  return prisma.$transaction(async (tx) => {
+    const tenant = await tx.tenant.findUniqueOrThrow({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        balance: true,
+        actualRent: true,
+        marketRent: true,
+        legalRent: true,
+        leaseExpiration: true,
+        payments: {
+          orderBy: { date: "desc" },
+          take: 1,
+          select: { date: true, amount: true },
+        },
+        arSnapshots: {
+          orderBy: { snapshotDate: "desc" },
+          take: 1,
+          select: {
+            balance0_30: true,
+            balance31_60: true,
+            balance61_90: true,
+            balance90plus: true,
+            totalBalance: true,
+          },
+        },
+        legalCases: {
+          where: { isActive: true },
+          take: 1,
+          select: { id: true },
+        },
+      },
+    });
+
+    const snap = tenant.arSnapshots[0];
+    const lastPayment = tenant.payments[0];
+    const inLegal = tenant.legalCases.length > 0;
+
+    // Use AR snapshot buckets if available, otherwise derive from tenant.balance
+    const totalBalance = snap ? Number(snap.totalBalance) : Number(tenant.balance);
+    const b0_30 = snap ? Number(snap.balance0_30) : totalBalance;
+    const b31_60 = snap ? Number(snap.balance31_60) : 0;
+    const b61_90 = snap ? Number(snap.balance61_90) : 0;
+    const b90plus = snap ? Number(snap.balance90plus) : 0;
+
+    // Derive arrears category from worst bucket
+    let arrearsCategory = "current";
+    if (totalBalance <= 0) arrearsCategory = "current";
+    else if (b90plus > 0) arrearsCategory = "120+";
+    else if (b61_90 > 0) arrearsCategory = "90";
+    else if (b31_60 > 0) arrearsCategory = "60";
+    else if (b0_30 > 0) arrearsCategory = "30";
+
+    // Derive arrears days from category
+    const arrearsDaysMap: Record<string, number> = {
+      current: 0, "30": 30, "60": 60, "90": 90, "120+": 120,
+    };
+    const arrearsDays = arrearsDaysMap[arrearsCategory] ?? 0;
+
+    // Calculate months owed based on rent
+    const rent = Math.max(Number(tenant.actualRent), Number(tenant.marketRent), Number(tenant.legalRent));
+    const monthsOwed = rent > 0 ? Math.round((totalBalance / rent) * 10) / 10 : 0;
+
+    // Collection score (0-100): higher = worse risk
+    let score = 0;
+    if (totalBalance > 0) score += 10;
+    if (b31_60 > 0) score += 15;
+    if (b61_90 > 0) score += 25;
+    if (b90plus > 0) score += 30;
+    if (inLegal) score += 20;
+    if (monthsOwed >= 3) score += 10;
+    if (!lastPayment) score += 10;
+    else {
+      const daysSincePayment = Math.round((Date.now() - new Date(lastPayment.date).getTime()) / (1000 * 60 * 60 * 24));
+      if (daysSincePayment > 90) score += 10;
+    }
+    const collectionScore = Math.min(100, score);
+
+    await tx.tenant.update({
+      where: { id: tenantId },
+      data: {
+        balance: totalBalance,
+        arrearsCategory,
+        arrearsDays,
+        monthsOwed,
+        collectionScore,
+      },
+    });
+
+    return {
+      tenantId,
+      balance: totalBalance,
+      arrearsCategory,
+      arrearsDays,
+      collectionScore,
+      monthsOwed,
+    };
+  });
+}
+
+/**
+ * Recalculate balances for a batch of tenants (e.g., after import).
+ * Returns counts of updated and errored tenants.
+ */
+export async function recalculateBatch(
+  tenantIds: string[]
+): Promise<{ updated: number; errors: Array<{ tenantId: string; error: string }> }> {
+  let updated = 0;
+  const errors: Array<{ tenantId: string; error: string }> = [];
+
+  for (const id of tenantIds) {
+    try {
+      await recalculateTenantBalance(id);
+      updated++;
+    } catch (err) {
+      errors.push({ tenantId: id, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  return { updated, errors };
 }
 
 // ── getFullARReport — aggregated aging report ─────────────────

@@ -78,7 +78,7 @@ function useClickOutside(ref: React.RefObject<HTMLDivElement | null>, onClose: (
 // ── Inline Number Editor ──────────────────────────────────────
 
 function InlineNumberCell({
-  unitId, field, value, width, suffix, prefix, min, max, isDecimal, align,
+  unitId, field, value, width, suffix, prefix, min, max, isDecimal, align, step,
 }: {
   unitId: string;
   field: string;
@@ -90,6 +90,7 @@ function InlineNumberCell({
   max?: number;
   isDecimal?: boolean;
   align?: string;
+  step?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [inputVal, setInputVal] = useState("");
@@ -108,7 +109,7 @@ function InlineNumberCell({
         onSuccess: () => { setSaved(true); setTimeout(() => setSaved(false), 800); },
       });
     } else {
-      const num = isDecimal ? parseFloat(raw) : parseInt(raw, 10);
+      const num = (isDecimal || step) ? parseFloat(raw) : parseInt(raw, 10);
       if (!isNaN(num) && (min === undefined || num >= min) && (max === undefined || num <= max)) {
         updateUnit.mutate({ unitId, data: { [field]: num } }, {
           onSuccess: () => { setSaved(true); setTimeout(() => setSaved(false), 800); },
@@ -132,7 +133,7 @@ function InlineNumberCell({
         autoFocus
         min={min}
         max={max}
-        step={isDecimal ? "0.01" : "1"}
+        step={step || (isDecimal ? "0.01" : "1")}
         className={`${width} px-1 py-0.5 text-sm font-mono bg-card-hover border border-accent/50 rounded text-text-primary outline-none ${align === "center" ? "text-center" : "text-right"}`}
       />
     );
@@ -582,7 +583,7 @@ export default function VacanciesContent() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Vacancies</h1>
           <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase hidden sm:inline">Operations — Vacancies & Turnovers</span>
@@ -633,12 +634,12 @@ export default function VacanciesContent() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <KpiCard label="Total Vacant" value={kpis.total} icon={DoorOpen} color="#F59E0B" />
-        <KpiCard label="In Turnover" value={kpis.inTurnover} icon={Wrench} color="#3B82F6" />
-        <KpiCard label="Ready to Show" value={kpis.readyToShow} icon={CheckCircle} color="#14B8A6" />
-        <KpiCard label="Pending Approval" value={kpis.pendingApproval} icon={Clock} color="#EAB308" />
-        <KpiCard label="Listed" value={kpis.listed} icon={Tag} color="#A855F7" />
-        <KpiCard label="90+ Days" value={kpis.critical90} icon={AlertTriangle} color="#EF4444" />
+        <KpiCard label="Total Vacant" value={kpis.total} icon={DoorOpen} color="#F59E0B" onClick={() => { setFilterStatus(""); setFilterDays(""); }} />
+        <KpiCard label="In Turnover" value={kpis.inTurnover} icon={Wrench} color="#3B82F6" onClick={() => { setFilterStatus("TURNOVER"); setFilterDays(""); }} />
+        <KpiCard label="Ready to Show" value={kpis.readyToShow} icon={CheckCircle} color="#14B8A6" onClick={() => { setFilterStatus("READY_TO_SHOW"); setFilterDays(""); }} />
+        <KpiCard label="Pending Approval" value={kpis.pendingApproval} icon={Clock} color="#EAB308" onClick={() => { setFilterStatus("RENT_PROPOSED"); setFilterDays(""); }} />
+        <KpiCard label="Listed" value={kpis.listed} icon={Tag} color="#A855F7" onClick={() => { setFilterStatus("LISTED"); setFilterDays(""); }} />
+        <KpiCard label="90+ Days" value={kpis.critical90} icon={AlertTriangle} color="#EF4444" onClick={() => { setFilterStatus(""); setFilterDays("90plus"); }} />
       </div>
 
       {/* Filter Bar */}
@@ -720,7 +721,7 @@ export default function VacanciesContent() {
                     <InlineNumberCell unitId={u.id} field="bedroomCount" value={u.bedroomCount} width="w-[50px]" min={0} max={20} align="center" />
                   </td>
                   <td className="px-2 py-2 text-center">
-                    <InlineNumberCell unitId={u.id} field="bathroomCount" value={u.bathroomCount} width="w-[50px]" min={0} max={20} align="center" />
+                    <InlineNumberCell unitId={u.id} field="bathroomCount" value={u.bathroomCount} width="w-[50px]" min={0} max={20} step="0.5" align="center" />
                   </td>
                   <td className="px-2 py-2 text-right">
                     <InlineNumberCell unitId={u.id} field="squareFeet" value={u.squareFeet} width="w-[70px]" min={0} />

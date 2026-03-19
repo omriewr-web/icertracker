@@ -141,3 +141,71 @@ Never create isolated modules that cannot relate to each other.
 - `src/lib/violation-sync.ts` / `src/lib/nyc-open-data.ts` — NYC Open Data API integration (HPD, DOB, DHCR)
 - `src/lib/compliance-templates.ts` — Compliance requirement presets
 - `src/lib/email-templates.ts` — HTML email templates via Resend
+
+---
+
+## Operation: Client Ready — Wave Plan
+Last Updated: 2026-03-18
+Goal: AtlasPM goes from demo-ready to pilot-ready by hardening and refining what already exists.
+No new modules. No speculative features. Improve only the current product.
+
+### WAVE 1 — Data Trust
+- W1-A: Payments cascade fix
+  Create recalculateTenantBalance() as the canonical balance update path.
+  Use it from manual payment entry and import flows.
+- W1-B: Vacancy state consolidation
+  Make Unit the source of truth for vacancy state.
+  Create syncVacancyState() and route all vacancy writes through it.
+- W1-C: Status vocabulary normalization
+  Centralize app-layer status labels and mappings in src/lib/constants/statuses.ts.
+  Do not create duplicate business logic outside that file.
+- W1-D: Missing DB indexes
+  Add only justified indexes for current query patterns:
+  Unit, ProjectMilestone, CronLog, ImportLog, Violation, WorkOrder.
+
+### WAVE 2 — Security Hardening
+- W2-A: Org scoping gap fix — remove all orgless fallback to broad queries.
+- W2-B: Auth rate limiting — replace in-memory login throttling with a durable/shared mechanism.
+- W2-C: Write route validation sweep — all write routes must use Zod-backed validation through shared helpers.
+- W2-D: Import hardening sweep — standardize file validation, row limits, parse safety, and error shape across all import endpoints.
+
+### WAVE 3 — Product Refinement
+- W3-A: Consolidate Owner Dashboard and Owner Portal into one clear owner experience.
+- W3-B: Internal naming cleanup in UI only — replace internal mythology labels with plain English in visible UI.
+- W3-C: Empty-state and loading-state audit across existing pages.
+- W3-D: Redirect and alias cleanup across existing pages.
+- W3-E: Refine existing dashboard metrics only if data already exists. No new backend feature creation.
+- W3-F: Sentry configuration fix.
+
+### WAVE 4 — Workflow Tests
+- W4-A: Collections workflow tests.
+- W4-B: Import workflow tests.
+- W4-C: Vacancy lifecycle tests.
+- W4-D: Owner data visibility tests.
+
+### WAVE 5 — Demo and Rollout Readiness
+- W5-A: Improve existing seed/demo data only.
+- W5-B: Define a clean walkthrough path using existing screens.
+- W5-C: README and onboarding guide for current product only.
+
+### KEY ARCHITECTURE DECISIONS
+- Payments come primarily from Yardi/AppFolio uploads, not manual entry.
+- Future API ingestion should plug into the same balance-update path with minimal code change.
+- Unit is the single source of truth for vacancy state.
+- App-layer statuses are centralized in src/lib/constants/statuses.ts.
+- recalculateTenantBalance() is the canonical function for balance updates.
+- syncVacancyState() is the canonical function for vacancy updates.
+
+### RULES FOR ALL WAVES
+- Read before writing. Always.
+- Do not add new product surfaces, modules, or speculative capabilities.
+- Perfect existing workflows before extending anything.
+- No new ts-ignore or suppression comments.
+- Reduce loose typing where touched — do not expand it.
+- Reuse existing patterns. Do not duplicate logic.
+- Use Prisma transactions for every multi-step write.
+- Apply org scoping from session context, never from request body.
+- Run npx tsc --noEmit after every task.
+- Run relevant tests after every task.
+- Deploy only after a full wave passes typecheck, tests, and build.
+- Commit after each task with a descriptive message.

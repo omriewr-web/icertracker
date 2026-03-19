@@ -2,20 +2,41 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import logger from "./logger";
 
-// ── In-memory login rate limiter ────────────────────────────────
-const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+// ── DB-backed login rate limiter ────────────────────────────────
 
-function checkRateLimit(key: string, max: number, windowMs: number): boolean {
-  const now = Date.now();
-  const record = loginAttempts.get(key);
-  if (!record || now > record.resetAt) {
-    loginAttempts.set(key, { count: 1, resetAt: now + windowMs });
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+/**
+ * Check if the identifier (username or IP) has exceeded the rate limit.
+ * Uses LoginAttempt table — survives deploys and scales across instances.
+ * Also cleans up records older than 24 hours in the same call.
+ */
+async function checkRateLimitDB(username: string): Promise<boolean> {
+  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS);
+
+  try {
+    // Cleanup old records (>24h) — fire-and-forget, don't block login
+    prisma.loginAttempt.deleteMany({
+      where: { createdAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+    }).catch(() => {});
+
+    const failedCount = await prisma.loginAttempt.count({
+      where: {
+        username,
+        success: false,
+        createdAt: { gte: windowStart },
+      },
+    });
+
+    return failedCount < RATE_LIMIT_MAX;
+  } catch (err) {
+    // If DB is down, allow the attempt rather than locking everyone out
+    logger.warn({ err }, "Rate limit DB check failed, allowing attempt");
     return true;
   }
-  if (record.count >= max) return false;
-  record.count++;
-  return true;
 }
 
 export const authOptions: NextAuthOptions = {
@@ -31,8 +52,8 @@ export const authOptions: NextAuthOptions = {
 
         const username = (credentials.username as string).toLowerCase().trim();
 
-        // Rate limit: 10 attempts per 15 minutes per username
-        if (!checkRateLimit(`user:${username}`, 10, 15 * 60 * 1000)) {
+        // DB-backed rate limit: 5 failed attempts per 15 minutes per username
+        if (!(await checkRateLimitDB(username))) {
           throw new Error("Too many login attempts. Try again in 15 minutes.");
         }
 
@@ -94,19 +115,34 @@ export const authOptions: NextAuthOptions = {
           assignedProperties: properties,
           organizationId: user.organizationId || null,
           managerId: user.managerId || null,
+          onboardingComplete: user.onboardingComplete,
         };
       },
     }),
   ],
   session: { strategy: "jwt", maxAge: 24 * 60 * 60 },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
         token.assignedProperties = user.assignedProperties || [];
         token.organizationId = user.organizationId || null;
         token.managerId = user.managerId || null;
+        token.onboardingComplete = user.onboardingComplete ?? false;
+      }
+      // When client calls update(), re-read onboardingComplete from DB
+      if (trigger === "update" && token.id) {
+        try {
+          const fresh = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { onboardingComplete: true, role: true },
+          });
+          if (fresh) {
+            token.onboardingComplete = fresh.onboardingComplete;
+            token.role = fresh.role;
+          }
+        } catch {}
       }
       return token;
     },
@@ -116,6 +152,7 @@ export const authOptions: NextAuthOptions = {
       session.user.assignedProperties = token.assignedProperties;
       session.user.organizationId = token.organizationId || null;
       session.user.managerId = token.managerId || null;
+      session.user.onboardingComplete = token.onboardingComplete ?? false;
       return session;
     },
   },

@@ -155,10 +155,10 @@ export default function ProjectsContent() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KpiCard label="Total Projects" value={stats.total} icon={FolderKanban} />
-        <KpiCard label="In Progress" value={stats.inProgress} color="#3B82F6" />
-        <KpiCard label="At Risk / Delayed" value={stats.atRisk} color="#F59E0B" />
-        <KpiCard label="Over Budget" value={stats.overBudget} color="#EF4444" />
+        <KpiCard label="Total Projects" value={stats.total} icon={FolderKanban} onClick={() => { setFilterStatus("all"); setFilterHealth("all"); }} />
+        <KpiCard label="In Progress" value={stats.inProgress} color="#3B82F6" onClick={() => { setFilterStatus("IN_PROGRESS"); setFilterHealth("all"); }} />
+        <KpiCard label="At Risk / Delayed" value={stats.atRisk} color="#F59E0B" onClick={() => { setFilterStatus("all"); setFilterHealth("AT_RISK"); }} />
+        <KpiCard label="Over Budget" value={stats.overBudget} color="#EF4444" onClick={() => { setFilterStatus("all"); setFilterHealth("OVER_BUDGET"); }} />
       </div>
 
       <div className="flex gap-3 flex-wrap">
@@ -214,7 +214,7 @@ export default function ProjectsContent() {
                     <td className="px-3 py-2">
                       <Link href={`/projects/${p.id}`} className="text-text-primary hover:text-accent transition-colors">{p.name}</Link>
                     </td>
-                    <td className="px-3 py-2 text-xs text-text-muted">{p.buildingAddress}</td>
+                    <td className="px-3 py-2 text-xs text-text-muted">{p.buildingAddress || "No address"}</td>
                     <td className="px-3 py-2"><span className="text-xs text-text-muted">{label(p.category)}</span></td>
                     <td className="px-3 py-2"><span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium uppercase", STATUS_COLORS[p.status])}>{label(p.status)}</span></td>
                     <td className="px-3 py-2"><span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium", PRIORITY_COLORS[p.priority])}>{p.priority}</span></td>
@@ -229,9 +229,9 @@ export default function ProjectsContent() {
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-atlas-navy-1 rounded-full overflow-hidden">
-                          <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${p.percentComplete}%` }} />
+                          <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${p.percentComplete ?? 0}%` }} />
                         </div>
-                        <span className="text-[10px] text-text-dim w-7 text-right">{p.percentComplete}%</span>
+                        <span className="text-[10px] text-text-dim w-7 text-right">{p.percentComplete ?? 0}%</span>
                       </div>
                     </td>
                     <td className={cn("px-3 py-2 text-xs tabular-nums", isOverdue ? "text-red-400" : "text-text-dim")}>{p.targetEndDate ? formatDate(p.targetEndDate) : "---"}</td>

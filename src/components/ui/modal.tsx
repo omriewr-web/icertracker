@@ -41,13 +41,14 @@ export default function Modal({ open, onClose, title, children, className, wide 
       role="dialog"
       aria-modal="true"
       aria-label={title || "Dialog"}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm"
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
     >
       <div
         className={cn(
-          "bg-atlas-navy-3 border border-border rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex flex-col max-h-[90vh] animate-slide-up",
-          wide ? "w-full max-w-3xl" : "w-full max-w-lg",
+          "bg-atlas-navy-3 border border-border flex flex-col animate-slide-up shadow-[0_8px_32px_rgba(0,0,0,0.5)]",
+          "w-full h-full sm:h-auto sm:max-h-[90vh] sm:rounded-xl",
+          wide ? "sm:max-w-3xl" : "sm:max-w-lg",
           className
         )}
       >

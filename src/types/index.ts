@@ -157,6 +157,7 @@ export interface BuildingView {
   arrearsCount: number;
   legalCount: number;
   legalCaseCount: number;
+  violationCount: number;
 }
 
 export interface PortfolioMetrics {

@@ -11,6 +11,7 @@ declare module "next-auth" {
       assignedProperties: string[];
       organizationId: string | null;
       managerId: string | null;
+      onboardingComplete: boolean;
     };
   }
 
@@ -20,6 +21,7 @@ declare module "next-auth" {
     assignedProperties: string[];
     organizationId: string | null;
     managerId: string | null;
+    onboardingComplete: boolean;
   }
 }
 
@@ -30,5 +32,6 @@ declare module "next-auth/jwt" {
     assignedProperties: string[];
     organizationId: string | null;
     managerId: string | null;
+    onboardingComplete: boolean;
   }
 }

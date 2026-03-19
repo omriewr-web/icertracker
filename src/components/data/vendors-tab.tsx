@@ -6,7 +6,7 @@ import { useVendors, useCreateVendor, useUpdateVendor, useDeleteVendor } from "@
 import Button from "@/components/ui/button";
 import Modal from "@/components/ui/modal";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
-import LoadingSpinner from "@/components/ui/loading-spinner";
+import { TableTabSkeleton } from "@/components/ui/skeleton";
 import { fmt$ } from "@/lib/utils";
 
 export default function VendorsTab() {
@@ -24,7 +24,7 @@ export default function VendorsTab() {
     (v.specialty && v.specialty.toLowerCase().includes(search.toLowerCase()))
   );
 
-  if (isLoading) return <LoadingSpinner />;
+  if (isLoading) return <TableTabSkeleton rows={6} />;
 
   return (
     <div className="space-y-4">

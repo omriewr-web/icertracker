@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { withAuth } from "@/lib/api-helpers";
+import { withAuth, parseBody } from "@/lib/api-helpers";
 import { assertBuildingAccess } from "@/lib/data-scope";
+import { linkViolationSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +14,7 @@ export const POST = withAuth(async (req, { user, params }) => {
   const denied = await assertBuildingAccess(user, project.buildingId);
   if (denied) return denied;
 
-  const body = await req.json();
-  const violationId = body.violationId;
-  if (!violationId) return NextResponse.json({ error: "violationId required" }, { status: 400 });
+  const { violationId } = await parseBody(req, linkViolationSchema);
 
   await prisma.$transaction(async (tx) => {
     await tx.projectViolation.upsert({

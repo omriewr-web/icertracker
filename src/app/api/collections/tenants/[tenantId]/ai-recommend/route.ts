@@ -24,6 +24,7 @@ You MUST return ONLY valid JSON in this exact format, with no extra text before 
 Provide 3–5 specific recommended actions in priority order.`;
 
 export const GET = withAuth(async (req, { user, params }) => {
+  if (user.role === "OWNER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { tenantId } = await params;
 
   const denied = await assertTenantAccess(user, tenantId);

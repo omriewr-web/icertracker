@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { ParsedRentRollRow, ParsedVacantRow } from "@/lib/parsers/rent-roll.parser";
 import { findMatchingBuilding, fetchBuildingsForMatching, extractAddressFromEntity, generatePropertyId } from "@/lib/building-matching";
+import { recalculateTenantBalance } from "./collections.service";
 
 interface UnmatchedRow {
   propertyCode: string;
@@ -148,6 +149,7 @@ export async function importRentRollData(
   );
 
   // ── Process all rows inside a transaction ──
+  const touchedTenantIds = new Set<string>();
   await prisma.$transaction(async (tx) => {
     // ── Process each occupied row ──
     for (const row of rows) {
@@ -233,6 +235,8 @@ export async function importRentRollData(
         result.tenantsCreated++;
         result.updated++;
       }
+
+      if (tenantId) touchedTenantIds.add(tenantId);
 
       // ── Dual-write: Lease sync ──
       const rentAmount = row.chargeAmount || row.marketRent;
@@ -327,6 +331,15 @@ export async function importRentRollData(
       result.vacanciesCreated++;
     }
   }, { timeout: 120_000 });
+
+  // Recalculate balances for all touched tenants after import
+  for (const tenantId of touchedTenantIds) {
+    try {
+      await recalculateTenantBalance(tenantId);
+    } catch {
+      // Non-fatal: import data was saved, balance recalc can be retried
+    }
+  }
 
   return result;
 }

@@ -21,7 +21,8 @@ export function useTenants() {
 
       const res = await fetch(`/api/tenants?${params}`);
       if (!res.ok) throw new Error("Failed to fetch tenants");
-      return res.json();
+      const json = await res.json();
+      return json.tenants ?? json;
     },
   });
 }

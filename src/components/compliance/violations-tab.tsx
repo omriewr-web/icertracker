@@ -8,10 +8,11 @@ import EmptyState from "@/components/ui/empty-state";
 import { useAppStore } from "@/stores/app-store";
 import { useBuildings } from "@/hooks/use-buildings";
 import Button from "@/components/ui/button";
-import LoadingSpinner from "@/components/ui/loading-spinner";
+import { TabSkeleton } from "@/components/ui/skeleton";
 import { fmt$, formatDate } from "@/lib/utils";
 import type { ViolationView } from "@/types";
 import ExportButton from "@/components/ui/export-button";
+import { VIOLATION_LIFECYCLE_COLORS } from "@/lib/constants/statuses";
 
 const SOURCE_OPTIONS = ["", "HPD", "DOB", "ECB"];
 const CLASS_OPTIONS = ["", "A", "B", "C"];
@@ -40,17 +41,11 @@ function ClassBadge({ cls }: { cls: string | null }) {
 }
 
 function LifecycleBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    INGESTED: "bg-gray-500/10 text-gray-400",
-    TRIAGED: "bg-blue-500/10 text-blue-400",
-    DISPATCHED: "bg-purple-500/10 text-purple-400",
-    EVIDENCE_SUBMITTED: "bg-indigo-500/10 text-indigo-400",
-    PM_VERIFIED: "bg-green-500/10 text-green-400",
-    CLOSED: "bg-gray-500/10 text-gray-500",
-  };
+  const style = VIOLATION_LIFECYCLE_COLORS[status];
+  const cls = style ? `${style.bg} ${style.text}` : "bg-card-hover text-text-muted";
   const label = status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${styles[status] || "bg-card-hover text-text-muted"}`}>
+    <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${cls}`}>
       {label}
     </span>
   );
@@ -80,7 +75,7 @@ export default function ViolationsTab() {
   const { mutate: syncMutate, isPending: syncPending, progress: syncProgress } = useSyncViolationsStream();
   const createWO = useCreateWorkOrderFromViolation();
 
-  if (isLoading) return <LoadingSpinner />;
+  if (isLoading) return <TabSkeleton cards={5} rows={8} />;
 
   return (
     <div className="space-y-4">

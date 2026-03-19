@@ -2,14 +2,14 @@
 
 import { Calendar } from "lucide-react";
 import { useViolations } from "@/hooks/use-violations";
-import LoadingSpinner from "@/components/ui/loading-spinner";
+import { TableTabSkeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/empty-state";
 import { fmt$, formatDate } from "@/lib/utils";
 
 export default function HearingsTab() {
   const { data: violations, isLoading } = useViolations({});
 
-  if (isLoading) return <LoadingSpinner />;
+  if (isLoading) return <TableTabSkeleton rows={6} />;
 
   const withHearings = violations?.filter((v) => v.hearingDate) || [];
   const now = new Date();

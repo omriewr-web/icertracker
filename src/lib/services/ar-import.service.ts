@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { ParsedARRow } from "@/lib/parsers/ar-aging.parser";
 import type { CollectionStatus } from "@prisma/client";
+import { recalculateTenantBalance } from "./collections.service";
 
 interface UnmatchedRow {
   propertyCode: string;
@@ -66,6 +67,7 @@ export async function importARAgingData(
   );
 
   // ── Process each row inside a transaction ──
+  const matchedTenantIds = new Set<string>();
   await prisma.$transaction(async (tx) => {
     for (const row of rows) {
       const buildingId = buildingMap.get(row.propertyCode);
@@ -102,6 +104,7 @@ export async function importARAgingData(
       }
 
       result.matched++;
+      matchedTenantIds.add(tenantId);
 
       const collectionStatus = deriveStatus(row);
 
@@ -141,6 +144,15 @@ export async function importARAgingData(
       result.updated++;
     }
   }, { timeout: 120_000 });
+
+  // Recalculate balances for all matched tenants after import
+  for (const tenantId of matchedTenantIds) {
+    try {
+      await recalculateTenantBalance(tenantId);
+    } catch {
+      // Non-fatal: snapshot was saved, balance recalc can be retried
+    }
+  }
 
   return result;
 }

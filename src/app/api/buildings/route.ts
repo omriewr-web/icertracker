@@ -16,6 +16,7 @@ interface BuildingAggRow {
   legalBalance: number;
   arrearsCount: number;
   legalCount: number;
+  violationCount: number;
 }
 
 export const GET = withAuth(async (req, { user }) => {
@@ -118,7 +119,8 @@ export const GET = withAuth(async (req, { user }) => {
         COUNT(CASE WHEN EXISTS (
           SELECT 1 FROM legal_cases lc
           WHERE lc."tenantId" = t.id AND lc."isActive" = true AND lc."inLegal" = true
-        ) THEN 1 END)::int AS "legalCount"
+        ) THEN 1 END)::int AS "legalCount",
+        (SELECT COUNT(*)::int FROM violations v WHERE v."buildingId" = u."buildingId" AND v."isOpen" = true) AS "violationCount"
       FROM units u
       LEFT JOIN tenants t ON t."unitId" = u.id
       WHERE u."buildingId" IN (${Prisma.join(buildingIds)})
@@ -193,7 +195,8 @@ export const GET = withAuth(async (req, { user }) => {
       nonLegalBalance: totalBalance - legalBalance,
       arrearsCount: agg?.arrearsCount ?? 0,
       legalCount: agg?.legalCount ?? 0,
-      legalCaseCount: 0,
+      legalCaseCount: agg?.legalCount ?? 0,
+      violationCount: agg?.violationCount ?? 0,
     };
   });
 

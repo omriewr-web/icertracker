@@ -74,6 +74,9 @@ export default function UsersContent() {
             </tr>
           </thead>
           <tbody>
+            {(!users || users.length === 0) && (
+              <tr><td colSpan={8} className="text-center py-12 text-text-dim text-sm">No users found. Click "Add User" to create the first team member.</td></tr>
+            )}
             {(users || []).map((u: any) => (
               <tr key={u.id} className="border-b border-border/50 hover:bg-card-hover transition-colors">
                 <td className="px-3 py-2 text-text-primary">{u.name}</td>

@@ -13,7 +13,7 @@ export default function PropertiesTable({ buildings }: Props) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full text-sm min-w-[600px]">
         <thead className="sticky top-0 z-10 bg-card">
           <tr className="border-b border-border">
             <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Property</th>

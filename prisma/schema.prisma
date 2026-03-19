@@ -34,6 +34,7 @@ model User {
   passwordHash        String
   role                UserRole            @default(COLLECTOR)
   active              Boolean             @default(true)
+  onboardingComplete  Boolean             @default(false)
   organizationId      String?
   managerId           String?
   createdAt           DateTime            @default(now())
@@ -72,9 +73,89 @@ model User {
   prometheusIntakes       PrometheusIntake[]    @relation("PrometheusCreator")
   verifiedDrafts          WorkOrderDraft[]      @relation("DraftVerifier")
 
+  // ── Permission system v2 fields ──
+  permissionPreset     String    @default("property_manager")
+  canExportSensitive   Boolean   @default(false)
+  canDeleteRecords     Boolean   @default(false)
+  canBulkUpdate        Boolean   @default(false)
+  canManageUsers       Boolean   @default(false)
+  canManageOrgSettings Boolean   @default(false)
+  termsAcceptedAt      DateTime?
+  termsAcceptedIp      String?
+  accessGrants         UserAccessGrant[]
+
   @@index([organizationId])
   @@index([managerId])
+  uploadedDocuments  Document[]
+  preferences        UserPreferences?
   @@map("users")
+}
+
+model UserPreferences {
+  id                     String   @id @default(cuid())
+  userId                 String   @unique
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  displayName            String?
+  jobTitle               String?
+  mobile                 String?
+  timezone               String   @default("America/New_York")
+
+  defaultView            String   @default("dashboard")
+
+  briefingItems          String[] @default([])
+  briefingTime           String   @default("morning")
+
+  alertWorkOrderAssigned Boolean  @default(true)
+  alertTenant30Days      Boolean  @default(true)
+  alertTenant60Days      Boolean  @default(true)
+  alertTenant90Days      Boolean  @default(true)
+  alertViolationClassC   Boolean  @default(true)
+  alertViolationAll      Boolean  @default(false)
+  alertLeaseExpiring30   Boolean  @default(true)
+  alertWorkOrderOverdue  Boolean  @default(true)
+  alertChannel           String   @default("in_app")
+  quietHoursEnabled      Boolean  @default(false)
+  quietHoursStart        String?
+  quietHoursEnd          String?
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@map("user_preferences")
+}
+
+model UserAccessGrant {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgId        String
+  module       String
+  level        String
+  scopeType    String   @default("org")
+  scopeId      String?
+  restrictions Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, orgId, module, scopeType, scopeId])
+  @@index([userId, orgId])
+  @@map("user_access_grants")
+}
+
+model PermissionAuditLog {
+  id           String   @id @default(cuid())
+  orgId        String
+  changedBy    String
+  affectedUser String
+  changeType   String
+  oldValue     Json?
+  newValue     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([orgId, createdAt(sort: Desc)])
+  @@index([affectedUser])
+  @@map("permission_audit_logs")
 }
 
 model UserProperty {
@@ -218,6 +299,7 @@ model Building {
   @@index([bbl])
   @@index([block, lot])
   @@index([buildingStatus])
+  documents        Document[]
   @@map("buildings")
 }
 
@@ -228,7 +310,7 @@ model Unit {
   unitType             String?
   unitCategory         String? // "residential", "commercial", "parking", "laundry", "super", "other"
   bedroomCount         Int?
-  bathroomCount        Int?
+  bathroomCount        Decimal?            @db.Decimal(3, 1)
   squareFeet           Int?
   legalRent            Decimal?              @db.Decimal(10, 2) // DHCR registered rent
   rentStabilized       Boolean               @default(false)
@@ -276,8 +358,11 @@ model Unit {
   utilityMeterRecords  UtilityMeter[]
   turnoverWorkflows    TurnoverWorkflow[]
   leasingActivities    LeasingActivity[]
+  documents            Document[]
 
   @@unique([buildingId, unitNumber])
+  @@index([vacancyStatus])
+  @@index([buildingId, isVacant])
   @@map("units")
 }
 
@@ -342,6 +427,7 @@ model Tenant {
   @@index([collectionScore])
   @@index([unitId, balance])
   @@index([isDeleted])
+  documents          Document[]
   @@map("tenants")
 }
 
@@ -922,6 +1008,7 @@ model Violation {
   @@index([isOpen])
   @@index([hearingDate])
   @@index([respondByDate])
+  @@index([respondByDate, isOpen])
   @@index([lifecycleStatus])
   @@index([pmVerifiedById])
   @@index([source, currentStatus])
@@ -1036,6 +1123,20 @@ enum ImportType {
   BUILDING
   DHCR
   TENANT_MASTER
+  UNITS
+  TENANTS
+  WORK_ORDERS
+  LEGAL_CASES
+  AR_BALANCES
+  UTILITIES
+  VENDORS
+  YARDI_RENT_ROLL
+  APPFOLIO_RENT_ROLL
+  APPFOLIO_AR_AGING
+  DHCR_REGISTRATION
+  GENERIC_AR_AGING
+  CONED_BILL
+  ATLAS_TEMPLATE
 }
 
 enum ImportRowStatus {
@@ -1234,6 +1335,8 @@ model Organization {
   id                     String          @id @default(cuid())
   name                   String
   slug                   String          @unique
+  phone                  String?
+  website                String?
   plan                   String          @default("trial")
   isActive               Boolean         @default(true)
   stripeCustomerId       String?
@@ -1276,7 +1379,7 @@ model CollectionCase {
   assignedUserId String?
   balanceOwed    Decimal     @default(0) @db.Decimal(10, 2)
   daysLate       Int         @default(0)
-  status         String      @default("new_arrears") // new_arrears | reminder_sent | payment_plan | notice_served | legal_review | legal_filed
+  status         String      @default("monitoring") // Canonical values: monitoring | demand_sent | legal_referred | payment_plan | resolved (see src/lib/constants/statuses.ts)
   lastActionDate DateTime?
   nextActionDate DateTime?
   notes          String?     @db.Text
@@ -1582,6 +1685,7 @@ model CollectionNote {
   author       User                 @relation(fields: [authorId], references: [id])
 
   @@index([tenantId])
+  @@index([tenantId, createdAt])
   @@index([buildingId])
   @@index([authorId])
   @@index([followUpDate])
@@ -2144,10 +2248,17 @@ model ImportLog {
   userId         String
   importType     String
   fileName       String?
+  fileSize       Int?
+  fileHash       String?
+  parserUsed     String?
+  sourceFormat   String?
+  totalRows      Int       @default(0)
   rowsInserted   Int       @default(0)
   rowsUpdated    Int       @default(0)
+  rowsSkipped    Int       @default(0)
   rowsFailed     Int       @default(0)
   rowErrors      Json?
+  warningsJson   Json?
   status         String    @default("RUNNING")
   startedAt      DateTime  @default(now())
   completedAt    DateTime?
@@ -2155,6 +2266,8 @@ model ImportLog {
   @@index([userId])
   @@index([importType])
   @@index([startedAt])
+  @@index([fileHash])
+  @@index([organizationId, importType])
   @@map("import_logs")
 }
 
@@ -2169,6 +2282,7 @@ model CronLog {
   error       String?
 
   @@index([jobName, startedAt])
+  @@index([jobName, status])
   @@map("cron_logs")
 }
 
@@ -2204,6 +2318,10 @@ enum ProjectCategory {
   APARTMENT_RENO
   COMMON_AREA
   EMERGENCY
+  ELEVATOR
+  FIRE_SAFETY
+  GENERAL_MAINTENANCE
+  COSMETIC
   OTHER
 }
 
@@ -2305,6 +2423,7 @@ model ProjectMilestone {
   project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
+  @@index([projectId, status])
   @@map("project_milestones")
 }
 
@@ -2438,4 +2557,44 @@ model OutreachMessage {
   @@index([tenantId])
   @@index([status])
   @@map("outreach_messages")
+}
+
+// ── Document Management ────────────────────────────────────────
+
+enum DocumentType {
+  LEASE
+  VIOLATION_CERTIFICATE
+  INSURANCE_CERT
+  PERMIT
+  INSPECTION_REPORT
+  LEGAL_DOCUMENT
+  OTHER
+}
+
+model Document {
+  id             String       @id @default(cuid())
+  organizationId String?
+  buildingId     String?
+  unitId         String?
+  tenantId       String?
+  docType        DocumentType
+  fileName       String
+  fileUrl        String
+  fileSize       Int?
+  uploadedById   String
+  notes          String?      @db.Text
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  building       Building?    @relation(fields: [buildingId], references: [id])
+  unit           Unit?        @relation(fields: [unitId], references: [id])
+  tenant         Tenant?      @relation(fields: [tenantId], references: [id])
+  uploadedBy     User         @relation(fields: [uploadedById], references: [id])
+
+  @@index([organizationId])
+  @@index([buildingId])
+  @@index([unitId])
+  @@index([tenantId])
+  @@index([docType])
+  @@map("documents")
 }

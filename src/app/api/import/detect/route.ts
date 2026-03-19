@@ -3,6 +3,7 @@ import { withAuth } from "@/lib/api-helpers";
 import { parseRentRollExcel } from "@/lib/parsers/rent-roll.parser";
 import { parseARAgingExcel } from "@/lib/parsers/ar-aging.parser";
 import { parseLegalCasesExcel } from "@/lib/parsers/legal-cases.parser";
+import { checkRowLimit } from "@/lib/importer/validateUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,8 @@ export const POST = withAuth(async (req: NextRequest) => {
     const rr = parseRentRollExcel(buffer);
     if (rr.rows.length > 0 || rr.vacantRows.length > 0) {
       const allRows = [...rr.rows, ...rr.vacantRows];
+      const rowLimitError = checkRowLimit(allRows.length);
+      if (rowLimitError) return rowLimitError;
       const buildings = new Set(allRows.map((r) => r.propertyCode).filter(Boolean));
       const vacantCount = rr.vacantRows.length;
       const desc = vacantCount > 0
@@ -63,6 +66,8 @@ export const POST = withAuth(async (req: NextRequest) => {
   try {
     const ar = parseARAgingExcel(buffer);
     if (ar.rows.length > 0) {
+      const rowLimitError = checkRowLimit(ar.rows.length);
+      if (rowLimitError) return rowLimitError;
       const buildings = new Set(ar.rows.map((r) => r.propertyCode).filter(Boolean));
       return NextResponse.json({
         detected: true,
@@ -82,6 +87,8 @@ export const POST = withAuth(async (req: NextRequest) => {
   try {
     const lc = parseLegalCasesExcel(buffer);
     if (lc.rows.length > 0) {
+      const rowLimitError = checkRowLimit(lc.rows.length);
+      if (rowLimitError) return rowLimitError;
       const addresses = new Set(lc.rows.map((r) => r.address).filter(Boolean));
       return NextResponse.json({
         detected: true,

@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
+import { Building2 } from "lucide-react";
 import { useBuildings } from "@/hooks/use-buildings";
 import { useViolations } from "@/hooks/use-violations";
 import { useComplianceItems } from "@/hooks/use-compliance";
 import { useAppStore } from "@/stores/app-store";
-import LoadingSpinner from "@/components/ui/loading-spinner";
+import { CardGridSkeleton } from "@/components/ui/skeleton";
+import EmptyState from "@/components/ui/empty-state";
 import { fmt$ } from "@/lib/utils";
 import { calcBuildingHealthScore, getHealthLabel } from "@/lib/compliance-scoring";
 import type { BuildingScorecard } from "@/types";
@@ -79,12 +81,12 @@ export default function ScorecardTab() {
     return cards.sort((a, b) => a.healthScore - b.healthScore);
   }, [buildings, violations, complianceItems]);
 
-  if (bLoading || vLoading || cLoading) return <LoadingSpinner />;
+  if (bLoading || vLoading || cLoading) return <CardGridSkeleton cards={6} />;
 
   // Single building detail view
   if (selectedBuildingId) {
     const card = scorecards.find((s) => s.buildingId === selectedBuildingId);
-    if (!card) return <div className="text-center py-12 text-text-dim text-sm">No data for selected building</div>;
+    if (!card) return <EmptyState icon={Building2} title="No compliance data" description="No violations or compliance items found for this building." />;
 
     return (
       <div className="space-y-4">
@@ -146,7 +148,7 @@ export default function ScorecardTab() {
       </div>
 
       {scorecards.length === 0 && (
-        <div className="text-center py-12 text-text-dim text-sm">No building data available</div>
+        <EmptyState icon={Building2} title="No building scorecards" description="Add buildings and sync violations to generate compliance health scores." action={{ label: "Import Buildings", href: "/data" }} />
       )}
     </div>
   );

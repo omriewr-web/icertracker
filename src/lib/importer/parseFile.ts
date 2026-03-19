@@ -5,7 +5,12 @@ export function parseImportFile(buffer: Buffer, fileName: string): ParsedImportF
   const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
   const fileType: FileType = ext === "csv" ? "csv" : ext === "xls" ? "xls" : "xlsx";
 
-  const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
+  let wb;
+  try {
+    wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
+  } catch (err: any) {
+    throw new Error(`Failed to parse file "${fileName}": ${err.message || "invalid or corrupt file"}`);
+  }
 
   const sheets = wb.SheetNames.map((sheetName) => {
     const sheet = wb.Sheets[sheetName];

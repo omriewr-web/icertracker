@@ -22,7 +22,6 @@ import {
   ArrowUpDown,
   BarChart3,
   TrendingUp,
-  TrendingDown,
 } from "lucide-react";
 import {
   BarChart,
@@ -230,9 +229,9 @@ export default function CoeusContent() {
         <div>
           <div className="flex items-center gap-3">
             <Radio className="w-5 h-5 text-accent" />
-            <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Coeus</h1>
+            <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Signals</h1>
           </div>
-          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase ml-8">Coeus — Pattern Recognition Engine</span>
+          <span className="text-[10px] text-text-dim tracking-[0.2em] uppercase ml-8">Operational Signals &amp; AI Insights</span>
         </div>
         <div className="flex items-center gap-2">
           <ExportButton
@@ -249,7 +248,7 @@ export default function CoeusContent() {
               { key: "dueAt", label: "Due" },
             ]}
             pdfConfig={{
-              title: "Coeus Intelligence Report",
+              title: "Operational Signals Report",
               stats: [
                 { label: "Critical", value: String(counts.critical) },
                 { label: "High", value: String(counts.high) },

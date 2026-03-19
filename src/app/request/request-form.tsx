@@ -69,16 +69,20 @@ export default function RequestForm() {
 
   const selectedBuilding = buildings.find((b) => b.id === form.buildingId);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
     setLoading(true);
+
+    // Read honeypot value from the hidden form field (bots auto-fill it)
+    const formEl = e.currentTarget;
+    const honeypot = (formEl.elements.namedItem("website") as HTMLInputElement | null)?.value || "";
 
     try {
       const res = await fetch("/api/work-orders/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, token }),
+        body: JSON.stringify({ ...form, token, ...(honeypot ? { website: honeypot } : {}) }),
       });
 
       if (!res.ok) {

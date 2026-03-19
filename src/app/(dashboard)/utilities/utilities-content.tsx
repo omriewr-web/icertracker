@@ -198,12 +198,12 @@ export default function UtilitiesContent() {
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <KpiCard label="Active Accounts" value={summary.activeAccounts} icon={Gauge} />
-          <KpiCard label="Paid This Month" value={summary.paidThisMonth} color="#4caf82" />
-          <KpiCard label="Unpaid This Month" value={summary.unpaidThisMonth} color={summary.unpaidThisMonth > 0 ? "#e05c5c" : undefined} />
-          <KpiCard label="Not Recorded" value={summary.noCheckThisMonth} color={summary.noCheckThisMonth > 0 ? "#e09a3e" : undefined} />
-          <KpiCard label="Transfer Needed" value={summary.transferNeeded} color={summary.transferNeeded > 0 ? "#e05c5c" : undefined} icon={ArrowRightLeft} />
-          <KpiCard label="Risk Signals" value={summary.withRiskSignals} color={summary.withRiskSignals > 0 ? "#e05c5c" : undefined} icon={AlertTriangle} />
+          <KpiCard label="Active Accounts" value={summary.activeAccounts} icon={Gauge} onClick={() => { setFilterCheckStatus(""); setFilterRisk(""); }} />
+          <KpiCard label="Paid This Month" value={summary.paidThisMonth} color="#4caf82" onClick={() => { setFilterCheckStatus("paid"); setFilterRisk(""); }} />
+          <KpiCard label="Unpaid This Month" value={summary.unpaidThisMonth} color={summary.unpaidThisMonth > 0 ? "#e05c5c" : undefined} onClick={() => { setFilterCheckStatus("unpaid"); setFilterRisk(""); }} />
+          <KpiCard label="Not Recorded" value={summary.noCheckThisMonth} color={summary.noCheckThisMonth > 0 ? "#e09a3e" : undefined} onClick={() => { setFilterCheckStatus("no_check"); setFilterRisk(""); }} />
+          <KpiCard label="Transfer Needed" value={summary.transferNeeded} color={summary.transferNeeded > 0 ? "#e05c5c" : undefined} icon={ArrowRightLeft} onClick={() => { setFilterCheckStatus(""); setFilterRisk("transfer"); }} />
+          <KpiCard label="Risk Signals" value={summary.withRiskSignals} color={summary.withRiskSignals > 0 ? "#e05c5c" : undefined} icon={AlertTriangle} onClick={() => { setFilterCheckStatus(""); setFilterRisk("risk"); }} />
         </div>
       )}
 

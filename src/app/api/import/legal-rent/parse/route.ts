@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { getBuildingIdScope, EMPTY_SCOPE } from "@/lib/data-scope";
+import { checkRowLimit } from "@/lib/importer/validateUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,11 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   if (!file)
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
+  // File size limit: 10MB
+  if (file.size > 10 * 1024 * 1024) {
+    return NextResponse.json({ error: "File too large (max 10MB)" }, { status: 413 });
+  }
+
   // Validate file type
   const name = file.name.toLowerCase();
   if (!name.endsWith(".xlsx") && !name.endsWith(".csv")) {
@@ -63,7 +69,12 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   // Parse file
   const XLSX = await import("xlsx");
   const buffer = Buffer.from(await file.arrayBuffer());
-  const wb = XLSX.read(buffer, { type: "buffer" });
+  let wb;
+  try {
+    wb = XLSX.read(buffer, { type: "buffer" });
+  } catch {
+    return NextResponse.json({ error: "Failed to parse file. Ensure it is a valid Excel or CSV file." }, { status: 400 });
+  }
   const ws = wb.Sheets[wb.SheetNames[0]];
   if (!ws)
     return NextResponse.json({ error: "Empty spreadsheet" }, { status: 400 });
@@ -74,6 +85,9 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       { error: "No data rows found" },
       { status: 400 }
     );
+
+  const rowLimitError = checkRowLimit(rawRows.length - 1);
+  if (rowLimitError) return rowLimitError;
 
   // Find header row
   const headers = (rawRows[0] as string[]).map((h) =>
