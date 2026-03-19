@@ -28,10 +28,10 @@ const nextConfig = {
 };
 
 module.exports = withSentryConfig(nextConfig, {
-  org: "atlaspm",
-  project: "javascript-nextjs",
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-  widenClientFileUpload: true,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  silent: true,
   tunnelRoute: "/monitoring",
-  silent: !process.env.CI,
+  hideSourceMaps: true,
+  disableLogger: true,
 });

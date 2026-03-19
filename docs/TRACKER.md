@@ -24,7 +24,7 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - [x] W3-C: Empty-state and loading-state audit (Dashboard, Users, Calendar, Scorecard fixed)
 - [x] W3-D: Redirect and alias cleanup
 - [x] W3-E: Dashboard metrics refinement
-- [x] W3-F: Sentry configuration fix — full SDK setup with instrumentation hooks, replay, tunnel route, source maps (2026-03-19)
+- [x] W3-F: Sentry configuration fix — full SDK setup with instrumentation hooks, replay, tunnel route, source maps (2026-03-19); config hardened with env-driven org/project, replaysOnErrorSampleRate:1.0, tracesSampleRate:0.2, hideSourceMaps, disableLogger, test page+route added (2026-03-19)
 
 ### Wave 4 — Workflow Tests
 - [x] W4-A: Collections workflow tests
@@ -191,7 +191,7 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - Demo seed is strong for a guided demo but too small to fully simulate a 1,000-unit client environment
 - Long-running imports, syncs, and cron-style workloads still sit on the Vercel/serverless model; background workers are the next infrastructure need
 - Documentation drift exists: requested roadmap filename differs from repo, tracker was more optimistic than the current product state, and onboarding docs still reference an admin password directly
-- Sentry fully configured (2026-03-19) — set SENTRY_AUTH_TOKEN in Vercel env vars for source map uploads
+- Sentry fully configured (2026-03-19) — set NEXT_PUBLIC_SENTRY_DSN and SENTRY_AUTH_TOKEN in Vercel env vars for source map uploads; test page at /sentry-example-page and test route at /api/sentry-example-route available for verification
 - Prisma 5.22.0 → 7.x upgrade available (major version, not urgent)
 - ESLint config needs interactive setup (npm run lint prompts for config selection)
 - Existing DB rows with old CollectionCase.status values (new_arrears, reminder_sent) still work via normalizer but should be migrated to canonical values (monitoring, demand_sent) when convenient
