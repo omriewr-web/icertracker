@@ -122,7 +122,7 @@ export const authOptions: NextAuthOptions = {
   ],
   session: { strategy: "jwt", maxAge: 24 * 60 * 60 },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
@@ -130,6 +130,19 @@ export const authOptions: NextAuthOptions = {
         token.organizationId = user.organizationId || null;
         token.managerId = user.managerId || null;
         token.onboardingComplete = user.onboardingComplete ?? false;
+      }
+      // When client calls update(), re-read onboardingComplete from DB
+      if (trigger === "update" && token.id) {
+        try {
+          const fresh = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { onboardingComplete: true, role: true },
+          });
+          if (fresh) {
+            token.onboardingComplete = fresh.onboardingComplete;
+            token.role = fresh.role;
+          }
+        } catch {}
       }
       return token;
     },

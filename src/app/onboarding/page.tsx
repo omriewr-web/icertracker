@@ -965,7 +965,7 @@ function StepTour({
 // ── Main Wizard ──────────────────────────────────────────────
 
 export default function OnboardingPage() {
-  const { data: session, status } = useSession();
+  const { data: session, status, update } = useSession();
   const router = useRouter();
 
   const [step, setStep] = useState(0);
@@ -1048,7 +1048,8 @@ export default function OnboardingPage() {
     setSaving(true);
     setError("");
     try {
-      // Save preferences
+      // Map wizard alert IDs to API boolean fields
+      const alerts = alertPrefs.alerts;
       const prefsPayload = {
         displayName: personalInfo.displayName.trim(),
         jobTitle: personalInfo.jobTitle.trim() || null,
@@ -1057,11 +1058,18 @@ export default function OnboardingPage() {
         defaultView: dashboardPrefs.defaultView,
         briefingItems: dashboardPrefs.briefingItems,
         briefingTime: dashboardPrefs.briefingTime,
-        alerts: alertPrefs.alerts,
+        alertTenant30Days: alerts.includes("new_arrears"),
+        alertTenant60Days: alerts.includes("new_arrears"),
+        alertTenant90Days: alerts.includes("new_arrears"),
+        alertViolationClassC: alerts.includes("violation_received"),
+        alertViolationAll: alerts.includes("violation_received"),
+        alertLeaseExpiring30: alerts.includes("lease_expiring"),
+        alertWorkOrderAssigned: alerts.includes("urgent_work_orders"),
+        alertWorkOrderOverdue: alerts.includes("urgent_work_orders"),
         alertChannel: alertPrefs.alertChannel,
-        quietHours: alertPrefs.quietHours,
-        quietStart: alertPrefs.quietStart,
-        quietEnd: alertPrefs.quietEnd,
+        quietHoursEnabled: alertPrefs.quietHours,
+        quietHoursStart: alertPrefs.quietHours ? alertPrefs.quietStart : null,
+        quietHoursEnd: alertPrefs.quietHours ? alertPrefs.quietEnd : null,
       };
 
       const prefsRes = await fetch("/api/user/preferences", {
@@ -1083,10 +1091,12 @@ export default function OnboardingPage() {
         throw new Error(data.error ?? "Failed to complete onboarding");
       }
 
+      // Refresh the NextAuth session so the JWT picks up onboardingComplete=true
+      await update();
+
       // Redirect to chosen default view
       const dest = dashboardPrefs.defaultView === "dashboard" ? "/" : `/${dashboardPrefs.defaultView}`;
       router.push(dest);
-      router.refresh();
     } catch (err) {
       if (err instanceof Error) setError(err.message);
       setSaving(false);
