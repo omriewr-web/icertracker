@@ -12,6 +12,7 @@ import {
 } from "./nyc-open-data";
 import type { FetchResult } from "./nyc-open-data";
 import { interceptViolation } from "./services/violation-interceptor.service";
+import type { ViolationSource } from "@prisma/client";
 
 type Source = "HPD" | "DOB" | "ECB" | "HPD_COMPLAINTS";
 
@@ -122,7 +123,7 @@ export async function syncBuildingViolations(
               class: vClass ?? null,
               severity: vSeverity ?? null,
               description: vDescription,
-              source: source as any,
+              source: source as ViolationSource,
               buildingId,
               externalId: upserted.externalId,
               orgId: building.organizationId,

@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 type RiskCategory = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -115,7 +116,7 @@ export async function computeBuildingRiskScore(
       data: { riskScore, riskCategory },
     }),
     prisma.riskSnapshot.create({
-      data: { buildingId, riskScore, riskCategory, factors: factors as any },
+      data: { buildingId, riskScore, riskCategory, factors: factors as unknown as Prisma.InputJsonValue },
     }),
   ]);
 

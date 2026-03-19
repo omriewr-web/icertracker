@@ -28,7 +28,7 @@ import { LiveAlertsPanel } from "./live-alerts-panel";
 
 export default function DashboardContent() {
   const router = useRouter();
-  const { selectedBuildingId, setSelectedBuildingId, selectedPortfolio, setSelectedPortfolio, setArrearsFilter, setLeaseFilter } = useAppStore();
+  const { selectedBuildingId, setSelectedBuildingId, selectedPortfolio, setSelectedPortfolio, setLeaseFilter } = useAppStore();
   const [mapBuilding, setMapBuilding] = useState<RiskBuilding | null>(null);
   const { data: metrics, isLoading } = useMetrics();
   const { data: buildings } = useBuildings();
@@ -107,7 +107,7 @@ export default function DashboardContent() {
           value={metrics.occupied}
           icon={Users}
           color="#C9A84C"
-          onClick={() => { setArrearsFilter("current"); router.push("/alerts"); }}
+          href="/data"
         />
         <KpiCard label="Vacant" value={metrics.vacant} icon={Building2} color="#C9A84C" subtext={metrics.lostRent > 0 ? `${fmt$(metrics.lostRent)} lost/mo` : undefined} href="/vacancies" />
         <KpiCard label="Total Balance" value={fmt$(metrics.totalBalance)} icon={DollarSign} color={metrics.totalBalance >= 500000 ? "#e05c5c" : "#C9A84C"} href="/collections" />

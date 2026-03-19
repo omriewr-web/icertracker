@@ -1,3 +1,8 @@
+// NOTE: This page handles basic user CRUD (roles, managers, building assignments).
+// For granular permission management (presets, module grants, dangerous privileges),
+// see the canonical page at /settings/users (src/app/(dashboard)/settings/users/page.tsx).
+// These two pages may be consolidated in the future — see QA audit item L14.
+
 "use client";
 
 import { useState, useMemo } from "react";

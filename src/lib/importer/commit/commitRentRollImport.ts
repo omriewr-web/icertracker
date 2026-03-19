@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getArrearsCategory, getArrearsDays, getLeaseStatus, calcCollectionScore } from "@/lib/scoring";
 import { findMatchingBuilding, fetchBuildingsForMatching, normalizeAddress, extractAddressFromEntity } from "@/lib/building-matching";
+import type { LeaseStatus } from "@prisma/client";
 import type { CommitResult, CommitContext } from "./types";
 
 const YARDI_CODE_RE = /^t\d{4,}$/i;
@@ -209,7 +210,7 @@ export async function commitRentRollImport(
         }
 
         // ── Dual-write: Lease + BalanceSnapshot ──
-        const normalizedLeaseStatus = leaseExp
+        const normalizedLeaseStatus: LeaseStatus = leaseExp
           ? (leaseExp < new Date() ? "EXPIRED" : "ACTIVE")
           : "MONTH_TO_MONTH";
         const leaseId = `${tenant.id}-lease`;
@@ -233,7 +234,7 @@ export async function commitRentRollImport(
             securityDeposit: t.deposit,
             currentBalance: t.balance,
             chargeCode: t.chargeCode ?? null,
-            status: normalizedLeaseStatus as any,
+            status: normalizedLeaseStatus,
             isStabilized: false,
           },
           update: {
@@ -248,7 +249,7 @@ export async function commitRentRollImport(
             securityDeposit: t.deposit,
             currentBalance: t.balance,
             chargeCode: t.chargeCode ?? null,
-            status: normalizedLeaseStatus as any,
+            status: normalizedLeaseStatus,
           },
         });
 
