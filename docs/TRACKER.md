@@ -143,6 +143,11 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - [x] M8: Stage regression guard — advanceStage() rejects newStage <= currentStage
 - Verified already fixed: C1, C2, C3, C4, H2, H4, H5, H6, H10, M9
 
+### RGB Orders Constants (2026-03-19)
+- [x] Hardcoded RGB orders 2005-2026 (22 entries) in src/lib/constants/rgb-orders.ts
+- [x] Helper functions: getRGBOrderByYear, getRGBOrderByNumber, calculateLegalRentIncrease, getRGBOrderForLeaseDate
+- Note: 2026 Order #57 may not be finalized — verify at nyc.gov/rgb before production use
+
 **QA audit open findings — top 3 next repair candidates:**
 1. H9: SUPER_ADMIN organizationId! null dereference in 20+ routes
 2. H7: Signal engine N+1 sequential DB calls in loops
