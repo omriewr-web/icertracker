@@ -5,9 +5,17 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import type { PermissionPreset, ModulePermissions } from "@/lib/permissions/types";
-import { MODULES, LEVEL_RANK } from "@/lib/permissions/types";
-import { PERMISSION_PRESETS, PRESET_DANGEROUS_DEFAULTS } from "@/lib/permissions/presets";
 import { createGrantsFromPreset, getUserWithGrants } from "@/lib/permissions/engine";
+import {
+  PRESET_ROLE_MAP,
+  assertCreatablePreset,
+  assertGrantedDangerousPrivilegesWithinInvoker,
+  assertGrantedModulesWithinInvoker,
+  assertUserAdminAccess,
+  buildDangerousPrivileges,
+  buildPresetPermissions,
+} from "@/lib/user-management";
+import type { UserRole } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -33,47 +41,31 @@ const inviteSchema = z.object({
 export const POST = withAuth(async (req, { user }) => {
   // Load invoking user's full permissions
   const invokingUser = await getUserWithGrants(user.id);
+  assertUserAdminAccess((invokingUser?.role ?? user.role) as UserRole);
   if (!invokingUser?.canManageUsers) {
     return NextResponse.json({ error: "You do not have permission to invite users" }, { status: 403 });
   }
 
   const body = await parseBody(req, inviteSchema);
   const preset = body.permissionPreset as PermissionPreset;
+  const invokingRole = invokingUser.role as UserRole;
 
-  // Prevent granting more access than invoking user has
-  if (body.moduleOverrides) {
-    const invokingGrants = Object.fromEntries(
-      invokingUser.accessGrants.map((g) => [g.module, g.level])
-    );
-    for (const [mod, level] of Object.entries(body.moduleOverrides)) {
-      const invokingLevel = invokingGrants[mod] || "none";
-      if (LEVEL_RANK[level as keyof typeof LEVEL_RANK] > LEVEL_RANK[invokingLevel as keyof typeof LEVEL_RANK]) {
-        return NextResponse.json(
-          { error: `Cannot grant ${level} on ${mod} — exceeds your own access level (${invokingLevel})` },
-          { status: 403 },
-        );
-      }
-    }
-  }
+  assertCreatablePreset(invokingRole, preset);
 
-  // Prevent granting dangerous privileges the invoker doesn't have
-  if (body.dangerousPrivileges) {
-    if (body.dangerousPrivileges.canManageUsers && !invokingUser.canManageUsers) {
-      return NextResponse.json({ error: "Cannot grant user management — you don't have it" }, { status: 403 });
-    }
-    if (body.dangerousPrivileges.canManageOrgSettings && !invokingUser.canManageOrgSettings) {
-      return NextResponse.json({ error: "Cannot grant org settings — you don't have it" }, { status: 403 });
-    }
-  }
+  const mergedPermissions = buildPresetPermissions(
+    preset,
+    body.moduleOverrides as Partial<ModulePermissions> | undefined
+  );
+  assertGrantedModulesWithinInvoker(invokingUser, mergedPermissions);
 
   // Check email uniqueness
-  const existing = await prisma.user.findFirst({ where: { email: body.email } });
+  const existing = await prisma.user.findUnique({ where: { email: body.email } });
   if (existing) {
     return NextResponse.json({ error: "A user with this email already exists" }, { status: 409 });
   }
 
   // Generate temp password
-  const tempPassword = crypto.randomBytes(4).toString("hex"); // 8 char hex
+  const tempPassword = crypto.randomBytes(12).toString("base64url").slice(0, 16); // 16 char, ~72 bits entropy
   const hash = await bcrypt.hash(tempPassword, 12);
 
   // Generate username from email
@@ -88,25 +80,8 @@ export const POST = withAuth(async (req, { user }) => {
   const orgId = user.organizationId;
 
   // Determine dangerous privileges
-  const presetDefaults = PRESET_DANGEROUS_DEFAULTS[preset];
-  const dangers = {
-    canExportSensitive: body.dangerousPrivileges?.canExportSensitive ?? presetDefaults.canExportSensitive,
-    canDeleteRecords: body.dangerousPrivileges?.canDeleteRecords ?? presetDefaults.canDeleteRecords,
-    canBulkUpdate: body.dangerousPrivileges?.canBulkUpdate ?? presetDefaults.canBulkUpdate,
-    canManageUsers: body.dangerousPrivileges?.canManageUsers ?? presetDefaults.canManageUsers,
-    canManageOrgSettings: body.dangerousPrivileges?.canManageOrgSettings ?? presetDefaults.canManageOrgSettings,
-  };
-
-  // Map preset to legacy role for backwards compatibility
-  const roleMap: Record<PermissionPreset, string> = {
-    property_manager: "PM",
-    ar_clerk: "COLLECTOR",
-    leasing_agent: "LEASING_AGENT",
-    building_super: "SUPER",
-    reporting_only: "ACCOUNTING",
-    owner_investor: "OWNER",
-    account_admin: "ACCOUNT_ADMIN",
-  };
+  const dangers = buildDangerousPrivileges(preset, body.dangerousPrivileges);
+  assertGrantedDangerousPrivilegesWithinInvoker(invokingUser, dangers);
 
   const newUser = await prisma.user.create({
     data: {
@@ -114,7 +89,7 @@ export const POST = withAuth(async (req, { user }) => {
       email: body.email,
       username: finalUsername,
       passwordHash: hash,
-      role: roleMap[preset] as any,
+      role: PRESET_ROLE_MAP[preset] as any,
       organizationId: orgId,
       permissionPreset: preset,
       onboardingComplete: true,
@@ -138,13 +113,13 @@ export const POST = withAuth(async (req, { user }) => {
       changedBy: user.id,
       affectedUser: newUser.id,
       changeType: "USER_INVITED",
-      newValue: { preset, dangers, overrides: body.moduleOverrides ?? null },
+      newValue: { preset, dangers, overrides: body.moduleOverrides ?? null } as any,
     },
   });
 
   return NextResponse.json({
     user: newUser,
     tempPassword,
-    message: "User created. Share the temporary password securely.",
+    message: "User created. Share the temporary password securely. User must change it on first login.",
   }, { status: 201 });
 });

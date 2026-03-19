@@ -61,12 +61,15 @@ export function computeRiskFlags(meter: MeterForRisk): UtilityRiskFlag[] {
       flags.push("missing_account_number");
     }
 
-    // Occupied unit but owner/management-paid
+    // Occupied unit but owner/management-paid (skip master/common meters — owner-paid is expected)
+    const meterClass = meter.classification || "unit_submeter";
     if (
       meter.unit &&
       !meter.unit.isVacant &&
       meter.unit.tenant &&
-      (acc.assignedPartyType === "owner" || acc.assignedPartyType === "management")
+      (acc.assignedPartyType === "owner" || acc.assignedPartyType === "management") &&
+      meterClass !== "building_master" &&
+      meterClass !== "common_area"
     ) {
       flags.push("occupied_owner_paid");
     }

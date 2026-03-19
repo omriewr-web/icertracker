@@ -238,6 +238,10 @@ export function mapHpdViolation(row: any, buildingId: string) {
       issuedDate: parseDate(row.novissueddate),
       currentStatus: row.violationstatus || row.currentstatus || null,
       penaltyAmount: parseDecimal(row.penalityamount),
+      // NOTE: HPD violations API has no dedicated respond-by/cure-deadline field.
+      // currentstatusdate is the last status-change date, NOT the cure deadline.
+      // We map it here because respondByDate is the closest available column;
+      // consumers should treat this as an approximation, not a true compliance deadline.
       respondByDate: parseDate(row.currentstatusdate),
       certifiedDismissDate: parseDate(row.certifieddate),
       correctionDate: parseDate(row.approveddate),
@@ -249,6 +253,7 @@ export function mapHpdViolation(row: any, buildingId: string) {
       severity: hpdSeverity(row.class),
       description: row.novdescription || row.violationstatus || "HPD Violation",
       unitNumber: row.apartment || null,
+      // See note above — currentstatusdate is the status-change date, not a cure deadline
       respondByDate: parseDate(row.currentstatusdate),
       currentStatus: row.violationstatus || row.currentstatus || null,
       penaltyAmount: parseDecimal(row.penalityamount),

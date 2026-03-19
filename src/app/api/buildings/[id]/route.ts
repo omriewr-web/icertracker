@@ -26,7 +26,7 @@ export const GET = withAuth(async (req, { user, params }) => {
 
   if (!building) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(building);
-});
+}, "dash");
 
 export const PATCH = withAuth(async (req, { user, params }) => {
   const { id } = await params;
