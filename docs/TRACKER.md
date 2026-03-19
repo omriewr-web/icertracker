@@ -1,6 +1,6 @@
 # AtlasPM — Project Tracker
 
-Last Updated: 2026-03-18 (Permission system v2 session)
+Last Updated: 2026-03-18 (Admin user management session)
 
 ---
 
@@ -58,12 +58,15 @@ Last Updated: 2026-03-18 (Permission system v2 session)
 - [x] P4: Engine — can(), getEffectiveLevel(), createGrantsFromPreset(), getUserWithGrants() in src/lib/permissions/engine.ts
 - [x] P5: Seed — 10 existing users seeded with grants via scripts/seed-permissions.ts
 - [x] P6: Middleware — role-based route protection for /users, /owner-dashboard, OWNER blocked paths
+- [x] P7: API routes — invite, permissions PATCH/GET with audit logging, updated GET /api/users
+- [x] P8: Admin UI — Team & Permissions page at /settings/users with invite/edit drawer
+- [x] P9: Schema — PermissionAuditLog model for tracking permission changes
 
 ---
 
 ## Active Work
-- Permission system v2 complete — not yet deployed
-- Next: Wire can() into new API routes, build permission management UI, deploy
+- Permission system v2 + admin UI complete — not yet deployed
+- Next: Deploy, test invite flow end-to-end, onboard real portfolio
 
 ## Deployment
 - Production: https://www.myatlaspm.com
@@ -76,4 +79,5 @@ Last Updated: 2026-03-18 (Permission system v2 session)
 - ESLint config needs interactive setup (npm run lint prompts for config selection)
 - Existing DB rows with old CollectionCase.status values (new_arrears, reminder_sent) still work via normalizer but should be migrated to canonical values (monitoring, demand_sent) when convenient
 - Permission system v2 runs alongside existing role system — old routes still use hasPermission(), new routes should use can()
-- No permission management UI yet — grants managed via seed script or direct DB
+- Permission management UI built at /settings/users — needs sidebar nav link added
+- First-login password change flow not yet implemented (users receive temp password)
