@@ -28,10 +28,15 @@ import {
   AlertTriangle,
   Pencil,
 } from "lucide-react";
-import { useCollectionProfile, useCreateCollectionNote, useUpdateCollectionStatus } from "@/hooks/use-collections";
+import { useCollectionProfile, useCreateCollectionNote, useUpdateCollectionStatus, useTenantStage, useAdvanceStage } from "@/hooks/use-collections";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import Button from "@/components/ui/button";
 import Modal from "@/components/ui/modal";
+import LogActionModal from "@/components/collections/log-action-modal";
+import EntityChatTab from "@/components/comms/EntityChatTab";
+import AttentionBadge from "@/components/ui/attention-badge";
+import ActionCardComponent from "@/components/ui/action-card";
+import { useTenantAttention, useActionCards } from "@/hooks/use-attention";
 import { fmt$, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
@@ -100,8 +105,17 @@ export default function TenantCollectionPage() {
   const qc = useQueryClient();
 
   const { data: profile, isLoading } = useCollectionProfile(tenantId);
+  const { data: stageData } = useTenantStage(tenantId);
+  const { data: attentionScore } = useTenantAttention(tenantId);
+  const { data: actionCards } = useActionCards("tenant", tenantId);
   const createNote = useCreateCollectionNote();
   const updateStatus = useUpdateCollectionStatus();
+  const advanceStageMutation = useAdvanceStage();
+
+  // Log action modal & advance stage state
+  const [logActionOpen, setLogActionOpen] = useState(false);
+  const [advanceOpen, setAdvanceOpen] = useState(false);
+  const [advanceTarget, setAdvanceTarget] = useState(2);
 
   // Note form state
   const [noteContent, setNoteContent] = useState("");
@@ -328,6 +342,9 @@ export default function TenantCollectionPage() {
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <h1 className="text-xl sm:text-2xl font-bold text-text-primary">{tenantName}</h1>
               <ScoreBadge score={collectionScore} />
+              {attentionScore && (
+                <AttentionBadge score={attentionScore.score} label={attentionScore.label} />
+              )}
               <button
                 onClick={openEditModal}
                 className="p-1.5 rounded-lg text-text-dim hover:text-accent hover:bg-accent/10 transition-colors"
@@ -511,6 +528,133 @@ export default function TenantCollectionPage() {
 
         {/* ── RIGHT COLUMN (2/5 = 40%) ── */}
         <div className="lg:col-span-2 space-y-6">
+          {/* ── Action Cards ── */}
+          {actionCards && actionCards.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="text-[10px] text-text-dim uppercase tracking-wider font-medium">Recommended Actions</h2>
+              {actionCards.slice(0, 3).map((card) => (
+                <ActionCardComponent key={card.id} card={card} />
+              ))}
+            </div>
+          )}
+
+          {/* ── Stage & Protocol Panel ── */}
+          {stageData?.stage && (
+            <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-medium text-text-muted">Collection Stage</h2>
+                <span className={cn(
+                  "text-xs px-2.5 py-1 rounded-full font-bold",
+                  stageData.stage.stage <= 1 ? "bg-green-500/10 text-green-400" :
+                  stageData.stage.stage <= 2 ? "bg-accent/10 text-accent" :
+                  stageData.stage.stage <= 3 ? "bg-amber-500/10 text-amber-400" :
+                  stageData.stage.stage <= 4 ? "bg-orange-500/10 text-orange-400" :
+                  "bg-red-500/10 text-red-400"
+                )}>
+                  Stage {stageData.stage.stage}
+                </span>
+              </div>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-text-dim">Days Past Due</span>
+                  <span className="text-text-primary font-mono">{stageData.stage.daysPastDue}</span>
+                </div>
+                {stageData.stage.actionDueBy && (
+                  <div className="flex justify-between">
+                    <span className="text-text-dim">Action Due By</span>
+                    <span className={cn("font-mono", stageData.stage.actionOverdue ? "text-red-400" : "text-text-primary")}>
+                      {formatDate(stageData.stage.actionDueBy)}
+                    </span>
+                  </div>
+                )}
+                {stageData.stage.actionOverdue && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-red-400 text-xs font-medium">
+                    Action overdue
+                  </div>
+                )}
+                {stageData.stage.lastActionAt && (
+                  <div className="flex justify-between">
+                    <span className="text-text-dim">Last Action</span>
+                    <span className="text-text-primary">{stageData.stage.lastActionType?.replace(/_/g, " ")} — {formatDate(stageData.stage.lastActionAt)}</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2 mt-4">
+                <Button size="sm" onClick={() => setLogActionOpen(true)} className="flex-1">
+                  Log Action
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { setAdvanceTarget(stageData.stage.stage + 1); setAdvanceOpen(true); }}
+                  className="flex-1"
+                >
+                  Advance Stage
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Decision Recommendation ── */}
+          {stageData?.recommendation && (
+            <div className={cn(
+              "border rounded-xl p-4",
+              stageData.recommendation.urgency === "critical" ? "bg-red-500/10 border-red-500/30" :
+              stageData.recommendation.urgency === "high" ? "bg-orange-500/10 border-orange-500/30" :
+              stageData.recommendation.urgency === "medium" ? "bg-amber-500/10 border-amber-500/30" :
+              "bg-atlas-navy-3 border-border"
+            )}>
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className={cn(
+                  "w-4 h-4",
+                  stageData.recommendation.urgency === "critical" ? "text-red-400" :
+                  stageData.recommendation.urgency === "high" ? "text-orange-400" :
+                  stageData.recommendation.urgency === "medium" ? "text-amber-400" :
+                  "text-text-dim"
+                )} />
+                <span className={cn(
+                  "text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase",
+                  stageData.recommendation.urgency === "critical" ? "bg-red-500/20 text-red-400" :
+                  stageData.recommendation.urgency === "high" ? "bg-orange-500/20 text-orange-400" :
+                  stageData.recommendation.urgency === "medium" ? "bg-amber-500/20 text-amber-400" :
+                  "bg-green-500/20 text-green-400"
+                )}>
+                  {stageData.recommendation.urgency}
+                </span>
+              </div>
+              <p className="text-sm text-text-primary font-medium">{stageData.recommendation.recommendedAction}</p>
+              <p className="text-xs text-text-dim mt-1">{stageData.recommendation.reason}</p>
+            </div>
+          )}
+
+          {/* ── Stage Action Timeline ── */}
+          {stageData?.actions && stageData.actions.length > 0 && (
+            <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
+              <h2 className="text-sm font-medium text-text-muted mb-3">Stage Actions</h2>
+              <div className="space-y-3">
+                {stageData.actions.map((action) => (
+                  <div key={action.id} className="border-l-2 border-accent/30 pl-3 pb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-text-dim font-medium uppercase">
+                        {action.actionType.replace(/_/g, " ")}
+                      </span>
+                      <span className="text-[10px] text-text-dim">{formatDate(action.actionDate)}</span>
+                      <span className="text-[10px] text-text-dim">by {action.staff.name}</span>
+                    </div>
+                    <p className="text-xs text-text-muted mt-0.5">Outcome: {action.outcome.replace(/_/g, " ")}</p>
+                    {action.notes && <p className="text-xs text-text-dim mt-0.5">{action.notes}</p>}
+                    {action.promisedPaymentDate && (
+                      <p className="text-[10px] text-accent mt-0.5">
+                        Promise: {fmt$(action.promisedPaymentAmount ?? 0)} by {formatDate(action.promisedPaymentDate)}
+                        {action.promiseBroken && <span className="text-red-400 ml-1 font-semibold">BROKEN</span>}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* ── SECTION 5: Status Editor ── */}
           <div className="bg-atlas-navy-3 border border-border rounded-xl p-5">
             <h2 className="text-sm font-medium text-text-muted mb-1">Collection Status</h2>
@@ -629,6 +773,17 @@ export default function TenantCollectionPage() {
         </div>
       </div>
 
+      {/* ── Discussion ── */}
+      <div className="mt-6">
+        <h2 className="text-sm font-medium text-text-muted mb-3">Discussion</h2>
+        <EntityChatTab
+          entityType="tenant"
+          entityId={tenantId}
+          label={tenantName}
+          buildingAddress={buildingAddress}
+        />
+      </div>
+
       {/* ── Edit Tenant Modal ── */}
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit Tenant Details">
         <div className="space-y-4">
@@ -693,6 +848,42 @@ export default function TenantCollectionPage() {
             </Button>
             <Button size="sm" onClick={handleEditSubmit} disabled={editSaving}>
               {editSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Log Action Modal ── */}
+      <LogActionModal
+        open={logActionOpen}
+        onClose={() => setLogActionOpen(false)}
+        tenantId={tenantId}
+        tenantName={tenantName}
+      />
+
+      {/* ── Advance Stage Confirmation ── */}
+      <Modal open={advanceOpen} onClose={() => setAdvanceOpen(false)} title="Advance Collection Stage">
+        <div className="space-y-4">
+          <p className="text-sm text-text-muted">
+            Advance <span className="text-text-primary font-medium">{tenantName}</span> from
+            Stage {stageData?.stage?.stage ?? "?"} to Stage {advanceTarget}?
+          </p>
+          <p className="text-xs text-text-dim">
+            This will reset the action window timer. Make sure all required actions for the current stage are complete.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="outline" onClick={() => setAdvanceOpen(false)}>Cancel</Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                advanceStageMutation.mutate(
+                  { tenantId, newStage: advanceTarget },
+                  { onSuccess: () => setAdvanceOpen(false) }
+                );
+              }}
+              disabled={advanceStageMutation.isPending}
+            >
+              {advanceStageMutation.isPending ? "Advancing..." : `Advance to Stage ${advanceTarget}`}
             </Button>
           </div>
         </div>

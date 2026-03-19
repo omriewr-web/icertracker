@@ -203,6 +203,151 @@ export function useBulkFollowup() {
   });
 }
 
+// ── Stage alerts (protocol-based overdue) ──
+
+export interface StageAlert {
+  stageId: string;
+  tenantId: string;
+  tenantName: string;
+  unitNumber: string;
+  buildingAddress: string;
+  balance: number;
+  stage: number;
+  daysPastDue: number;
+  actionOverdue: boolean;
+  promiseBroken: boolean;
+  lastActionAt: string | null;
+  actionDueBy: string | null;
+  nextRecommendedAction: string | null;
+}
+
+export function useStageAlerts() {
+  return useQuery<StageAlert[]>({
+    queryKey: ["collections", "stage-alerts"],
+    queryFn: async () => {
+      const res = await fetch("/api/collections/stage-alerts");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+}
+
+// ── Tenant stage + actions ──
+
+export interface StageData {
+  stage: {
+    id: string;
+    tenantId: string;
+    stage: number;
+    stageEnteredAt: string;
+    daysPastDue: number;
+    actionDueBy: string | null;
+    actionOverdue: boolean;
+    lastActionAt: string | null;
+    lastActionType: string | null;
+    nextRecommendedAction: string | null;
+    status: string;
+  };
+  actions: Array<{
+    id: string;
+    actionType: string;
+    actionDate: string;
+    outcome: string;
+    notes: string | null;
+    promisedPaymentDate: string | null;
+    promisedPaymentAmount: number | null;
+    promiseBroken: boolean;
+    staff: { id: string; name: string };
+    createdAt: string;
+  }>;
+  recommendation: {
+    recommendedAction: string;
+    reason: string;
+    urgency: "low" | "medium" | "high" | "critical";
+  };
+}
+
+export function useTenantStage(tenantId: string | null) {
+  return useQuery<StageData>({
+    queryKey: ["collections", "stage", tenantId],
+    queryFn: async () => {
+      const res = await fetch(`/api/collections/tenants/${tenantId}/stage`);
+      if (!res.ok) throw new Error("Failed to fetch stage data");
+      return res.json();
+    },
+    enabled: !!tenantId,
+  });
+}
+
+// ── Log collection action (stage system) ──
+
+export function useLogCollectionAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      tenantId,
+      data,
+    }: {
+      tenantId: string;
+      data: {
+        actionType: string;
+        actionDate: string;
+        outcome: string;
+        notes?: string;
+        promisedPaymentDate?: string;
+        promisedPaymentAmount?: number;
+      };
+    }) => {
+      const res = await fetch(`/api/collections/tenants/${tenantId}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to log action");
+      return res.json();
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["collections"] });
+      toast.success("Action logged");
+    },
+    onError: () => toast.error("Failed to log action"),
+  });
+}
+
+// ── Advance stage ──
+
+export function useAdvanceStage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      tenantId,
+      newStage,
+    }: {
+      tenantId: string;
+      newStage: number;
+    }) => {
+      const res = await fetch(
+        `/api/collections/tenants/${tenantId}/advance-stage`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ newStage }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to advance stage");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["collections"] });
+      toast.success("Stage advanced");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
 // ── Update collection status ──
 
 export function useUpdateCollectionStatus() {

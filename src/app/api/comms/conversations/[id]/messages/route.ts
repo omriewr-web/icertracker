@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth } from "@/lib/api-helpers";
+import { withAuth, parseBody } from "@/lib/api-helpers";
 import { listMessages, sendMessage } from "@/lib/comms/message.service";
 import { markConversationRead } from "@/lib/comms/conversation.service";
+import { messageCreateSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
@@ -24,11 +25,7 @@ export const GET = withAuth(async (req, { user, params }) => {
 
 export const POST = withAuth(async (req, { user, params }) => {
   const { id } = await params;
-  const body = await req.json();
-
-  if (!body.body?.trim()) {
-    return NextResponse.json({ error: "Message body required" }, { status: 400 });
-  }
+  const body = await parseBody(req, messageCreateSchema);
 
   const message = await sendMessage({
     conversationId: id,
@@ -36,9 +33,9 @@ export const POST = withAuth(async (req, { user, params }) => {
     orgId: user.organizationId!,
     body: body.body.trim(),
     messageType: body.messageType || "standard",
-    replyToMessageId: body.replyToMessageId,
+    replyToMessageId: body.replyToMessageId ?? undefined,
     mentionedUserIds: body.mentionedUserIds || [],
-    metadata: body.metadata,
+    metadata: body.metadata ?? undefined as Record<string, unknown> | undefined,
   });
 
   await markConversationRead(id, user.id, message.id);

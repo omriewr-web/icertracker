@@ -8,6 +8,7 @@ import { useWorkOrder, useUpdateWorkOrder, useDeleteWorkOrder, useCreateWorkOrde
 import { useVendors } from "@/hooks/use-vendors";
 import { useUsers } from "@/hooks/use-users";
 import PriorityBadge from "./priority-badge";
+import EntityChatTab from "@/components/comms/EntityChatTab";
 import CategoryBadge from "./category-badge";
 import DueDateBadge from "./due-date-badge";
 import SourceBadge from "./source-badge";
@@ -46,7 +47,7 @@ export default function WorkOrderDetailModal({ workOrderId, onClose }: Props) {
   const uploadPhotos = useUploadWorkOrderPhotos(workOrderId || "");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [tab, setTab] = useState<"details" | "comments" | "activity" | "themis">("details");
+  const [tab, setTab] = useState<"details" | "comments" | "activity" | "themis" | "chat">("details");
   const [commentText, setCommentText] = useState("");
   const addComment = useCreateWorkOrderComment(workOrderId || "");
 
@@ -161,7 +162,7 @@ export default function WorkOrderDetailModal({ workOrderId, onClose }: Props) {
           </div>
 
           <div className="flex gap-1 border-b border-border mb-4">
-            {(["details", "comments", "activity", "themis"] as const).map((t) => (
+            {(["details", "comments", "activity", "chat", "themis"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -169,7 +170,7 @@ export default function WorkOrderDetailModal({ workOrderId, onClose }: Props) {
                   tab === t ? "text-accent border-b-2 border-accent" : "text-text-dim hover:text-text-muted"
                 }`}
               >
-                {t === "themis" ? "Defense Package" : t.charAt(0).toUpperCase() + t.slice(1)}
+                {t === "themis" ? "Defense Package" : t === "chat" ? "Chat" : t.charAt(0).toUpperCase() + t.slice(1)}
                 {t === "comments" && wo.comments?.length ? ` (${wo.comments.length})` : ""}
                 {t === "activity" && activity?.length ? ` (${activity.length})` : ""}
               </button>
@@ -350,6 +351,14 @@ export default function WorkOrderDetailModal({ workOrderId, onClose }: Props) {
                 ))
               )}
             </div>
+          )}
+
+          {tab === "chat" && wo && (
+            <EntityChatTab
+              entityType="work_order"
+              entityId={wo.id}
+              label={wo.title}
+            />
           )}
 
           {tab === "themis" && (

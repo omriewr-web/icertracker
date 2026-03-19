@@ -25,8 +25,10 @@ import {
   useUpdateCollectionStatus,
   useBulkCollectionAction,
   useSendToLegal,
+  useStageAlerts,
   type ARTenantRow,
   type CollectionFilters,
+  type StageAlert,
 } from "@/hooks/use-collections";
 import { useBuildings } from "@/hooks/use-buildings";
 import KpiCard from "@/components/ui/kpi-card";
@@ -40,6 +42,7 @@ import ExportButton from "@/components/ui/export-button";
 import { normalizeCollectionStatus, getStatusColor } from "@/lib/collections/types";
 import { COLLECTION_CASE_OPTIONS } from "@/lib/constants/statuses";
 import AIEnhanceButton from "@/components/ui/ai-enhance-button";
+import LogActionModal from "@/components/collections/log-action-modal";
 
 // ── Status config (values for dropdowns / API calls) ──
 
@@ -55,6 +58,27 @@ function AgingBadge({ category }: { category: string }) {
   if (category === "30")
     return <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold font-data bg-accent/10 text-accent">31-60</span>;
   return <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold font-data bg-atlas-green/10 text-atlas-green">0-30</span>;
+}
+
+// ── Stage badge ──
+
+const STAGE_COLORS: Record<number, string> = {
+  0: "bg-green-500/10 text-green-400",
+  1: "bg-green-500/10 text-green-400",
+  2: "bg-accent/10 text-accent",
+  3: "bg-amber-500/10 text-amber-400",
+  4: "bg-orange-500/10 text-orange-400",
+  5: "bg-red-500/10 text-red-400",
+  6: "bg-red-500/15 text-red-500",
+};
+
+function StageBadge({ stage }: { stage: number }) {
+  const color = STAGE_COLORS[stage] ?? STAGE_COLORS[6];
+  return (
+    <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-semibold font-data", color)}>
+      S{stage}
+    </span>
+  );
 }
 
 // ── Days since note helper ──
@@ -222,6 +246,10 @@ export default function CollectionsContent() {
   const updateStatus = useUpdateCollectionStatus();
   const bulkUpdate = useBulkCollectionAction();
   const sendToLegal = useSendToLegal();
+  const { data: stageAlerts } = useStageAlerts();
+
+  // Log action modal
+  const [logActionTarget, setLogActionTarget] = useState<ARTenantRow | null>(null);
 
   // Follow-up helpers
   const getFollowUpTemplate = useCallback((alertType: CollectionAlert["alertType"], balance: number) => {
@@ -461,6 +489,20 @@ export default function CollectionsContent() {
         <KpiCard label="In Legal" value={dashboard?.legalCount ?? 0} icon={Scale} color="#8B5CF6" onClick={() => { setStatusFilter("LEGAL"); setCollectionStatusFilter(""); setStaleFilter(false); }} />
         <KpiCard label="Follow-Ups Due" value={dashboard?.followUpsDue ?? 0} subtext="Scheduled follow-ups due today" icon={Phone} color="#3B82F6" onClick={() => { setStatusFilter(""); setCollectionStatusFilter(""); setStaleFilter(true); }} />
       </div>
+
+      {/* ── Stage Protocol Alerts Banner ── */}
+      {(stageAlerts ?? []).length > 0 && (
+        <div className="bg-atlas-navy-3 border border-orange-500/30 rounded-xl px-4 py-3 flex items-center gap-3">
+          <AlertCircle className="w-4 h-4 text-orange-400 shrink-0" />
+          <span className="text-sm text-orange-400 font-medium">
+            {stageAlerts!.length} tenant{stageAlerts!.length !== 1 ? "s" : ""} with overdue collection actions
+          </span>
+          <span className="text-xs text-text-dim ml-auto">
+            {stageAlerts!.filter((a) => a.promiseBroken).length > 0 &&
+              `${stageAlerts!.filter((a) => a.promiseBroken).length} broken promise${stageAlerts!.filter((a) => a.promiseBroken).length !== 1 ? "s" : ""}`}
+          </span>
+        </div>
+      )}
 
       {/* ── Collection Alerts Banner ── */}
       {visibleAlerts.length > 0 && (
@@ -897,6 +939,7 @@ export default function CollectionsContent() {
                 <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Building</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-text-dim uppercase">Unit</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-text-dim uppercase">Balance</th>
+                <th className="px-3 py-2 text-center text-xs font-medium text-text-dim uppercase">Stage</th>
                 <th className="px-3 py-2 text-center text-xs font-medium text-text-dim uppercase">Aging</th>
                 <th className="px-3 py-2 text-center text-xs font-medium text-text-dim uppercase">Status</th>
                 <th className="px-3 py-2 text-center text-xs font-medium text-text-dim uppercase">Legal</th>
@@ -933,6 +976,13 @@ export default function CollectionsContent() {
                     <td className="px-3 py-2 text-text-muted text-xs" onClick={() => router.push(`/collections/${row.id}`)}>{row.buildingAddress}</td>
                     <td className="px-3 py-2 text-text-muted text-xs" onClick={() => router.push(`/collections/${row.id}`)}>{row.unitNumber}</td>
                     <td className="px-3 py-2 text-right text-red-400 font-mono" onClick={() => router.push(`/collections/${row.id}`)}>{fmt$(row.balance)}</td>
+                    <td className="px-3 py-2 text-center" onClick={() => router.push(`/collections/${row.id}`)}>
+                      {(() => {
+                        const stageAlert = (stageAlerts ?? []).find((a) => a.tenantId === row.id);
+                        const stage = stageAlert?.stage;
+                        return stage != null ? <StageBadge stage={stage} /> : <span className="text-text-dim">—</span>;
+                      })()}
+                    </td>
                     <td className="px-3 py-2 text-center" onClick={() => router.push(`/collections/${row.id}`)}><AgingBadge category={row.arrearsCategory} /></td>
                     <td className="px-3 py-2 text-center" onClick={() => router.push(`/collections/${row.id}`)}>
                       {statusLabel && statusClr ? (
@@ -968,13 +1018,21 @@ export default function CollectionsContent() {
                       {notePreview || "—"}
                     </td>
                     <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
-                      <QuickActionMenu
-                        row={row}
-                        onAddNote={setNoteTarget}
-                        onChangeStatus={setStatusTarget}
-                        onSendToLegal={setLegalTarget}
-                        onMarkResolved={setResolveTarget}
-                      />
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setLogActionTarget(row)}
+                          className="px-2 py-1 text-[10px] font-medium text-accent border border-accent/30 rounded hover:bg-accent/10 transition-colors whitespace-nowrap"
+                        >
+                          Log Action
+                        </button>
+                        <QuickActionMenu
+                          row={row}
+                          onAddNote={setNoteTarget}
+                          onChangeStatus={setStatusTarget}
+                          onSendToLegal={setLegalTarget}
+                          onMarkResolved={setResolveTarget}
+                        />
+                      </div>
                     </td>
                   </tr>
                 );
@@ -1094,6 +1152,16 @@ export default function CollectionsContent() {
           </div>
         </div>
       </Modal>
+
+      {/* ── Log Action Modal (Stage System) ── */}
+      {logActionTarget && (
+        <LogActionModal
+          open={!!logActionTarget}
+          onClose={() => setLogActionTarget(null)}
+          tenantId={logActionTarget.id}
+          tenantName={logActionTarget.name}
+        />
+      )}
     </div>
   );
 }

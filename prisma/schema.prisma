@@ -72,6 +72,7 @@ model User {
   pmVerifiedViolations    Violation[]           @relation("ViolationPMVerifier")
   prometheusIntakes       PrometheusIntake[]    @relation("PrometheusCreator")
   verifiedDrafts          WorkOrderDraft[]      @relation("DraftVerifier")
+  collectionActionsLogged CollectionAction[]    @relation("CollectionActionStaff")
 
   // ── Permission system v2 fields ──
   permissionPreset     String    @default("property_manager")
@@ -418,8 +419,11 @@ model Tenant {
   activityEvents     ActivityEvent[]
   collectionNotes    CollectionNote[]
   arSnapshots        ARSnapshot[]
-  utilityAccounts    UtilityAccount[]
-  paymentPlans       PaymentPlan[]
+  utilityAccounts      UtilityAccount[]
+  paymentPlans         PaymentPlan[]
+  collectionStage      CollectionStage?
+  collectionActions    CollectionAction[]
+  firstDelinquencyDate DateTime?
 
   @@index([balance])
   @@index([arrearsCategory])
@@ -1351,6 +1355,7 @@ model Organization {
   buildings              Building[]
   leases                 Lease[]
   activityEvents         ActivityEvent[]
+  rgbOrders              RgbOrder[]
 
   @@map("organizations")
 }
@@ -1724,6 +1729,7 @@ model UtilityMeter {
   meterNumber    String?
   serviceAddress String?
   isActive       Boolean  @default(true)
+  classification String   @default("unit_submeter") // "unit_submeter" | "building_master" | "common_area" | "shared_meter"
   notes          String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -1738,19 +1744,24 @@ model UtilityMeter {
 }
 
 model UtilityAccount {
-  id                String    @id @default(cuid())
-  utilityMeterId    String
-  accountNumber     String?
-  assignedPartyType String // "tenant" | "owner" | "management" | "unknown"
-  assignedPartyName String?
-  tenantId          String?
-  startDate         DateTime?
-  endDate           DateTime?
-  status            String    @default("active") // "active" | "closed" | "pending"
-  closedWithBalance Boolean?
-  notes             String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  utilityMeterId     String
+  accountNumber      String?
+  assignedPartyType  String // "tenant" | "owner" | "management" | "unknown"
+  assignedPartyName  String?
+  tenantId           String?
+  tenantNameSnapshot String? // Immutable snapshot of tenant name at account open
+  leaseStartSnapshot DateTime? // Immutable snapshot of lease start at account open
+  leaseEndSnapshot   DateTime? // Immutable snapshot of lease end at account open
+  startDate          DateTime?
+  endDate            DateTime?
+  status             String    @default("active") // "active" | "closed" | "pending"
+  closedWithBalance  Boolean?
+  closeReason        String? // e.g. "tenant_moved_out", "account_transferred", "auto_closed_duplicate_cleanup"
+  closedByUserId     String?
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   meter         UtilityMeter          @relation(fields: [utilityMeterId], references: [id], onDelete: Cascade)
   tenant        Tenant?               @relation(fields: [tenantId], references: [id], onDelete: SetNull)
@@ -2289,16 +2300,18 @@ model CronLog {
 // ── RGB Orders (Rent Guidelines Board) ──────────────────────────
 
 model RgbOrder {
-  id              String   @id @default(cuid())
-  orderNumber     String   @unique
+  id              String        @id @default(cuid())
+  orderNumber     String        @unique
   effectiveFrom   DateTime
   effectiveTo     DateTime
-  oneYearPct      Decimal  @db.Decimal(5, 4)
-  twoYearPct      Decimal  @db.Decimal(5, 4)
-  twoYearY1Pct    Decimal? @db.Decimal(5, 4)
-  twoYearY2Pct    Decimal? @db.Decimal(5, 4)
+  oneYearPct      Decimal       @db.Decimal(5, 4)
+  twoYearPct      Decimal       @db.Decimal(5, 4)
+  twoYearY1Pct    Decimal?      @db.Decimal(5, 4)
+  twoYearY2Pct    Decimal?      @db.Decimal(5, 4)
   notes           String?
-  createdAt       DateTime @default(now())
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+  createdAt       DateTime      @default(now())
 
   @@map("rgb_orders")
 }
@@ -2559,6 +2572,70 @@ model OutreachMessage {
   @@map("outreach_messages")
 }
 
+// ── Collections Protocol & Stage Tracking ─────────────────────
+
+model CollectionStage {
+  id                    String             @id @default(cuid())
+  tenantId              String             @unique
+  orgId                 String
+  stage                 Int
+  stageEnteredAt        DateTime           @default(now())
+  daysPastDue           Int
+  actionDueBy           DateTime?
+  actionOverdue         Boolean            @default(false)
+  lastActionAt          DateTime?
+  lastActionType        String?
+  nextRecommendedAction String?
+  status                String             @default("active")
+  updatedAt             DateTime           @updatedAt
+  tenant                Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([orgId])
+  @@index([tenantId])
+  @@index([actionOverdue])
+  @@index([stage])
+  @@map("collection_stages")
+}
+
+model CollectionAction {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  orgId                String
+  stageId              String
+  actionType           String
+  actionDate           DateTime
+  outcome              String
+  promisedPaymentDate  DateTime?
+  promisedPaymentAmount Decimal? @db.Decimal(10, 2)
+  promiseBroken        Boolean   @default(false)
+  notes                String?   @db.Text
+  staffId              String
+  createdAt            DateTime  @default(now())
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  staff                User      @relation("CollectionActionStaff", fields: [staffId], references: [id])
+
+  @@index([tenantId])
+  @@index([orgId])
+  @@index([actionDate])
+  @@map("collection_actions")
+}
+
+model CollectionProtocol {
+  id                      String  @id @default(cuid())
+  orgId                   String  @unique
+  stage2TriggerDays       Int     @default(6)
+  stage3TriggerDays       Int     @default(15)
+  stage4TriggerDays       Int     @default(31)
+  stage5TriggerDays       Int     @default(60)
+  stage2ActionWindowDays  Int     @default(4)
+  stage3ActionWindowDays  Int     @default(3)
+  stage4ActionWindowDays  Int     @default(4)
+  enableEmailAlerts       Boolean @default(true)
+  updatedAt               DateTime @updatedAt
+
+  @@map("collection_protocols")
+}
+
 // ── Document Management ────────────────────────────────────────
 
 enum DocumentType {
@@ -2597,4 +2674,205 @@ model Document {
   @@index([tenantId])
   @@index([docType])
   @@map("documents")
+}
+
+// ── Atlas Comms ───────────────────────────────────────────────
+
+enum ConversationType {
+  direct
+  group
+  work_order
+  violation
+  legal_case
+  building
+  unit
+  turnover
+  collections_case
+  incident
+}
+
+enum ConversationVisibility {
+  internal
+  restricted
+}
+
+enum ConversationMemberRole {
+  member
+  admin
+  moderator
+}
+
+enum NotificationLevel {
+  all
+  mentions_only
+  muted
+}
+
+enum MessageType {
+  standard
+  status_update
+  blocker
+  approval_request
+  vendor_update
+  internal_note
+  system_event
+}
+
+model Conversation {
+  id                String                 @id @default(cuid())
+  orgId             String
+  type              ConversationType
+  title             String?
+  createdByUserId   String?
+  relatedEntityType String?
+  relatedEntityId   String?
+  buildingId        String?
+  visibility        ConversationVisibility @default(internal)
+  isArchived        Boolean                @default(false)
+  archivedAt        DateTime?
+  lastMessageAt     DateTime?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  members           ConversationMember[]
+  messages          Message[]
+  pinnedMessages    PinnedMessage[]
+
+  @@index([orgId])
+  @@index([orgId, type])
+  @@index([relatedEntityType, relatedEntityId])
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+model ConversationMember {
+  id                String                 @id @default(cuid())
+  conversationId    String
+  userId            String
+  role              ConversationMemberRole  @default(member)
+  joinedAt          DateTime               @default(now())
+  leftAt            DateTime?
+  notificationLevel NotificationLevel      @default(all)
+  lastReadMessageId String?
+  lastReadAt        DateTime?
+
+  conversation      Conversation           @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([conversationId])
+  @@map("conversation_members")
+}
+
+model Message {
+  id                String              @id @default(cuid())
+  conversationId    String
+  senderUserId      String?
+  body              String              @db.Text
+  messageType       MessageType         @default(standard)
+  replyToMessageId  String?
+  metadata          Json?
+  isSystemGenerated Boolean             @default(false)
+  editedAt          DateTime?
+  deletedAt         DateTime?
+  createdAt         DateTime            @default(now())
+
+  conversation      Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  attachments       MessageAttachment[]
+  reactions         MessageReaction[]
+  mentions          MessageMention[]
+  pinnedAs          PinnedMessage[]
+
+  @@index([conversationId])
+  @@index([conversationId, createdAt])
+  @@index([senderUserId])
+  @@map("messages")
+}
+
+model MessageAttachment {
+  id          String   @id @default(cuid())
+  messageId   String
+  fileUrl     String
+  fileName    String
+  mimeType    String
+  fileSize    Int
+  imageWidth  Int?
+  imageHeight Int?
+  createdAt   DateTime @default(now())
+
+  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@map("message_attachments")
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  reaction  String
+  createdAt DateTime @default(now())
+
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, reaction])
+  @@index([messageId])
+  @@map("message_reactions")
+}
+
+model MessageMention {
+  id              String   @id @default(cuid())
+  messageId       String
+  mentionedUserId String
+  createdAt       DateTime @default(now())
+
+  message         Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([mentionedUserId])
+  @@map("message_mentions")
+}
+
+model PinnedMessage {
+  id              String       @id @default(cuid())
+  conversationId  String
+  messageId       String
+  pinnedByUserId  String
+  pinnedAt        DateTime     @default(now())
+
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message         Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, messageId])
+  @@index([conversationId])
+  @@map("pinned_messages")
+}
+
+// ── Intelligence — Decision Log & Attention ───────────────────
+
+model DecisionLog {
+  id                 String    @id @default(cuid())
+  orgId              String
+  userId             String
+  module             String    // collections | vacancy | violations | work_orders | leases | utilities
+  entityType         String    // tenant | building | unit | work_order | violation | lease | meter
+  entityId           String
+  recommendationCode String    // decision engine code e.g. "COL_LEGAL_REVIEW"
+  recommendationText String    @db.Text
+  severity           String    // low | medium | high | critical
+  outcome            String    @default("shown") // shown | acted | overridden | dismissed | expired
+  userAction         String?   // what the user actually did (free text or action code)
+  outcomeRecordedAt  DateTime?
+  resultAfter7d      String?   // improved | unchanged | worsened | resolved
+  resultAfter30d     String?
+  resultRecordedAt   DateTime?
+  shownAt            DateTime  @default(now())
+  createdAt          DateTime  @default(now())
+
+  @@index([orgId])
+  @@index([entityType, entityId])
+  @@index([module, recommendationCode])
+  @@index([outcome])
+  @@index([userId])
+  @@map("decision_logs")
 }

@@ -2,9 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { workOrderUpdateSchema } from "@/lib/validations";
-import { assertWorkOrderAccess } from "@/lib/data-scope";
+import { assertBuildingAccess, assertWorkOrderAccess } from "@/lib/data-scope";
 import { getDisplayAddress } from "@/lib/building-matching";
 import { toNumber } from "@/lib/utils/decimal";
+import { validateWorkOrderRelations } from "@/lib/work-order-relations";
+import {
+  emitWorkOrderStatusChanged,
+  emitWorkOrderPriorityChanged,
+  emitWorkOrderCompleted,
+  emitWorkOrderAssigned,
+  emitVendorAssigned,
+} from "@/lib/comms/work-order-events.service";
 
 export const dynamic = "force-dynamic";
 
@@ -84,9 +92,32 @@ export const PATCH = withAuth(async (req, { user, params }) => {
   // Fetch current state for activity logging
   const current = await prisma.workOrder.findUnique({
     where: { id },
-    select: { status: true, priority: true, vendorId: true, assignedToId: true, dueDate: true },
+    select: {
+      buildingId: true,
+      unitId: true,
+      tenantId: true,
+      status: true,
+      priority: true,
+      vendorId: true,
+      assignedToId: true,
+      dueDate: true,
+    },
   });
   if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const targetBuildingId = data.buildingId ?? current.buildingId;
+  if (targetBuildingId !== current.buildingId) {
+    const targetDenied = await assertBuildingAccess(user, targetBuildingId);
+    if (targetDenied) return targetDenied;
+  }
+
+  await validateWorkOrderRelations({
+    buildingId: targetBuildingId,
+    unitId: data.unitId !== undefined ? data.unitId : current.unitId,
+    tenantId: data.tenantId !== undefined ? data.tenantId : current.tenantId,
+    vendorId: data.vendorId !== undefined ? data.vendorId : current.vendorId,
+    assignedToId: data.assignedToId !== undefined ? data.assignedToId : current.assignedToId,
+  });
 
   const updateData: any = { ...data };
   if (data.scheduledDate !== undefined) {
@@ -136,6 +167,28 @@ export const PATCH = withAuth(async (req, { user, params }) => {
     }
     return updated;
   });
+
+  // Fire-and-forget comms events — never block the main response
+  const evtCtx = { orgId: user.organizationId!, workOrderId: id, buildingId: current.buildingId };
+  try {
+    if (data.status !== undefined && data.status !== current.status) {
+      await emitWorkOrderStatusChanged(evtCtx, { from: current.status, to: data.status, changedByName: user.name });
+    }
+    if (data.priority !== undefined && data.priority !== current.priority) {
+      await emitWorkOrderPriorityChanged(evtCtx, { from: current.priority, to: data.priority });
+    }
+    if (data.status === "COMPLETED" && current.status !== "COMPLETED") {
+      await emitWorkOrderCompleted(evtCtx, { completedByName: user.name });
+    }
+    if (data.assignedToId !== undefined && data.assignedToId !== current.assignedToId && data.assignedToId) {
+      await emitWorkOrderAssigned(evtCtx, { assignedToName: wo.assignedTo?.name ?? data.assignedToId });
+    }
+    if (data.vendorId !== undefined && data.vendorId !== current.vendorId && data.vendorId) {
+      await emitVendorAssigned(evtCtx, { vendorName: wo.vendor?.name ?? data.vendorId });
+    }
+  } catch (e) {
+    // Non-blocking — do not fail the main request
+  }
 
   return NextResponse.json(mapWorkOrder(wo));
 }, "maintenance");

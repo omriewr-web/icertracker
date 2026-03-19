@@ -38,6 +38,7 @@ import type { UserRole } from "@/types";
 import PropertySelector from "./property-selector";
 import { useAppStore } from "@/stores/app-store";
 import { useOnboarding } from "@/hooks/use-onboarding";
+import { useUnreadCount } from "@/hooks/use-comms";
 
 type Section = "INTELLIGENCE" | "FINANCIAL" | "OPERATIONS" | "LEGAL" | "SETTINGS";
 
@@ -63,6 +64,7 @@ const navItems: NavItem[] = [
   { href: "/vacancies", label: "Vacancies", icon: DoorOpen, perm: "vac", section: "OPERATIONS" },
   { href: "/leases", label: "Leases", icon: FileText, perm: "lease", section: "OPERATIONS" },
   { href: "/maintenance", label: "Work Orders", icon: Wrench, perm: "maintenance", section: "OPERATIONS" },
+  { href: "/comms", label: "Communications", icon: MessageSquare, perm: "dash", section: "OPERATIONS" },
   { href: "/projects", label: "Projects", icon: FolderKanban, perm: "maintenance", section: "OPERATIONS" },
   { href: "/themis", label: "Legal Defense", subtitle: "Violation Packages", icon: Scale, perm: "maintenance", section: "OPERATIONS" },
   { href: "/utilities", label: "Utilities", icon: Gauge, perm: "utilities", section: "OPERATIONS" },
@@ -91,6 +93,7 @@ export default function Sidebar() {
   const role = (session?.user?.role || "COLLECTOR") as UserRole;
   const { setSidebarOpen, sidebarCollapsed, toggleSidebarCollapsed } = useAppStore();
   const { data: onboarding } = useOnboarding();
+  const { data: unreadCount } = useUnreadCount();
 
   const filteredItems = navItems.filter((item) => hasPermission(role, item.perm));
 
@@ -205,11 +208,16 @@ export default function Sidebar() {
                 >
                   <item.icon className="w-4 h-4 shrink-0" />
                   {!sidebarCollapsed && (
-                    <span className="min-w-0">
+                    <span className="min-w-0 flex-1">
                       <span className="block leading-tight">{item.label}</span>
                       {item.subtitle && (
                         <span className="block text-[10px] leading-tight text-text-dim font-normal">{item.subtitle}</span>
                       )}
+                    </span>
+                  )}
+                  {item.href === "/comms" && !!unreadCount && unreadCount > 0 && (
+                    <span className="ml-auto w-5 h-5 rounded-full bg-accent text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                      {unreadCount > 9 ? "9+" : unreadCount}
                     </span>
                   )}
                 </Link>
