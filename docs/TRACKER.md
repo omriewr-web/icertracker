@@ -1,6 +1,6 @@
 # AtlasPM — Project Tracker
 
-Last Updated: 2026-03-18 (Codex business & architecture review)
+Last Updated: 2026-03-18 (Full codebase audit — Claude Code)
 
 ---
 
@@ -51,6 +51,7 @@ Last Updated: 2026-03-18 (Codex business & architecture review)
 - [x] Onboarding-ready checklist (docs/ONBOARDING-READY.md)
 - [x] seed-demo.ts ViolationWhereUniqueInput — confirmed already correct (source_externalId matches @@unique)
 - [x] Pre-pilot business & architecture review (docs/AUDIT-CODEX-2026-03-18.md)
+- [x] Full codebase audit — Claude Code (docs/AUDIT-CLAUDE-CODE-2026-03-18.md)
 
 ### Permission System v2
 - [x] P1: Schema — UserAccessGrant model + permission fields on User (commit 753c0cd)
@@ -79,13 +80,15 @@ Last Updated: 2026-03-18 (Codex business & architecture review)
 - [x] Live status sidebar with build status, quick links, key numbers
 - [x] API routes: /api/command/verify, tracker, docs, status
 - [x] Deployed to production at myatlaspm.com/odk
+- [x] Roadmap tab synced to TRACKER.md at runtime (no more hardcoded data)
 
 ---
 
 ## Active Work
-- Codex review complete — see docs/AUDIT-CODEX-2026-03-18.md
-- Next 30 days should focus on: permission migration completion, owner-surface consolidation, onboarding/import automation, pricing/pilot packaging, and async worker infrastructure
-- Remove founder-only onboarding/setup steps before the first external pilot
+- Full codebase audit complete — see docs/AUDIT-CLAUDE-CODE-2026-03-18.md (Health: 7.5/10, 47 findings)
+- IMMEDIATE: Fix 3 Decimal serialization routes + 2 missing transactions + audit balance/vacancy sync call sites
+- NEXT: Migrate 12 old role-check routes to can() helper, add pagination to 7 unbounded queries
+- THEN: Start Stripe billing models and integration
 - ODK command center deployed — accessible at myatlaspm.com/odk
 
 ## Deployment
@@ -112,3 +115,13 @@ Last Updated: 2026-03-18 (Codex business & architecture review)
 - First-login password change flow not yet implemented (users receive temp password)
 - [userId] slug directory removed — permissions route moved to [id]/permissions
 - ATLAS_COMMAND_PIN must be set in Vercel env vars manually (could not auto-set via CLI)
+- 3 API routes return Prisma Decimal without toNumber() (risk-map, court-dates, violations) — financial display risk
+- 2 multi-table write routes missing transactions (violations/create-work-order, work-orders/evidence)
+- 12 API routes still use inline ADMIN_ROLES checks instead of can() helper
+- 7 API routes have unbounded findMany() with no take/limit — Vercel timeout risk at scale
+- 5 API routes missing try/catch error handling
+- 2 GET routes (tenants/notes, tenants/[id]/payments) missing permission string in withAuth
+- NYC Open Data sync has no rate limit handling or retry logic
+- ODK PIN rate limiting is in-memory only (resets on cold start)
+- 13 dashboard pages missing EmptyState components
+- 30+ console.log calls should use logger

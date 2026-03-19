@@ -27,92 +27,9 @@ const TEXT = "#e2e8f0";
 const TEXT_DIM = "#64748b";
 const BORDER = "#1e293b";
 
-// ── Roadmap Data ──
+// ── Roadmap Data (fetched from TRACKER.md at runtime) ──
 
 type TaskStatus = "done" | "in-progress" | "todo" | "warning";
-type TaskOwner = "you" | "code" | "both";
-
-interface RoadmapTask { label: string; status: TaskStatus; owner: TaskOwner }
-interface RoadmapPhase { title: string; emoji: string; status: TaskStatus; tasks: RoadmapTask[] }
-
-const ROADMAP: RoadmapPhase[] = [
-  {
-    title: "Phase 0 — This Week", emoji: "\uD83D\uDD25", status: "in-progress",
-    tasks: [
-      { label: "Form LLC (NY or Delaware + NY registration)", status: "todo", owner: "you" },
-      { label: "Obtain EIN", status: "todo", owner: "you" },
-      { label: "Open business bank account", status: "todo", owner: "you" },
-      { label: "Set up 1Password or Bitwarden — move ALL secrets there", status: "todo", owner: "you" },
-      { label: "Enable Supabase daily backups + test a restore", status: "todo", owner: "you" },
-      { label: "Set up Google Workspace: ai@myatlaspm.com", status: "todo", owner: "you" },
-      { label: "Verify Vercel env vars per environment", status: "todo", owner: "you" },
-      { label: "Send legal doc to attorney", status: "todo", owner: "you" },
-      { label: "Verify Sentry production alerts firing", status: "todo", owner: "code" },
-      { label: "Password reset flow", status: "todo", owner: "code" },
-      { label: "Session timeout", status: "todo", owner: "code" },
-      { label: "Wire email alerts via SendGrid", status: "todo", owner: "code" },
-      { label: "Run reset:demo + import one Yardi portfolio", status: "todo", owner: "both" },
-      { label: "Set up real user logins", status: "todo", owner: "both" },
-    ],
-  },
-  {
-    title: "Phase 1 — Operation: Client Ready", emoji: "\u2705", status: "done",
-    tasks: [
-      { label: "All waves complete (5/5), 7/7 bugs, 99 tests, deployed", status: "done", owner: "code" },
-    ],
-  },
-  {
-    title: "Phase 2 — Permission System", emoji: "\u2705", status: "done",
-    tasks: [
-      { label: "UserAccessGrant, can() helper, 7 presets, onboarding wizard, legal screen, preferences page", status: "done", owner: "code" },
-    ],
-  },
-  {
-    title: "Phase 3 — Before First External Client", emoji: "\uD83D\uDEE1\uFE0F", status: "todo",
-    tasks: [
-      { label: "Set up Stripe — plans + webhooks + customer portal", status: "todo", owner: "you" },
-      { label: "Set up UptimeRobot — uptime monitoring", status: "todo", owner: "you" },
-      { label: "Set up PostHog — product analytics", status: "todo", owner: "you" },
-      { label: "Privacy policy at /privacy", status: "todo", owner: "you" },
-      { label: "NY SHIELD Act compliance checklist", status: "todo", owner: "you" },
-      { label: "General Liability insurance", status: "todo", owner: "you" },
-      { label: "Professional Liability (E&O) insurance", status: "todo", owner: "you" },
-      { label: "Cyber Liability insurance", status: "todo", owner: "you" },
-      { label: "Set up accounting (QuickBooks or Xero)", status: "todo", owner: "you" },
-      { label: "Operation: Production Grade (13-category audit)", status: "todo", owner: "code" },
-      { label: "Two-factor authentication (2FA)", status: "todo", owner: "code" },
-      { label: "Stripe billing integration + org provisioning", status: "todo", owner: "code" },
-      { label: "Old role checks \u2192 migrate to can() helper", status: "todo", owner: "code" },
-      { label: "Mobile responsiveness audit + fixes", status: "done", owner: "code" },
-      { label: "Vercel function timeout fix (background jobs)", status: "todo", owner: "code" },
-      { label: "GDPR/SHIELD: user data deletion flow", status: "todo", owner: "code" },
-    ],
-  },
-  {
-    title: "Phase 4 — The $10M Moat (Strategic)", emoji: "\uD83C\uDFF0", status: "todo",
-    tasks: [
-      { label: "ActivityLog model — start logging every decision now", status: "todo", owner: "code" },
-      { label: "Atlas Communicate — AI tenant outreach", status: "todo", owner: "code" },
-      { label: "Legal module — NYC Housing Court forms", status: "todo", owner: "code" },
-      { label: "Predictive tenant risk scoring", status: "todo", owner: "code" },
-      { label: "Portfolio benchmarking across clients", status: "todo", owner: "code" },
-      { label: "Tenant portal", status: "todo", owner: "code" },
-      { label: "Gmail intake", status: "todo", owner: "code" },
-      { label: "SOC 2 readiness (12mo goal)", status: "todo", owner: "both" },
-    ],
-  },
-  {
-    title: "Phase 5 — Infrastructure Watch Items", emoji: "\u26A0\uFE0F", status: "warning",
-    tasks: [
-      { label: "Supabase connection_limit=1 — review before 10+ users", status: "warning", owner: "code" },
-      { label: "Vercel 60s timeout — Yardi import + HPD sync need background jobs", status: "warning", owner: "code" },
-      { label: "No file storage layer — needed for work order photos", status: "warning", owner: "code" },
-      { label: "No API caching — will hammer DB at 100+ users", status: "warning", owner: "code" },
-      { label: "Prisma Decimal serialization inconsistency", status: "warning", owner: "code" },
-      { label: "No tested disaster recovery procedure", status: "warning", owner: "you" },
-    ],
-  },
-];
 
 // ── Business Checklist Data ──
 
@@ -242,20 +159,6 @@ function StatusBadge({ status }: { status: TaskStatus }) {
   return (
     <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: s.bg, color: s.text }}>
       {s.label}
-    </span>
-  );
-}
-
-function OwnerPill({ owner }: { owner: TaskOwner }) {
-  const map: Record<TaskOwner, { bg: string; text: string; label: string }> = {
-    you: { bg: `${GOLD}20`, text: GOLD, label: "You" },
-    code: { bg: "#6366f120", text: "#818cf8", label: "Code" },
-    both: { bg: "#8b5cf620", text: "#a78bfa", label: "Both" },
-  };
-  const o = map[owner];
-  return (
-    <span className="text-[9px] px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: o.bg, color: o.text }}>
-      {o.label}
     </span>
   );
 }
@@ -488,46 +391,122 @@ export default function ODKCommandCenter() {
 
 // ── Tab Components ──
 
+interface TrackerSection {
+  title: string;
+  status: TaskStatus;
+  tasks: { label: string; status: TaskStatus }[];
+}
+
+interface TrackerData {
+  sections: TrackerSection[];
+  activeWork: string[];
+  knownIssues: string[];
+  lastUpdated: string;
+}
+
 function RoadmapTab() {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [tracker, setTracker] = useState<TrackerData | null>(null);
+  const [loading, setLoading] = useState(true);
   const toggle = (title: string) => setCollapsed((p) => ({ ...p, [title]: !p[title] }));
+
+  useEffect(() => {
+    fetch("/api/command/tracker")
+      .then((r) => r.json())
+      .then((d: TrackerData) => { setTracker(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="rounded-xl p-4 animate-pulse" style={{ backgroundColor: BG_CARD, border: `1px solid ${BORDER}` }}>
+            <div className="h-4 w-48 rounded" style={{ backgroundColor: `${TEXT_DIM}20` }} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (!tracker || tracker.sections.length === 0) {
+    return <p className="text-xs" style={{ color: TEXT_DIM }}>No tracker data found. Check docs/TRACKER.md.</p>;
+  }
 
   return (
     <div className="space-y-4">
-      {ROADMAP.map((phase) => (
-        <div key={phase.title} className="rounded-xl overflow-hidden" style={{ backgroundColor: BG_CARD, border: `1px solid ${BORDER}` }}>
-          <button
-            onClick={() => toggle(phase.title)}
-            className="w-full flex items-center justify-between px-4 py-3 text-left hover:opacity-90"
-          >
-            <div className="flex items-center gap-2">
-              <span>{phase.emoji}</span>
-              <span className="text-sm font-medium">{phase.title}</span>
-              <StatusBadge status={phase.status} />
-            </div>
-            <span className="text-xs" style={{ color: TEXT_DIM }}>
-              {phase.tasks.filter((t) => t.status === "done").length}/{phase.tasks.length}
-            </span>
-          </button>
-          {!collapsed[phase.title] && (
-            <div className="px-4 pb-3 space-y-1.5">
-              {/* Progress bar */}
-              <div className="h-1 rounded-full overflow-hidden mb-3" style={{ backgroundColor: `${TEXT_DIM}20` }}>
-                <div className="h-full rounded-full transition-all" style={{ backgroundColor: GREEN, width: `${(phase.tasks.filter((t) => t.status === "done").length / phase.tasks.length) * 100}%` }} />
+      {tracker.lastUpdated && (
+        <p className="text-[10px] font-mono" style={{ color: TEXT_DIM }}>
+          Last updated: {tracker.lastUpdated}
+        </p>
+      )}
+
+      {tracker.sections.map((section) => {
+        const doneCount = section.tasks.filter((t) => t.status === "done").length;
+        const pct = section.tasks.length > 0 ? (doneCount / section.tasks.length) * 100 : 0;
+
+        return (
+          <div key={section.title} className="rounded-xl overflow-hidden" style={{ backgroundColor: BG_CARD, border: `1px solid ${BORDER}` }}>
+            <button
+              onClick={() => toggle(section.title)}
+              className="w-full flex items-center justify-between px-4 py-3 text-left hover:opacity-90"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">{section.title}</span>
+                <StatusBadge status={section.status} />
               </div>
-              {phase.tasks.map((task, i) => (
-                <div key={i} className="flex items-center gap-2 py-1">
-                  <StatusIcon status={task.status} />
-                  <span className="text-xs flex-1" style={{ color: task.status === "done" ? TEXT_DIM : TEXT, textDecoration: task.status === "done" ? "line-through" : "none" }}>
-                    {task.label}
-                  </span>
-                  <OwnerPill owner={task.owner} />
+              <span className="text-xs" style={{ color: TEXT_DIM }}>
+                {doneCount}/{section.tasks.length}
+              </span>
+            </button>
+            {!collapsed[section.title] && (
+              <div className="px-4 pb-3 space-y-1.5">
+                <div className="h-1 rounded-full overflow-hidden mb-3" style={{ backgroundColor: `${TEXT_DIM}20` }}>
+                  <div className="h-full rounded-full transition-all" style={{ backgroundColor: GREEN, width: `${pct}%` }} />
                 </div>
-              ))}
-            </div>
-          )}
+                {section.tasks.map((task, i) => (
+                  <div key={i} className="flex items-center gap-2 py-1">
+                    <StatusIcon status={task.status} />
+                    <span className="text-xs flex-1" style={{ color: task.status === "done" ? TEXT_DIM : TEXT, textDecoration: task.status === "done" ? "line-through" : "none" }}>
+                      {task.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Active Work */}
+      {tracker.activeWork.length > 0 && (
+        <div className="rounded-xl p-4" style={{ backgroundColor: BG_CARD, border: `1px solid ${BORDER}` }}>
+          <h3 className="text-sm font-medium mb-2" style={{ color: GOLD }}>Active Work</h3>
+          <ul className="space-y-1">
+            {tracker.activeWork.map((item, i) => (
+              <li key={i} className="text-xs flex items-start gap-2" style={{ color: TEXT }}>
+                <Clock className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: AMBER }} />
+                {item}
+              </li>
+            ))}
+          </ul>
         </div>
-      ))}
+      )}
+
+      {/* Known Issues */}
+      {tracker.knownIssues.length > 0 && (
+        <div className="rounded-xl p-4" style={{ backgroundColor: BG_CARD, border: `1px solid ${BORDER}` }}>
+          <h3 className="text-sm font-medium mb-2" style={{ color: RED }}>Known Issues</h3>
+          <ul className="space-y-1">
+            {tracker.knownIssues.map((item, i) => (
+              <li key={i} className="text-xs flex items-start gap-2" style={{ color: TEXT_DIM }}>
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: RED }} />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

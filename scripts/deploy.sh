@@ -21,3 +21,6 @@ else
 fi
 
 npx vercel --prod --force --token "$TOKEN"
+
+echo ""
+echo "✅ ODK page will reflect latest TRACKER.md on next page load"
