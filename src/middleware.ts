@@ -51,10 +51,11 @@ const nextAuthMiddleware = withAuth(
     const token = req.nextauth.token;
     const pathname = req.nextUrl.pathname;
 
-    // Redirect users who haven't completed onboarding
+    // Redirect users who haven't completed onboarding (SUPER_ADMIN skips)
     if (
       token &&
       !token.onboardingComplete &&
+      token.role !== "SUPER_ADMIN" &&
       !pathname.startsWith("/onboarding") &&
       !pathname.startsWith("/api/") &&
       !pathname.startsWith("/login")
