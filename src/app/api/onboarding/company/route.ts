@@ -12,6 +12,12 @@ const companySchema = z.object({
 });
 
 export const PATCH = withAuth(async (req, { user }) => {
+  // Guard: prevent re-running onboarding after completion
+  const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { onboardingComplete: true } });
+  if (dbUser?.onboardingComplete) {
+    return NextResponse.json({ error: "Onboarding already completed" }, { status: 403 });
+  }
+
   const data = await parseBody(req, companySchema);
 
   if (!user.organizationId) {

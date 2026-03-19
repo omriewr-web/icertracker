@@ -36,8 +36,9 @@ const createSchema = z
 // ── GET ────────────────────────────────────────────────────────
 
 export const GET = withAuth(async (_req, { user }) => {
+  // RgbOrder is global NYC regulatory data (no organizationId column).
+  // Access is gated by the "edit" permission string.
   const orders = await prisma.rgbOrder.findMany({
-    where: user.role === "SUPER_ADMIN" ? {} : { /* org-scoped if needed later */ },
     orderBy: { effectiveFrom: "desc" },
   });
   return NextResponse.json(orders.map(normalizeOrder));

@@ -9,8 +9,11 @@ const createCampaignSchema = z.object({
 });
 
 export const GET = withAuth(async (_req, { user }) => {
+  if (!user.organizationId) {
+    return NextResponse.json({ error: "Organization context required" }, { status: 400 });
+  }
   const campaigns = await prisma.outreachCampaign.findMany({
-    where: { orgId: user.organizationId! },
+    where: { orgId: user.organizationId },
     include: { _count: { select: { messages: true } } },
     orderBy: { createdAt: "desc" },
   });
@@ -18,10 +21,13 @@ export const GET = withAuth(async (_req, { user }) => {
 }, "collections");
 
 export const POST = withAuth(async (req, { user }) => {
+  if (!user.organizationId) {
+    return NextResponse.json({ error: "Organization context required" }, { status: 400 });
+  }
   const data = await parseBody(req, createCampaignSchema);
   const campaign = await prisma.outreachCampaign.create({
     data: {
-      orgId: user.organizationId!,
+      orgId: user.organizationId,
       name: data.name,
       triggerType: data.triggerType,
       status: "DRAFT",

@@ -14,6 +14,8 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     if (denied) return denied;
   } else if (!["SUPER_ADMIN", "ADMIN", "ACCOUNT_ADMIN"].includes(user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  } else if (!user.organizationId) {
+    return NextResponse.json({ error: "Organization context required" }, { status: 400 });
   }
 
   // Single building sync — fast, no streaming needed
@@ -33,7 +35,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       };
 
       try {
-        const allResults = await syncAllBuildings(body.sources, (synced, total, batchResults) => {
+        const allResults = await syncAllBuildings(user.organizationId!, body.sources, (synced, total, batchResults) => {
           const batchNew = batchResults.reduce((s, r) => s + r.newCount, 0);
           const batchUpdated = batchResults.reduce((s, r) => s + r.updatedCount, 0);
           const batchErrors = batchResults.filter(r => r.error).length;

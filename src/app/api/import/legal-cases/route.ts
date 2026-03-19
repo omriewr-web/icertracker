@@ -39,7 +39,10 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   const logId = await startImportLog({ userId: user.id, organizationId: user.organizationId, importType: "legal-cases-v2", fileName: file instanceof File ? file.name : undefined });
 
   try {
-    const result = await importLegalCases(rows, user.organizationId!);
+    if (!user.organizationId) {
+      return NextResponse.json({ error: "Organization context required" }, { status: 400 });
+    }
+    const result = await importLegalCases(rows, user.organizationId);
     await completeImportLog(logId, result.errors?.length ? "COMPLETED_WITH_ERRORS" : "COMPLETED", { rowsInserted: result.imported ?? 0, rowsFailed: result.errors?.length ?? 0, rowErrors: result.errors });
 
     return NextResponse.json({

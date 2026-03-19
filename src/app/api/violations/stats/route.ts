@@ -12,8 +12,9 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
   const log = logger.child({ route: "/api/violations/stats", userId: user.id });
   log.info({ action: "start" });
 
-  const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
-  const orgFilter = isAdmin
+  // Only SUPER_ADMIN bypasses org filter; ADMIN is still scoped to their org
+  const isSuperAdmin = user.role === 'SUPER_ADMIN';
+  const orgFilter = isSuperAdmin
     ? {}
     : user.organizationId
       ? { organizationId: user.organizationId }
