@@ -1,6 +1,6 @@
 # AtlasPM — Project Tracker
 
-Last Updated: 2026-03-18 (Onboarding wizard v2 session)
+Last Updated: 2026-03-18 (Codex business & architecture review)
 
 ---
 
@@ -19,8 +19,8 @@ Last Updated: 2026-03-18 (Onboarding wizard v2 session)
 - [x] W2-D: Import hardening sweep (file validation, row limits, error shape)
 
 ### Wave 3 — Product Refinement
-- [x] W3-A: Consolidate Owner Dashboard and Owner Portal
-- [x] W3-B: Internal naming cleanup (Argus/Coeus/Themis → plain English)
+- [ ] W3-A: Consolidate Owner Dashboard and Owner Portal into one experience
+- [ ] W3-B: Internal naming cleanup (Argus/Coeus/Themis → plain English) is still partial in the live UI
 - [x] W3-C: Empty-state and loading-state audit (Dashboard, Users, Calendar, Scorecard fixed)
 - [x] W3-D: Redirect and alias cleanup
 - [x] W3-E: Dashboard metrics refinement
@@ -50,6 +50,7 @@ Last Updated: 2026-03-18 (Onboarding wizard v2 session)
 - [x] reset:demo script (scripts/reset-demo.ts — FK-safe demo data cleanup)
 - [x] Onboarding-ready checklist (docs/ONBOARDING-READY.md)
 - [x] seed-demo.ts ViolationWhereUniqueInput — confirmed already correct (source_externalId matches @@unique)
+- [x] Pre-pilot business & architecture review (docs/AUDIT-CODEX-2026-03-18.md)
 
 ### Permission System v2
 - [x] P1: Schema — UserAccessGrant model + permission fields on User (commit 753c0cd)
@@ -72,32 +73,41 @@ Last Updated: 2026-03-18 (Onboarding wizard v2 session)
 
 ### ODK Command Center
 - [x] PIN verification API with timing-safe comparison + rate limiting
-- [x] Middleware protection — /ODK/* uses separate JWT auth, not NextAuth
+- [x] Middleware protection — /odk/* uses separate JWT auth, not NextAuth
 - [x] Login page — dark, minimal, auto-submit, shake on wrong PIN
 - [x] Command center dashboard — 5 tabs (Roadmap, Docs, Checklist, Tech, Notes)
 - [x] Live status sidebar with build status, quick links, key numbers
 - [x] API routes: /api/command/verify, tracker, docs, status
-- [x] Deployed to production at myatlaspm.com/ODK
+- [x] Deployed to production at myatlaspm.com/odk
 
 ---
 
 ## Active Work
-- ODK command center deployed — accessible at myatlaspm.com/ODK
-- IMPORTANT: Set ATLAS_COMMAND_PIN=xd933f5 in Vercel env vars (production + preview)
-- Next: Phase 0 tasks — LLC, password manager, Supabase backups, first Yardi import
+- Codex review complete — see docs/AUDIT-CODEX-2026-03-18.md
+- Next 30 days should focus on: permission migration completion, owner-surface consolidation, onboarding/import automation, pricing/pilot packaging, and async worker infrastructure
+- Remove founder-only onboarding/setup steps before the first external pilot
+- ODK command center deployed — accessible at myatlaspm.com/odk
 
 ## Deployment
 - Production: https://www.myatlaspm.com
-- ODK: https://www.myatlaspm.com/ODK
+- ODK: https://www.myatlaspm.com/odk
 - Last deploy: 2026-03-18
 - Build: 0 TypeScript errors, 34 static pages
 
 ## Known Issues
-- Sentry configuration warnings (instrumentation file migration recommended by @sentry/nextjs)
+- Owner Dashboard and Owner Portal are still both live; the owner experience is not yet fully consolidated
+- Internal naming cleanup is incomplete — Coeus, Themis, and ODK remain visible in the product/docs
+- Permission system v2 runs alongside the existing role system — old routes still use hasPermission(), new routes use can()/grants
+- UserAccessGrant is ahead of the rest of the app — multi-org users are not actually supported end-to-end
+- No subscription / billing model exists yet, so AtlasPM is not ready for Stripe plan enforcement or customer self-serve billing
+- Onboarding remains founder-heavy despite docs promising very fast setup
+- Demo seed is strong for a guided demo but too small to fully simulate a 1,000-unit client environment
+- Long-running imports, syncs, and cron-style workloads still sit on the Vercel/serverless model; background workers are the next infrastructure need
+- Documentation drift exists: requested roadmap filename differs from repo, tracker was more optimistic than the current product state, and onboarding docs still reference an admin password directly
+- Sentry configuration warnings remain (instrumentation file migration recommended by @sentry/nextjs)
 - Prisma 5.22.0 → 7.x upgrade available (major version, not urgent)
 - ESLint config needs interactive setup (npm run lint prompts for config selection)
 - Existing DB rows with old CollectionCase.status values (new_arrears, reminder_sent) still work via normalizer but should be migrated to canonical values (monitoring, demand_sent) when convenient
-- Permission system v2 runs alongside existing role system — old routes still use hasPermission(), new routes should use can()
 - Permission management UI built at /settings/users — needs sidebar nav link added
 - First-login password change flow not yet implemented (users receive temp password)
 - [userId] slug directory removed — permissions route moved to [id]/permissions

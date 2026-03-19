@@ -46,7 +46,7 @@ export default function ODKLoginPage() {
         return;
       }
 
-      router.push("/ODK");
+      router.push("/odk");
     } catch {
       setError("Connection error");
       setPin("");

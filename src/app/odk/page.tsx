@@ -355,7 +355,7 @@ export default function ODKCommandCenter() {
 
   function logout() {
     document.cookie = "odk-session=; path=/; max-age=0";
-    router.push("/ODK/login");
+    router.push("/odk/login");
   }
 
   const TABS = [

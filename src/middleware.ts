@@ -11,21 +11,21 @@ function getJoseSecret(): Uint8Array {
 async function handleODK(req: NextRequest): Promise<NextResponse | null> {
   const pathname = req.nextUrl.pathname;
 
-  // Only handle /ODK/* and /api/command/* paths
-  if (!pathname.startsWith("/ODK") && !pathname.startsWith("/api/command")) return null;
+  // Only handle /odk/* and /api/command/* paths
+  if (!pathname.startsWith("/odk") && !pathname.startsWith("/api/command")) return null;
 
   // Login page and verify endpoint are always accessible (no cookie needed)
-  if (pathname === "/ODK/login" || pathname === "/api/command/verify") {
+  if (pathname === "/odk/login" || pathname === "/api/command/verify") {
     return NextResponse.next();
   }
 
-  // All other /ODK and /api/command paths require valid odk-session cookie
+  // All other /odk and /api/command paths require valid odk-session cookie
   const token = req.cookies.get("odk-session")?.value;
   if (!token) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.redirect(new URL("/ODK/login", req.url));
+    return NextResponse.redirect(new URL("/odk/login", req.url));
   }
 
   try {
@@ -36,7 +36,7 @@ async function handleODK(req: NextRequest): Promise<NextResponse | null> {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.redirect(new URL("/ODK/login", req.url));
+    return NextResponse.redirect(new URL("/odk/login", req.url));
   }
 }
 
