@@ -121,7 +121,8 @@ export default function OwnerPortalContent() {
               Top 5 Buildings by Accounts Receivable
             </h2>
           </div>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[400px]">
             <thead>
               <tr className="border-b border-border">
                 <th className="px-5 py-3 text-left text-xs font-medium text-text-dim uppercase">Building</th>
@@ -137,6 +138,7 @@ export default function OwnerPortalContent() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
