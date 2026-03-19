@@ -25,7 +25,7 @@ export default function ComplianceContent() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <h1 className="text-2xl font-bold text-text-primary">Compliance & Violations</h1>
+      <h1 className="text-2xl font-bold text-text-primary font-display tracking-wide">Compliance & Violations</h1>
 
       <div className="flex gap-1 border-b border-border overflow-x-auto">
         {tabs.map((t) => (

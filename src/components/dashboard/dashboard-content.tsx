@@ -247,6 +247,8 @@ function ComplianceWidget() {
   const overdueCount = items?.filter((i) => i.status === "OVERDUE").length || 0;
   const openViolations = stats?.totalOpen || 0;
 
+  if (openViolations === 0 && overdueCount === 0) return null;
+
   return (
     <Link href="/compliance" className="block">
       <div className="bg-atlas-navy-3 border border-border rounded-xl p-4 hover:bg-card-hover transition-colors card-hover-lift">

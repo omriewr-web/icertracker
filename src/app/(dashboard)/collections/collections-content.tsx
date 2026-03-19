@@ -949,7 +949,7 @@ export default function CollectionsContent() {
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map((row) => {
+              {filteredRows.map((row, idx) => {
                 const days = daysSince(row.collectionNoteDate);
                 const notePreview = row.collectionNoteText
                   ? row.collectionNoteText.length > 60
@@ -962,7 +962,7 @@ export default function CollectionsContent() {
                 return (
                   <tr
                     key={row.id}
-                    className="border-b border-border/50 hover:bg-card-hover transition-colors cursor-pointer"
+                    className={`border-b border-border/50 hover:bg-card-hover transition-colors cursor-pointer ${idx % 2 === 1 ? "bg-white/[0.02]" : ""}`}
                   >
                     <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                       <input

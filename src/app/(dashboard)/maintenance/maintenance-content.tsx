@@ -308,8 +308,8 @@ export default function MaintenanceContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((wo) => (
-                    <tr key={wo.id} className="border-b border-border/50 hover:bg-card-hover cursor-pointer transition-colors">
+                  {filtered.map((wo, idx) => (
+                    <tr key={wo.id} className={`border-b border-border/50 hover:bg-card-hover cursor-pointer transition-colors ${idx % 2 === 1 ? "bg-white/[0.02]" : ""}`}>
                       <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"

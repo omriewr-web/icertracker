@@ -273,8 +273,8 @@ export default function LegalContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredLegalTenants.map((t) => (
-                    <tr key={t.id} className="border-b border-border/50 hover:bg-card-hover transition-colors">
+                  {filteredLegalTenants.map((t, idx) => (
+                    <tr key={t.id} className={`border-b border-border/50 hover:bg-card-hover transition-colors ${idx % 2 === 1 ? "bg-white/[0.02]" : ""}`}>
                       <td className="px-3 py-2">
                         <span className="text-text-primary">{t.name}</span>
                         <span className="text-text-dim text-xs ml-1">#{t.unitNumber}</span>
@@ -351,7 +351,7 @@ export default function LegalContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {courtCases.map((c: CourtDateItem) => {
+                  {courtCases.map((c: CourtDateItem, idx: number) => {
                     const courtDateObj = new Date(c.courtDate);
                     const now = new Date();
                     const diffDays = Math.ceil((courtDateObj.getTime() - now.getTime()) / 86400000);
@@ -362,7 +362,7 @@ export default function LegalContent() {
                         : "";
 
                     return (
-                      <tr key={c.id} className={cn("border-b border-border/50 hover:bg-card-hover transition-colors", rowColor)}>
+                      <tr key={c.id} className={cn("border-b border-border/50 hover:bg-card-hover transition-colors", rowColor, idx % 2 === 1 && !rowColor && "bg-white/[0.02]")}>
                         <td className="px-3 py-2">
                           <span className={cn(
                             "text-sm font-medium",

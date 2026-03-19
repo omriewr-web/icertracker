@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { tenantCreateSchema } from "@/lib/validations";
-import { TenantView } from "@/types";
+import { TenantView, ArrearsCategory, LeaseStatus, LegalStage } from "@/types";
 import { getTenantScope, EMPTY_SCOPE, assertBuildingAccess } from "@/lib/data-scope";
 import { getArrearsCategory, getArrearsDays, getLeaseStatus, calcCollectionScore } from "@/lib/scoring";
 import { getDisplayAddress } from "@/lib/building-matching";
@@ -111,13 +111,13 @@ export const GET = withAuth(async (req, { user }) => {
     leaseExpiration: t.leaseExpiration?.toISOString() ?? null,
     moveOutDate: t.moveOutDate?.toISOString() ?? null,
     balance: toNumber(t.balance),
-    arrearsCategory: t.arrearsCategory as any,
+    arrearsCategory: t.arrearsCategory as ArrearsCategory,
     arrearsDays: t.arrearsDays,
     monthsOwed: t.balance && t.marketRent ? Math.round((toNumber(t.balance) / toNumber(t.marketRent)) * 10) / 10 : 0,
-    leaseStatus: t.leaseStatus as any,
+    leaseStatus: t.leaseStatus as LeaseStatus,
     collectionScore: t.collectionScore,
     legalFlag: !!t.legalCases[0]?.inLegal,
-    legalStage: (t.legalCases[0]?.stage as any) || null,
+    legalStage: (t.legalCases[0]?.stage as LegalStage) || null,
     legalRecommended: (() => {
       const hasActiveCase = !!t.legalCases[0]?.inLegal;
       if (hasActiveCase) return false;
@@ -251,6 +251,27 @@ export const POST = withAuth(async (req, { user }) => {
 
     return created;
   });
+
+  // Fire utility automation for new tenant — non-blocking
+  try {
+    const { onNewTenantCreated } = await import("@/lib/utilities/utility-automation.service");
+    const buildingInfo = await prisma.building.findUnique({
+      where: { id: data.buildingId },
+      select: { organizationId: true },
+    });
+    if (buildingInfo?.organizationId) {
+      onNewTenantCreated({
+        orgId: buildingInfo.organizationId,
+        buildingId: data.buildingId,
+        unitId: tenant.unitId,
+        tenantId: tenant.id,
+        tenantName: data.name,
+        moveInDate: data.moveInDate ? new Date(data.moveInDate) : undefined,
+        leaseEnd: data.leaseExpiration ? new Date(data.leaseExpiration) : undefined,
+        triggeredByUserId: user.id,
+      }).catch(() => {});
+    }
+  } catch {}
 
   return NextResponse.json(tenant, { status: 201 });
 }, "edit");
