@@ -17,7 +17,7 @@ export default function ODKLoginPage() {
   }, []);
 
   useEffect(() => {
-    if (pin.length === 6) {
+    if (pin.length === 7) {
       handleSubmit(pin);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -60,11 +60,11 @@ export default function ODKLoginPage() {
         <input
           ref={inputRef}
           type="password"
-          maxLength={6}
+          maxLength={7}
           value={pin}
           onChange={(e) => { if (!locked) setPin(e.target.value); }}
           disabled={locked}
-          placeholder="------"
+          placeholder="-------"
           autoComplete="off"
           className={`
             w-48 text-center text-2xl tracking-[0.5em] font-mono py-3 px-4
