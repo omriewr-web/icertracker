@@ -39,6 +39,9 @@ export const GET = withAuth(async (req, { user }) => {
     where,
     include: {
       building: { select: { id: true, address: true, altAddress: true } },
+      tenant: {
+        select: { marketRent: true, legalRent: true },
+      },
       turnoverWorkflows: {
         where: { isActive: true },
         orderBy: { createdAt: "desc" },
@@ -75,7 +78,10 @@ export const GET = withAuth(async (req, { user }) => {
     const proposed = toNumber(u.proposedRent);
     const asking = toNumber(u.askingRent);
     const legal = toNumber(u.legalRent);
-    const bestRent = approved || proposed || asking || legal || 0;
+    const tenantMarket = u.tenant ? toNumber(u.tenant.marketRent) : 0;
+    const tenantLegal = u.tenant ? toNumber(u.tenant.legalRent) : 0;
+    const bestRent = approved || proposed || asking || legal || tenantMarket || tenantLegal || 0;
+    const rentUnknown = bestRent === 0;
 
     // Null safety: unit with active turnover but null vacancyStatus → treat as TURNOVER
     const effectiveStatus = u.vacancyStatus ?? (turnover ? "TURNOVER" : "VACANT");
@@ -108,6 +114,7 @@ export const GET = withAuth(async (req, { user }) => {
       daysVacant: daysVacantNum,
       daysSinceReady: daysSinceReady,
       bestRent,
+      rentUnknown,
       turnover: turnover
         ? {
             id: turnover.id,

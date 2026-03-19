@@ -13,6 +13,7 @@ import LoadingSpinner from "@/components/ui/loading-spinner";
 import { formatDate, fmt$ } from "@/lib/utils";
 import toast from "react-hot-toast";
 import ExportButton from "@/components/ui/export-button";
+import EmptyState from "@/components/ui/empty-state";
 
 export default function BuildingsTab() {
   const { data: buildings, isLoading } = useBuildings();
@@ -24,10 +25,28 @@ export default function BuildingsTab() {
 
   if (isLoading) return <TableTabSkeleton rows={8} />;
 
+  if (!buildings || buildings.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-end">
+          <Button size="sm" onClick={() => openBuildingForm()}>
+            <Plus className="w-3.5 h-3.5" /> Add Building
+          </Button>
+        </div>
+        <EmptyState
+          icon={Building2}
+          title="No buildings added yet"
+          description="Import your building data from Yardi or AppFolio, or add buildings manually to get started."
+          action={{ label: "Add Building", href: "#" }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-text-muted">{buildings?.length || 0} buildings</p>
+        <p className="text-sm text-text-muted">{buildings.length} buildings</p>
         <div className="flex gap-2">
           <ExportButton
             data={(buildings || []).map((b) => ({
@@ -109,9 +128,6 @@ export default function BuildingsTab() {
             ))}
           </tbody>
         </table>
-        {(!buildings || buildings.length === 0) && (
-          <div className="text-center py-12 text-text-dim text-sm">No buildings found</div>
-        )}
       </div>
 
       {/* Building Detail Card Modal */}

@@ -328,7 +328,10 @@ export default function DailyBriefingContent() {
           ) : tenantsError ? (
             <SectionError label="collections" />
           ) : tenants.length === 0 ? (
-            <p className="text-sm text-text-dim text-center py-6">No tenants with outstanding balances</p>
+            <div className="flex items-center gap-3 px-3 py-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+              <CheckCircle className="w-5 h-5 text-green-400 shrink-0" />
+              <span className="text-sm text-green-300">No tenants with outstanding balances</span>
+            </div>
           ) : (
             <>
               <div className="space-y-1">
@@ -361,7 +364,10 @@ export default function DailyBriefingContent() {
           ) : workOrdersError ? (
             <SectionError label="work orders" />
           ) : workOrders.length === 0 ? (
-            <p className="text-sm text-text-dim text-center py-6">No urgent work orders</p>
+            <div className="flex items-center gap-3 px-3 py-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+              <CheckCircle className="w-5 h-5 text-green-400 shrink-0" />
+              <span className="text-sm text-green-300">No urgent work orders</span>
+            </div>
           ) : (
             <>
               <div className="space-y-1">
@@ -408,7 +414,10 @@ export default function DailyBriefingContent() {
               {legalError ? (
                 <p className="text-xs text-red-400 mb-3">Unable to load legal cases</p>
               ) : legalCases.length === 0 ? (
-                <p className="text-sm text-text-dim text-center py-3">No active legal cases</p>
+                <div className="flex items-center gap-3 px-3 py-4 bg-green-500/10 border border-green-500/20 rounded-lg mb-3">
+                  <CheckCircle className="w-5 h-5 text-green-400 shrink-0" />
+                  <span className="text-sm text-green-300">No active legal cases</span>
+                </div>
               ) : (
                 <div className="space-y-1 mb-4">
                   {legalCases.map((c: any) => {
@@ -436,7 +445,10 @@ export default function DailyBriefingContent() {
               {complianceError ? (
                 <p className="text-xs text-red-400">Unable to load compliance items</p>
               ) : compliance.length === 0 ? (
-                <p className="text-sm text-text-dim text-center py-3">No overdue compliance items</p>
+                <div className="flex items-center gap-3 px-3 py-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                  <CheckCircle className="w-5 h-5 text-green-400 shrink-0" />
+                  <span className="text-sm text-green-300">No overdue compliance items</span>
+                </div>
               ) : (
                 <div className="space-y-1 border-t border-border pt-3">
                   <p className="text-[10px] text-text-dim uppercase tracking-[0.15em] mb-2">Compliance</p>
