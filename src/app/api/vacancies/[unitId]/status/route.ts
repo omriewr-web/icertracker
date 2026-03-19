@@ -5,6 +5,7 @@ import { assertUnitAccess } from "@/lib/data-scope";
 import { z } from "zod";
 import { VacancyStatus } from "@prisma/client";
 import { syncVacancyState } from "@/lib/services/vacancy.service";
+import { onUnitBecameVacant, onVacancyClosed } from "@/lib/utilities/utility-automation.service";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,17 @@ export const PATCH = withAuth(async (req, { user, params }) => {
     });
 
     await syncVacancyState(unitId);
+
+    // Fire utility automation — non-blocking
+    if (!unit.vacancyStatus || unit.vacancyStatus === "OCCUPIED") {
+      try {
+        const building = await prisma.building.findUnique({ where: { id: unit.buildingId }, select: { organizationId: true } });
+        if (building?.organizationId) {
+          onUnitBecameVacant({ orgId: building.organizationId, buildingId: unit.buildingId, unitId, triggeredByUserId: user.id }).catch(() => {});
+        }
+      } catch {}
+    }
+
     return NextResponse.json(result);
   }
 
@@ -100,6 +112,17 @@ export const PATCH = withAuth(async (req, { user, params }) => {
     });
 
     await syncVacancyState(unitId);
+
+    // Fire utility automation — non-blocking
+    if (VACANCY_STATUSES.includes(unit.vacancyStatus!)) {
+      try {
+        const building = await prisma.building.findUnique({ where: { id: unit.buildingId }, select: { organizationId: true } });
+        if (building?.organizationId) {
+          onVacancyClosed({ orgId: building.organizationId, unitId }).catch(() => {});
+        }
+      } catch {}
+    }
+
     return NextResponse.json(result);
   }
 
@@ -130,5 +153,16 @@ export const PATCH = withAuth(async (req, { user, params }) => {
   });
 
   await syncVacancyState(unitId);
+
+  // Fire utility automation for transitions to vacancy statuses — non-blocking
+  if (VACANCY_STATUSES.includes(status) && (!unit.vacancyStatus || unit.vacancyStatus === "OCCUPIED")) {
+    try {
+      const building = await prisma.building.findUnique({ where: { id: unit.buildingId }, select: { organizationId: true } });
+      if (building?.organizationId) {
+        onUnitBecameVacant({ orgId: building.organizationId, buildingId: unit.buildingId, unitId, triggeredByUserId: user.id }).catch(() => {});
+      }
+    } catch {}
+  }
+
   return NextResponse.json(updated);
 }, "vac");

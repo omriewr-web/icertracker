@@ -349,6 +349,9 @@ export default function MeterDetailModal({ meterId, onClose }: { meterId: string
                 </div>
               </div>
             )}
+
+            {/* Event History */}
+            <EventHistorySection events={meter?.eventHistory || []} />
           </div>
         ) : null}
       </Modal>
@@ -488,6 +491,87 @@ export default function MeterDetailModal({ meterId, onClose }: { meterId: string
         loading={deleteMeter.isPending}
       />
     </>
+  );
+}
+
+// ── Event History Section ──────────────────────────────────────
+
+function EventHistorySection({ events }: { events: any[] }) {
+  if (!events || events.length === 0) {
+    return (
+      <div className="bg-bg border border-border rounded-lg p-4 text-center text-sm text-text-dim">
+        No history recorded yet
+      </div>
+    );
+  }
+
+  const eventColors: Record<string, string> = {
+    account_opened: "text-green-400",
+    account_closed: "text-text-dim",
+    move_out_recorded: "text-amber-400",
+    owner_hold_started: "text-blue-400",
+    responsibility_transferred: "text-purple-400",
+    closed_with_balance: "text-red-400",
+    move_in_recorded: "text-green-400",
+    vacancy_started: "text-amber-400",
+    manual_note: "text-text-muted",
+  };
+
+  const eventLabels: Record<string, string> = {
+    account_opened: "Account Opened",
+    account_closed: "Account Closed",
+    responsibility_transferred: "Transferred",
+    owner_hold_started: "Owner Hold Started",
+    owner_hold_ended: "Owner Hold Ended",
+    tenant_confirmed_open: "Tenant Confirmed Open",
+    tenant_confirmed_closed: "Tenant Confirmed Closed",
+    move_out_recorded: "Move-Out Recorded",
+    move_in_recorded: "Move-In Recorded",
+    vacancy_started: "Vacancy Started",
+    vacancy_ended: "Vacancy Ended",
+    proof_uploaded: "Proof Uploaded",
+    balance_at_close_recorded: "Balance at Close",
+    manual_note: "Note",
+  };
+
+  return (
+    <div className="bg-bg border border-border rounded-lg p-3">
+      <h4 className="text-xs font-semibold text-text-dim uppercase tracking-wider mb-2">Responsibility History</h4>
+      <div className="space-y-2">
+        {events.map((evt: any) => (
+          <div key={evt.id} className="flex items-start gap-3 py-1.5 px-2 rounded hover:bg-card-hover transition-colors">
+            <div className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{
+              background: evt.eventType.includes("opened") || evt.eventType.includes("move_in") ? "#4caf82"
+                : evt.eventType.includes("closed") ? "#6b7280"
+                : evt.eventType.includes("move_out") || evt.eventType.includes("vacancy") ? "#e09a3e"
+                : evt.eventType.includes("owner_hold") ? "#3b82f6"
+                : evt.eventType.includes("transfer") ? "#8b5cf6"
+                : evt.eventType.includes("balance") ? "#e05c5c"
+                : "#94a3b8"
+            }} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <span className={`text-xs font-medium ${eventColors[evt.eventType] || "text-text-muted"}`}>
+                  {eventLabels[evt.eventType] || evt.eventType.replace(/_/g, " ")}
+                </span>
+                <span className="text-xs text-text-dim">{new Date(evt.createdAt).toLocaleDateString()}</span>
+              </div>
+              {(evt.fromPartyName || evt.toPartyName) && (
+                <p className="text-xs text-text-muted mt-0.5">
+                  {evt.fromPartyName && `From: ${evt.fromPartyName}`}
+                  {evt.fromPartyName && evt.toPartyName && " → "}
+                  {evt.toPartyName && `To: ${evt.toPartyName}`}
+                </p>
+              )}
+              {evt.notes && <p className="text-xs text-text-dim mt-0.5">{evt.notes}</p>}
+              {evt.triggeredBy && evt.triggeredBy !== "manual" && (
+                <span className="text-xs text-text-dim italic">Auto: {evt.triggeredBy.replace(/_/g, " ")}</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

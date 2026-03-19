@@ -70,6 +70,34 @@ export const POST = withAuth(async (req, { user }) => {
       });
     });
 
+    // Record responsibility event (non-blocking — don't fail the request)
+    try {
+      const { recordAccountOpened } = await import("@/lib/utilities/responsibility-event.service");
+      const meterFull = await prisma.utilityMeter.findUnique({
+        where: { id: utilityMeterId },
+        select: { buildingId: true, providerName: true, building: { select: { organizationId: true } } },
+      });
+      if (meterFull?.building?.organizationId) {
+        await recordAccountOpened({
+          orgId: meterFull.building.organizationId,
+          buildingId: meterFull.buildingId,
+          utilityMeterId,
+          utilityAccountId: account.id,
+          toPartyType: assignedPartyType,
+          toPartyName: assignedPartyName || undefined,
+          toTenantId: tenantId || undefined,
+          accountNumber: accountNumber || undefined,
+          providerName: meterFull.providerName || undefined,
+          leaseStartSnapshot: account.leaseStartSnapshot || undefined,
+          leaseEndSnapshot: account.leaseEndSnapshot || undefined,
+          triggeredBy: "manual",
+          triggeredByUserId: user.id,
+        });
+      }
+    } catch (e) {
+      console.error("Failed to record utility event:", e);
+    }
+
     return NextResponse.json(account, { status: 201 });
   } catch (err: any) {
     if (err.message?.startsWith("CONFLICT:")) {

@@ -12,7 +12,7 @@ export const GET = withAuth(async (req, { user, params }) => {
   const meter = await prisma.utilityMeter.findUnique({
     where: { id },
     include: {
-      building: { select: { id: true, address: true } },
+      building: { select: { id: true, address: true, organizationId: true } },
       unit: {
         select: {
           id: true, unitNumber: true, isVacant: true,
@@ -33,7 +33,19 @@ export const GET = withAuth(async (req, { user, params }) => {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  return NextResponse.json(meter);
+  // Fetch event history for this meter
+  let eventHistory: any[] = [];
+  try {
+    const { getMeterEventHistory } = await import("@/lib/utilities/responsibility-event.service");
+    const orgId = meter.building?.organizationId;
+    if (orgId) {
+      eventHistory = await getMeterEventHistory(orgId, id);
+    }
+  } catch (e) {
+    console.error("Failed to fetch meter event history:", e);
+  }
+
+  return NextResponse.json({ ...meter, eventHistory });
 }, "utilities");
 
 export const PATCH = withAuth(async (req, { user, params }) => {

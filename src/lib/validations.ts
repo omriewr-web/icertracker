@@ -11,6 +11,7 @@ export const tenantUpdateSchema = z.object({
   balance: z.number().optional(),
   leaseExpiration: z.string().nullable().optional(),
   moveInDate: z.string().nullable().optional(),
+  moveOutDate: z.string().nullable().optional(),
   isStabilized: z.boolean().optional(),
 });
 

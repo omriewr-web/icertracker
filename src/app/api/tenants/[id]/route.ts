@@ -119,6 +119,9 @@ export const PATCH = withAuth(async (req, { user, params }) => {
   if (data.moveInDate !== undefined) {
     updateData.moveInDate = data.moveInDate ? new Date(data.moveInDate) : null;
   }
+  if (data.moveOutDate !== undefined) {
+    updateData.moveOutDate = data.moveOutDate ? new Date(data.moveOutDate) : null;
+  }
 
   Object.assign(updateData, {
     arrearsCategory,
@@ -177,6 +180,30 @@ export const PATCH = withAuth(async (req, { user, params }) => {
 
     return updated;
   });
+
+  // Fire utility automation when moveOutDate is newly set — non-blocking
+  if (data.moveOutDate && !current.moveOutDate) {
+    try {
+      const { onMoveOutRecorded } = await import("@/lib/utilities/utility-automation.service");
+      const unitInfo = await prisma.unit.findUnique({
+        where: { id: tenant.unitId },
+        select: { buildingId: true, building: { select: { organizationId: true } } },
+      });
+      if (unitInfo?.building?.organizationId) {
+        onMoveOutRecorded({
+          orgId: unitInfo.building.organizationId,
+          buildingId: unitInfo.buildingId,
+          unitId: tenant.unitId,
+          tenantId: id,
+          tenantName: tenant.name,
+          moveOutDate: new Date(data.moveOutDate),
+          leaseStart: current.moveInDate ?? undefined,
+          leaseEnd: current.leaseExpiration ?? undefined,
+          triggeredByUserId: user.id,
+        }).catch(() => {});
+      }
+    } catch {}
+  }
 
   // Normalize Decimal fields for JSON serialization (same as GET)
   return NextResponse.json({

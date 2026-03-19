@@ -29,6 +29,7 @@ export const PATCH = withAuth(async (req, { user, params }) => {
   const existing = await prisma.utilityAccount.findUnique({
     where: { id },
     include: { meter: { select: { buildingId: true } } },
+    // Note: assignedPartyType, assignedPartyName, tenantId, accountNumber, utilityMeterId are on the root model
   });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!(await canAccessBuilding(user, existing.meter.buildingId))) {
@@ -54,6 +55,36 @@ export const PATCH = withAuth(async (req, { user, params }) => {
       ...(notes !== undefined && { notes }),
     },
   });
+
+  // Record close event if status changed to closed
+  if (status === "closed") {
+    try {
+      const { recordAccountClosed } = await import("@/lib/utilities/responsibility-event.service");
+      const meterFull = await prisma.utilityMeter.findUnique({
+        where: { id: existing.utilityMeterId },
+        select: { buildingId: true, providerName: true, building: { select: { organizationId: true } } },
+      });
+      if (meterFull?.building?.organizationId) {
+        await recordAccountClosed({
+          orgId: meterFull.building.organizationId,
+          buildingId: meterFull.buildingId,
+          utilityMeterId: existing.utilityMeterId,
+          utilityAccountId: id,
+          fromPartyType: existing.assignedPartyType,
+          fromPartyName: existing.assignedPartyName || undefined,
+          fromTenantId: existing.tenantId || undefined,
+          accountNumber: existing.accountNumber || undefined,
+          providerName: meterFull.providerName || undefined,
+          workflowState: closedWithBalance ? "closed_with_balance" : "closed_clean",
+          triggeredBy: "manual",
+          triggeredByUserId: user.id,
+          notes: closeReason || undefined,
+        });
+      }
+    } catch (e) {
+      console.error("Failed to record utility close event:", e);
+    }
+  }
 
   return NextResponse.json(account);
 }, "utilities");

@@ -1120,6 +1120,107 @@ async function detectUtilityRisks(): Promise<DetectedSignal[]> {
     }
   }
 
+  // Overdue utility tasks
+  const overdueTasks = await prisma.utilityTask.findMany({
+    where: {
+      status: { in: ["pending", "in_progress"] },
+      dueAt: { lt: now },
+    },
+    select: {
+      id: true,
+      taskType: true,
+      title: true,
+      buildingId: true,
+      unitId: true,
+      utilityMeterId: true,
+      dueAt: true,
+      orgId: true,
+    },
+    take: 50,
+  });
+
+  for (const task of overdueTasks) {
+    const daysOverdue = Math.ceil((now.getTime() - task.dueAt!.getTime()) / 86400000);
+    signals.push({
+      deduplicationKey: `utility-task-overdue-${task.id}`,
+      type: "utility_problem",
+      severity: "high",
+      title: `Utility task overdue ${daysOverdue}d — ${task.title}`,
+      description: `Task "${task.title}" was due ${task.dueAt!.toISOString().split("T")[0]} and is ${daysOverdue} days overdue.`,
+      entityType: "meter",
+      entityId: task.utilityMeterId || task.id,
+      buildingId: task.buildingId,
+      recommendedAction: "Complete or reassign overdue utility task.",
+    });
+  }
+
+  // Pending owner hold confirmations
+  const pendingOwnerHold = await prisma.utilityTask.findMany({
+    where: {
+      status: "pending",
+      taskType: "confirm_owner_utility",
+    },
+    select: {
+      id: true,
+      buildingId: true,
+      unitId: true,
+      utilityMeterId: true,
+      title: true,
+    },
+    take: 50,
+  });
+
+  for (const task of pendingOwnerHold) {
+    signals.push({
+      deduplicationKey: `utility-owner-hold-pending-${task.id}`,
+      type: "utility_problem",
+      severity: "medium",
+      title: `Owner utility hold not confirmed — ${task.title}`,
+      description: `Vacant unit needs owner/management to confirm utility account responsibility.`,
+      entityType: "meter",
+      entityId: task.utilityMeterId || task.id,
+      buildingId: task.buildingId,
+      recommendedAction: "Confirm owner holds utility account during vacancy.",
+    });
+  }
+
+  // Old tenant accounts still active (workflowState = old_tenant_close_pending)
+  const oldTenantAccounts = await prisma.utilityAccount.findMany({
+    where: {
+      status: "active",
+      workflowState: "old_tenant_close_pending",
+    },
+    select: {
+      id: true,
+      assignedPartyName: true,
+      meter: {
+        select: {
+          id: true,
+          utilityType: true,
+          buildingId: true,
+          building: { select: { address: true } },
+          unit: { select: { unitNumber: true } },
+        },
+      },
+    },
+    take: 50,
+  });
+
+  for (const acc of oldTenantAccounts) {
+    const unitLabel = acc.meter.unit ? ` #${acc.meter.unit.unitNumber}` : "";
+    signals.push({
+      deduplicationKey: `utility-old-tenant-active-${acc.id}`,
+      type: "utility_problem",
+      severity: "high",
+      title: `${acc.meter.utilityType} — old tenant account still active`,
+      description: `${acc.meter.building.address}${unitLabel}. Former tenant "${acc.assignedPartyName || "Unknown"}" still has an active utility account.`,
+      entityType: "meter",
+      entityId: acc.meter.id,
+      buildingId: acc.meter.buildingId,
+      recommendedAction: "Close old tenant utility account and transfer to owner.",
+    });
+  }
+
   return signals;
 }
 
