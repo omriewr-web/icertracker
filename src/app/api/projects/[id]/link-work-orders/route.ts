@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { assertBuildingAccess } from "@/lib/data-scope";
 import { linkWorkOrderSchema } from "@/lib/validations";
+import { assertLinkedWorkOrderMatchesBuilding } from "@/lib/work-order-relations";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export const POST = withAuth(async (req, { user, params }) => {
   if (denied) return denied;
 
   const { workOrderId } = await parseBody(req, linkWorkOrderSchema);
+  await assertLinkedWorkOrderMatchesBuilding(workOrderId, project.buildingId);
 
   await prisma.$transaction(async (tx) => {
     await tx.projectWorkOrder.upsert({

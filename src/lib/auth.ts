@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import logger from "./logger";
+import { hydrateCurrentAuthUser, loadFreshAuthUserById } from "./auth-state";
 
 // ── DB-backed login rate limiter ────────────────────────────────
 
@@ -61,14 +62,20 @@ export const authOptions: NextAuthOptions = {
           where: { username },
         });
 
-        if (!user || !user.passwordHash) {
+        if (!user || !user.passwordHash || !user.active) {
+          const failReason = !user
+            ? "user_not_found"
+            : !user.active
+              ? "inactive_user"
+              : "missing_password";
+
           // Audit log — never let this crash the login flow
           try {
             await prisma.loginAttempt.create({
               data: {
                 username,
                 success: false,
-                failReason: "user_not_found",
+                failReason,
               },
             });
           } catch {}
@@ -90,32 +97,19 @@ export const authOptions: NextAuthOptions = {
 
         if (!valid) return null;
 
-        // Load properties separately for session
-        const props = await prisma.userProperty.findMany({
-          where: { userId: user.id },
-          select: { buildingId: true },
-        });
-        let properties = props.map((p) => p.buildingId);
-
-        // Roles that inherit their manager's buildings
-        const INHERITS_MANAGER = ["APM", "LEASING_SPECIALIST", "ACCOUNTING"];
-        if (INHERITS_MANAGER.includes(user.role) && user.managerId) {
-          const mgrProps = await prisma.userProperty.findMany({
-            where: { userId: user.managerId },
-            select: { buildingId: true },
-          });
-          properties = mgrProps.map((p) => p.buildingId);
-        }
-
-        return {
+        const authUser = await hydrateCurrentAuthUser({
           id: user.id,
           name: user.name,
           email: user.email,
           role: user.role,
-          assignedProperties: properties,
-          organizationId: user.organizationId || null,
-          managerId: user.managerId || null,
+          organizationId: user.organizationId ?? null,
+          managerId: user.managerId ?? null,
           onboardingComplete: user.onboardingComplete,
+          active: user.active,
+        });
+
+        return {
+          ...authUser,
         };
       },
     }),
@@ -130,17 +124,27 @@ export const authOptions: NextAuthOptions = {
         token.organizationId = user.organizationId || null;
         token.managerId = user.managerId || null;
         token.onboardingComplete = user.onboardingComplete ?? false;
+        token.active = user.active ?? true;
       }
-      // When client calls update(), re-read onboardingComplete from DB
-      if (trigger === "update" && token.id) {
+
+      // When client calls update(), or when an older token is missing the new active flag,
+      // refresh the current authorization state from the database.
+      if ((trigger === "update" || token.active === undefined) && token.id) {
         try {
-          const fresh = await prisma.user.findUnique({
-            where: { id: token.id as string },
-            select: { onboardingComplete: true, role: true },
-          });
+          const fresh = await loadFreshAuthUserById(token.id as string);
           if (fresh) {
             token.onboardingComplete = fresh.onboardingComplete;
             token.role = fresh.role;
+            token.assignedProperties = fresh.assignedProperties;
+            token.organizationId = fresh.organizationId;
+            token.managerId = fresh.managerId;
+            token.active = true;
+          } else {
+            token.assignedProperties = [];
+            token.organizationId = null;
+            token.managerId = null;
+            token.onboardingComplete = false;
+            token.active = false;
           }
         } catch {}
       }
@@ -153,6 +157,7 @@ export const authOptions: NextAuthOptions = {
       session.user.organizationId = token.organizationId || null;
       session.user.managerId = token.managerId || null;
       session.user.onboardingComplete = token.onboardingComplete ?? false;
+      session.user.active = token.active ?? true;
       return session;
     },
   },

@@ -55,7 +55,7 @@ export const MODULE_PERMISSIONS: Record<UserRole, PermissionMatrix> = {
     dashboard: ALL_RW, properties: ALL_RW, tenants: ALL_RW, collections: ALL_RW,
     legal: ALL_RW, maintenance: ALL_RW, compliance: ALL_RW, vacancies: ALL_RW,
     turnovers: ALL_RW, utilities: ALL_RW, "owner-dashboard": ALL_RW, coeus: ALL_RW,
-    reports: ALL_RW, users: { read: true, write: true }, "data-import": ALL_RW, settings: NO_ACCESS,
+    reports: ALL_RW, users: NO_ACCESS, "data-import": ALL_RW, settings: NO_ACCESS,
     organizations: NO_ACCESS,
   },
   APM: {
@@ -164,7 +164,6 @@ const CREATABLE_ROLES: Partial<Record<UserRole, UserRole[]>> = {
   SUPER_ADMIN: ["SUPER_ADMIN", "ADMIN", "ACCOUNT_ADMIN", "PM", "APM", "COLLECTOR", "OWNER", "LEASING_SPECIALIST", "BROKER", "SUPER", "ACCOUNTING", "LEASING_AGENT"],
   ADMIN: ["ACCOUNT_ADMIN", "PM", "APM", "COLLECTOR", "OWNER", "LEASING_SPECIALIST", "BROKER", "SUPER", "ACCOUNTING", "LEASING_AGENT"],
   ACCOUNT_ADMIN: ["PM", "APM", "COLLECTOR", "OWNER", "LEASING_SPECIALIST", "BROKER", "SUPER", "ACCOUNTING", "LEASING_AGENT"],
-  PM: ["APM", "SUPER", "LEASING_SPECIALIST", "ACCOUNTING"],
 };
 
 /** Check if a role can create users of a target role */

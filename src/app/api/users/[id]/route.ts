@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { userUpdateSchema } from "@/lib/validations";
 import { canCreateRole } from "@/lib/permissions";
+import { assertManageExistingUser, assertUserAdminAccess } from "@/lib/user-management";
 import type { UserRole } from "@/types";
 import bcrypt from "bcryptjs";
 
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 export const PATCH = withAuth(async (req, { user, params }) => {
   const { id } = await params;
+  assertUserAdminAccess(user.role as UserRole);
 
   const targetUser = await prisma.user.findUnique({
     where: { id },
@@ -27,11 +29,9 @@ export const PATCH = withAuth(async (req, { user, params }) => {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const data = await parseBody(req, userUpdateSchema);
+  assertManageExistingUser(user.role as UserRole, targetUser.role as UserRole);
 
-  if (targetUser.role === "ADMIN" && user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const data = await parseBody(req, userUpdateSchema);
 
   if (targetUser.id === user.id && data.active === false) {
     return NextResponse.json({ error: "Cannot deactivate yourself" }, { status: 403 });
@@ -96,6 +96,7 @@ export const PATCH = withAuth(async (req, { user, params }) => {
 
 export const DELETE = withAuth(async (req, { user, params }) => {
   const { id } = await params;
+  assertUserAdminAccess(user.role as UserRole);
 
   if (id === user.id) {
     return NextResponse.json({ error: "Cannot deactivate yourself" }, { status: 403 });
@@ -117,9 +118,7 @@ export const DELETE = withAuth(async (req, { user, params }) => {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (targetUser.role === "ADMIN" && user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  assertManageExistingUser(user.role as UserRole, targetUser.role as UserRole);
 
   await prisma.user.update({ where: { id }, data: { active: false } });
   return NextResponse.json({ success: true });

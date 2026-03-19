@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCommandSession } from "@/lib/command-auth";
+import { resolveCommandDocPath } from "@/lib/command-docs";
 import fs from "fs/promises";
 import path from "path";
 
@@ -19,13 +20,11 @@ export async function GET(req: NextRequest) {
   if (file) {
     // Return specific file content
     try {
-      // Check docs/ first, then root
-      let filePath = path.join(DOCS_DIR, file);
-      try {
-        await fs.access(filePath);
-      } catch {
-        filePath = path.join(process.cwd(), file);
+      const filePath = resolveCommandDocPath(file);
+      if (!filePath) {
+        return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
       }
+
       const content = await fs.readFile(filePath, "utf-8");
       const stat = await fs.stat(filePath);
       return NextResponse.json({ name: file, content, lastModified: stat.mtime.toISOString() });

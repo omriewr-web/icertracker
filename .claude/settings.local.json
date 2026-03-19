@@ -52,7 +52,12 @@
       "Bash(mkdir -p \"C:/Users/omrid/Documents/icertracker/src/app/api/comms/conversations/[id]/members\")",
       "Bash(npx vitest:*)",
       "Bash(pkill -f \"next dev\")",
-      "Bash(pkill -f \"next-server\")"
+      "Bash(pkill -f \"next-server\")",
+      "Bash(npm audit:*)",
+      "Bash(mkdir -p \"C:/Users/omrid/Documents/icertracker/src/app/api/attention/tenant/[id]\")",
+      "Bash(mkdir -p \"C:/Users/omrid/Documents/icertracker/src/app/api/attention/building/[id]\")",
+      "Bash(mkdir -p \"C:/Users/omrid/Documents/icertracker/src/app/api/attention/action-cards/[entityType]/[entityId]\")",
+      "Bash(mkdir -p \"C:/Users/omrid/Documents/icertracker/src/app/api/comms/conversations/[id]/summarize\")"
     ]
   }
 }

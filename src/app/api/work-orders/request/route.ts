@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { tenantRequestSchema } from "@/lib/validations";
+import { assertUnitBelongsToBuilding } from "@/lib/work-order-relations";
 
 export const dynamic = "force-dynamic";
 
@@ -138,6 +139,10 @@ export async function POST(req: NextRequest) {
     });
     if (!building || !building.publicAccessToken || building.publicAccessToken !== data.token) {
       return NextResponse.json({ error: "Invalid building token" }, { status: 403 });
+    }
+
+    if (data.unitId) {
+      await assertUnitBelongsToBuilding(data.buildingId, data.unitId);
     }
 
     const wo = await prisma.workOrder.create({

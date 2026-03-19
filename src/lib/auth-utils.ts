@@ -1,15 +1,22 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "./auth";
+import { loadFreshAuthUserById } from "./auth-state";
 import { hasPermission } from "./permissions";
 import type { UserRole } from "@/types";
 
 export async function requireAuth() {
   const session = await getServerSession(authOptions);
-  if (!session?.user) {
+  if (!session?.user?.id) {
     throw new AuthError("Unauthorized", 401);
   }
-  return session.user;
+
+  const freshUser = await loadFreshAuthUserById(session.user.id);
+  if (!freshUser) {
+    throw new AuthError("Unauthorized", 401);
+  }
+
+  return freshUser;
 }
 
 export async function requirePermission(perm: string) {

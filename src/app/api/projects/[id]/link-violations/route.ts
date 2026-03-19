@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { assertBuildingAccess } from "@/lib/data-scope";
 import { linkViolationSchema } from "@/lib/validations";
+import { assertLinkedViolationMatchesBuilding } from "@/lib/work-order-relations";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export const POST = withAuth(async (req, { user, params }) => {
   if (denied) return denied;
 
   const { violationId } = await parseBody(req, linkViolationSchema);
+  await assertLinkedViolationMatchesBuilding(violationId, project.buildingId);
 
   await prisma.$transaction(async (tx) => {
     await tx.projectViolation.upsert({

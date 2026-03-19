@@ -12,6 +12,7 @@ declare module "next-auth" {
       organizationId: string | null;
       managerId: string | null;
       onboardingComplete: boolean;
+      active: boolean;
     };
   }
 
@@ -22,6 +23,7 @@ declare module "next-auth" {
     organizationId: string | null;
     managerId: string | null;
     onboardingComplete: boolean;
+    active: boolean;
   }
 }
 
@@ -33,5 +35,6 @@ declare module "next-auth/jwt" {
     organizationId: string | null;
     managerId: string | null;
     onboardingComplete: boolean;
+    active: boolean;
   }
 }

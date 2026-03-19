@@ -3,8 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { z } from "zod";
 import type { PermissionPreset, ModulePermissions } from "@/lib/permissions/types";
-import { MODULES, LEVEL_RANK } from "@/lib/permissions/types";
 import { createGrantsFromPreset, getUserWithGrants } from "@/lib/permissions/engine";
+import {
+  assertCreatablePreset,
+  assertGrantedDangerousPrivilegesWithinInvoker,
+  assertGrantedModulesWithinInvoker,
+  assertManageExistingUser,
+  assertUserAdminAccess,
+  buildPresetPermissions,
+} from "@/lib/user-management";
+import type { UserRole } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +36,7 @@ export const PATCH = withAuth(async (req, { user, params }) => {
 
   // Load invoking user's permissions
   const invokingUser = await getUserWithGrants(user.id);
+  assertUserAdminAccess((invokingUser?.role ?? user.role) as UserRole);
   if (!invokingUser?.canManageUsers) {
     return NextResponse.json({ error: "You do not have permission to manage users" }, { status: 403 });
   }
@@ -37,6 +46,8 @@ export const PATCH = withAuth(async (req, { user, params }) => {
   if (!targetUser || targetUser.organizationId !== user.organizationId) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
+
+  assertManageExistingUser(invokingUser.role as UserRole, targetUser.role as UserRole);
 
   // Cannot edit yourself via this route
   if (userId === user.id) {
@@ -48,6 +59,20 @@ export const PATCH = withAuth(async (req, { user, params }) => {
     return NextResponse.json({ error: "Organization context required" }, { status: 400 });
   }
   const orgId = user.organizationId;
+
+  if (body.permissionPreset) {
+    assertCreatablePreset(invokingUser.role as UserRole, body.permissionPreset as PermissionPreset);
+  }
+
+  const effectivePermissions = buildPresetPermissions(
+    (body.permissionPreset ?? targetUser.permissionPreset) as PermissionPreset,
+    body.moduleOverrides as Partial<ModulePermissions> | undefined
+  );
+  assertGrantedModulesWithinInvoker(invokingUser, effectivePermissions);
+
+  if (body.dangerousPrivileges) {
+    assertGrantedDangerousPrivilegesWithinInvoker(invokingUser, body.dangerousPrivileges);
+  }
 
   // Capture old state for audit log
   const oldState = {
@@ -142,9 +167,17 @@ export const GET = withAuth(async (req, { user, params }) => {
   const userId = (await params).id;
 
   const invokingUser = await getUserWithGrants(user.id);
+  assertUserAdminAccess((invokingUser?.role ?? user.role) as UserRole);
   if (!invokingUser?.canManageUsers) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const targetUser = await getUserWithGrants(userId);
+  if (!targetUser || targetUser.organizationId !== user.organizationId) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  assertManageExistingUser(invokingUser.role as UserRole, targetUser.role as UserRole);
 
   const logs = await prisma.permissionAuditLog.findMany({
     where: { affectedUser: userId, orgId: user.organizationId ?? "" },
