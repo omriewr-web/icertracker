@@ -70,17 +70,27 @@ Last Updated: 2026-03-18 (Onboarding wizard v2 session)
 - [x] Part 5: Preferences page at /settings/preferences + sidebar nav
 - [x] Fix: Moved [userId]/permissions → [id]/permissions to resolve Next.js slug conflict
 
+### ODK Command Center
+- [x] PIN verification API with timing-safe comparison + rate limiting
+- [x] Middleware protection — /ODK/* uses separate JWT auth, not NextAuth
+- [x] Login page — dark, minimal, auto-submit, shake on wrong PIN
+- [x] Command center dashboard — 5 tabs (Roadmap, Docs, Checklist, Tech, Notes)
+- [x] Live status sidebar with build status, quick links, key numbers
+- [x] API routes: /api/command/verify, tracker, docs, status
+- [x] Deployed to production at myatlaspm.com/ODK
+
 ---
 
 ## Active Work
-- Onboarding wizard v2 complete — not yet deployed
-- Permission system v2 complete — not yet deployed
-- Next: Deploy, test onboarding + invite flow end-to-end
+- ODK command center deployed — accessible at myatlaspm.com/ODK
+- IMPORTANT: Set ATLAS_COMMAND_PIN=xd933f5 in Vercel env vars (production + preview)
+- Next: Phase 0 tasks — LLC, password manager, Supabase backups, first Yardi import
 
 ## Deployment
 - Production: https://www.myatlaspm.com
+- ODK: https://www.myatlaspm.com/ODK
 - Last deploy: 2026-03-18
-- Build: 0 TypeScript errors, 32 static pages
+- Build: 0 TypeScript errors, 34 static pages
 
 ## Known Issues
 - Sentry configuration warnings (instrumentation file migration recommended by @sentry/nextjs)
@@ -91,3 +101,4 @@ Last Updated: 2026-03-18 (Onboarding wizard v2 session)
 - Permission management UI built at /settings/users — needs sidebar nav link added
 - First-login password change flow not yet implemented (users receive temp password)
 - [userId] slug directory removed — permissions route moved to [id]/permissions
+- ATLAS_COMMAND_PIN must be set in Vercel env vars manually (could not auto-set via CLI)
