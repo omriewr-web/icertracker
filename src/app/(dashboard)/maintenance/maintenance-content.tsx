@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Wrench, Plus, List, LayoutGrid, X, CheckSquare } from "lucide-react";
+import { Wrench, Plus, List, LayoutGrid, X, CheckSquare, AlertTriangle, RefreshCw } from "lucide-react";
 import { useWorkOrders, useBulkUpdateWorkOrders } from "@/hooks/use-work-orders";
 import { useVendors } from "@/hooks/use-vendors";
 import KpiCard from "@/components/ui/kpi-card";
@@ -24,7 +24,7 @@ import ExportButton from "@/components/ui/export-button";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
 
 export default function MaintenanceContent() {
-  const { data: workOrders, isLoading } = useWorkOrders();
+  const { data: workOrders, isLoading, isError, refetch } = useWorkOrders();
   const { data: vendors } = useVendors();
   const bulkUpdate = useBulkUpdateWorkOrders();
   const [selectedWO, setSelectedWO] = useState<string | null>(null);
@@ -113,6 +113,20 @@ export default function MaintenanceContent() {
   }
 
   if (isLoading) return <TablePageSkeleton />;
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-text-dim animate-fade-in">
+        <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+          <AlertTriangle className="h-8 w-8 text-red-400" />
+        </div>
+        <p className="text-sm text-text-muted">Failed to load work orders. Please try again.</p>
+        <button onClick={() => refetch()} className="mt-3 text-xs text-accent hover:underline flex items-center gap-1">
+          <RefreshCw className="w-3 h-3" /> Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

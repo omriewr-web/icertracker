@@ -1,5 +1,3 @@
-import * as XLSX from "xlsx";
-
 // ── Types ────────────────────────────────────────────────────
 
 export interface ExportColumn {
@@ -76,13 +74,15 @@ export function exportCSV(
 
 // ── XLSX Export ──────────────────────────────────────────────
 
-export function exportXLSX(
+export async function exportXLSX(
   data: Record<string, any>[],
   columns?: ExportColumn[],
   filename = "export"
 ) {
   const cols = resolveColumns(data, columns);
   if (cols.length === 0) return;
+
+  const XLSX = await import("xlsx");
 
   const mapped = mapRows(data, cols);
   const wb = XLSX.utils.book_new();

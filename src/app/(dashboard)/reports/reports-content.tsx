@@ -1,17 +1,18 @@
 "use client";
 
-import { BarChart3, FileDown, Printer } from "lucide-react";
+import { BarChart3, FileDown, Printer, AlertTriangle, RefreshCw, Database } from "lucide-react";
 import Button from "@/components/ui/button";
 import { useTenants } from "@/hooks/use-tenants";
 import { useMetrics } from "@/hooks/use-metrics";
 import { useExportExcel } from "@/hooks/use-export";
 import { generateCollectionReport } from "@/lib/report-generator";
 import { PageSkeleton } from "@/components/ui/skeleton";
+import EmptyState from "@/components/ui/empty-state";
 import KpiCard from "@/components/ui/kpi-card";
 import { fmt$ } from "@/lib/utils";
 
 export default function ReportsContent() {
-  const { data: tenants, isLoading } = useTenants();
+  const { data: tenants, isLoading, isError, refetch } = useTenants();
   const { data: metrics } = useMetrics();
   const exportExcel = useExportExcel();
 
@@ -39,6 +40,34 @@ export default function ReportsContent() {
   }
 
   if (isLoading) return <PageSkeleton />;
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-text-dim animate-fade-in">
+        <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+          <AlertTriangle className="h-8 w-8 text-red-400" />
+        </div>
+        <p className="text-sm text-text-muted">Failed to load report data. Please try again.</p>
+        <button onClick={() => refetch()} className="mt-3 text-xs text-accent hover:underline flex items-center gap-1">
+          <RefreshCw className="w-3 h-3" /> Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (!tenants || tenants.length === 0) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <h1 className="text-2xl font-bold text-text-primary">Reports</h1>
+        <EmptyState
+          icon={Database}
+          title="No tenant data available"
+          description="Import tenant data to generate reports."
+          action={{ label: "Import Data", href: "/data" }}
+        />
+      </div>
+    );
+  }
 
   const arrearsTenants = (tenants || []).filter((t) => t.balance > 0 && t.arrearsCategory !== "current");
   const legalCount = (tenants || []).filter((t) => t.legalFlag).length;

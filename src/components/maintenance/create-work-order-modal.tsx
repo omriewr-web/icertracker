@@ -92,11 +92,11 @@ export default function CreateWorkOrderModal({ open, onClose }: Props) {
     <Modal open={open} onClose={onClose} title="New Work Order">
       <div className="space-y-3">
         <div>
-          <label className="block text-xs text-text-dim mb-1">Title</label>
+          <label className="block text-xs text-text-dim mb-1">Title *</label>
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent" placeholder="Brief summary of the issue" />
         </div>
         <div>
-          <label className="block text-xs text-text-dim mb-1">Description</label>
+          <label className="block text-xs text-text-dim mb-1">Description *</label>
           <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent resize-none" rows={3} placeholder="Detailed description..." />
           <AIEnhanceButton value={form.description} context="work_order_description" onEnhanced={(v) => setForm({ ...form, description: v })} />
         </div>

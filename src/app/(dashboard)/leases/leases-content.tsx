@@ -8,17 +8,48 @@ import TenantTable from "@/components/tenant/tenant-table";
 import TenantDetailModal from "@/components/tenant/tenant-detail-modal";
 import TenantEditModal from "@/components/tenant/tenant-edit-modal";
 import { PageSkeleton } from "@/components/ui/skeleton";
+import EmptyState from "@/components/ui/empty-state";
 import ExportButton from "@/components/ui/export-button";
 import { fmt$ } from "@/lib/utils";
-import { FileText } from "lucide-react";
+import { FileText, AlertTriangle, RefreshCw } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 
 export default function LeasesContent() {
-  const { data: tenants, isLoading } = useTenants();
+  const { data: tenants, isLoading, isError, refetch } = useTenants();
   const { data: metrics } = useMetrics();
   const { setLeaseFilter } = useAppStore();
 
   if (isLoading) return <PageSkeleton />;
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-text-dim animate-fade-in">
+        <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+          <AlertTriangle className="h-8 w-8 text-red-400" />
+        </div>
+        <p className="text-sm text-text-muted">Failed to load lease data. Please try again.</p>
+        <button onClick={() => refetch()} className="mt-3 text-xs text-accent hover:underline flex items-center gap-1">
+          <RefreshCw className="w-3 h-3" /> Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (!tenants || tenants.length === 0) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-text-primary">Lease Management</h1>
+        </div>
+        <EmptyState
+          icon={FileText}
+          title="No tenants found"
+          description="Import tenant data to start managing leases."
+          action={{ label: "Import Data", href: "/data" }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

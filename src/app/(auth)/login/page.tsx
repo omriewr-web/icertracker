@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, Suspense } from "react";
+import Image from "next/image";
 
 function LoginForm() {
   const router = useRouter();
@@ -39,11 +40,14 @@ function LoginForm() {
   return (
     <div className="w-full max-w-sm">
       <div className="flex flex-col items-center mb-8">
-        <img
+        <Image
           src="/images/atlaspm-logo.jpg"
           alt="AtlasPM"
+          width={120}
+          height={120}
           className="rounded-xl"
           style={{ height: '120px', width: 'auto', filter: 'drop-shadow(0 0 24px rgba(201, 168, 76, 0.3))' }}
+          priority
         />
         <p className="text-text-muted text-sm mt-3 tracking-widest uppercase">Property Management</p>
       </div>
