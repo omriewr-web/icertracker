@@ -17,13 +17,23 @@ export const GET = withAuth(async (req, { user }) => {
     select: {
       id: true, email: true, name: true, username: true, role: true,
       active: true, createdAt: true, organizationId: true, managerId: true,
+      permissionPreset: true,
+      canExportSensitive: true, canDeleteRecords: true, canBulkUpdate: true,
+      canManageUsers: true, canManageOrgSettings: true,
       manager: { select: { id: true, name: true } },
       assignedProperties: { select: { buildingId: true, building: { select: { address: true } } } },
+      accessGrants: { select: { module: true, level: true, scopeType: true, scopeId: true } },
     },
     orderBy: { name: "asc" },
   });
 
-  return NextResponse.json(users);
+  // Add module count summary
+  const mapped = users.map((u) => ({
+    ...u,
+    moduleCount: u.accessGrants.filter((g) => g.level !== "none").length,
+  }));
+
+  return NextResponse.json(mapped);
 }, "users");
 
 export const POST = withAuth(async (req, { user }) => {

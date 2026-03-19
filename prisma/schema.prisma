@@ -143,6 +143,21 @@ model UserAccessGrant {
   @@map("user_access_grants")
 }
 
+model PermissionAuditLog {
+  id           String   @id @default(cuid())
+  orgId        String
+  changedBy    String
+  affectedUser String
+  changeType   String
+  oldValue     Json?
+  newValue     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([orgId, createdAt(sort: Desc)])
+  @@index([affectedUser])
+  @@map("permission_audit_logs")
+}
+
 model UserProperty {
   id         String   @id @default(cuid())
   userId     String
