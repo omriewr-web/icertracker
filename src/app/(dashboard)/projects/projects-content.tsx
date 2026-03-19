@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { FolderKanban, Plus, LayoutGrid, List } from "lucide-react";
+import { FolderKanban, Plus, LayoutGrid, List, AlertTriangle, RefreshCw } from "lucide-react";
 import { useProjects } from "@/hooks/use-projects";
 import { useBuildings } from "@/hooks/use-buildings";
 import KpiCard from "@/components/ui/kpi-card";
@@ -55,7 +55,7 @@ function label(s: string) {
 
 export default function ProjectsContent() {
   const searchParams = useSearchParams();
-  const { data: projects, isLoading } = useProjects();
+  const { data: projects, isLoading, isError, refetch } = useProjects();
   const { data: buildings } = useBuildings();
   const [showCreate, setShowCreate] = useState(false);
   const [prefill, setPrefill] = useState<{ name?: string; buildingId?: string; category?: string; fromWO?: string; fromViolation?: string } | undefined>();
@@ -116,6 +116,20 @@ export default function ProjectsContent() {
   }, [projects, filterBuilding, filterStatus, filterCategory, filterPriority, filterHealth]);
 
   if (isLoading) return <TablePageSkeleton />;
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-text-dim animate-fade-in">
+        <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+          <AlertTriangle className="h-8 w-8 text-red-400" />
+        </div>
+        <p className="text-sm text-text-muted">Failed to load projects. Please try again.</p>
+        <button onClick={() => refetch()} className="mt-3 text-xs text-accent hover:underline flex items-center gap-1">
+          <RefreshCw className="w-3 h-3" /> Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

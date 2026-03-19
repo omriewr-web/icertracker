@@ -69,7 +69,20 @@ export default function ProjectDetailContent() {
   const [descExpanded, setDescExpanded] = useState(false);
 
   if (isLoading) return <TablePageSkeleton />;
-  if (!project) return <div className="p-8 text-text-dim">Project not found</div>;
+  if (!project) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
+        <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+          <AlertTriangle className="h-8 w-8 text-red-400" />
+        </div>
+        <h2 className="text-lg font-semibold text-text-primary mb-1">Project not found</h2>
+        <p className="text-sm text-text-muted mb-4">The project you are looking for does not exist or has been removed.</p>
+        <Link href="/projects" className="text-sm text-accent hover:underline flex items-center gap-1">
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to Projects
+        </Link>
+      </div>
+    );
+  }
 
   const p = project;
   const stats: ProjectStats = p.stats ?? { health: "ON_TRACK", isOverdue: false, daysElapsed: null, daysRemaining: null, nextAction: null, budgetUsedPct: 0, milestoneProgress: "0 / 0" };

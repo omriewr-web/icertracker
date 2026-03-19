@@ -64,7 +64,7 @@ export default function ExportButton({
       if (format === "csv") {
         exportCSV(data, columns, fullFilename);
       } else if (format === "xlsx") {
-        exportXLSX(data, columns, fullFilename);
+        await exportXLSX(data, columns, fullFilename);
       } else {
         await exportPDF(data, columns, fullFilename, pdfConfig);
       }

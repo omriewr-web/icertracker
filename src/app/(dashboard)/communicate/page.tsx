@@ -130,7 +130,7 @@ export default function CommunicatePage() {
 
           <div>
             <label className="block text-xs text-text-muted mb-1">
-              Campaign Name
+              Campaign Name *
             </label>
             <input
               type="text"

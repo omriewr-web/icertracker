@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
@@ -123,19 +124,23 @@ export default function Sidebar() {
         </button>
         {sidebarCollapsed ? (
           <div className="flex justify-center py-1">
-            <img
+            <Image
               src="/images/atlaspm-logo.jpg"
               alt="AtlasPM"
+              width={36}
+              height={36}
               className="rounded"
-              style={{ height: '36px', width: '36px', objectFit: 'cover', objectPosition: 'center' }}
+              style={{ objectFit: 'cover', objectPosition: 'center' }}
             />
           </div>
         ) : (
           <>
             <div className="flex justify-center items-center py-3 mb-2">
-              <img
+              <Image
                 src="/images/atlaspm-logo.jpg"
                 alt="AtlasPM"
+                width={140}
+                height={80}
                 className="rounded-lg"
                 style={{ height: '80px', width: 'auto', maxWidth: '140px', objectFit: 'contain' }}
               />

@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   DoorOpen, Home, Wrench, CheckCircle, Clock, Tag, AlertTriangle,
   MoreHorizontal, Key, User, Package, HelpCircle, Hash,
-  ArrowRight, Hammer, DollarSign, Loader2, CalendarClock,
+  ArrowRight, Hammer, DollarSign, Loader2, CalendarClock, RefreshCw,
 } from "lucide-react";
 import {
   useVacancies, useUpdateVacancyStatus, useVacancyRent,
@@ -549,7 +549,7 @@ export default function VacanciesContent() {
   const [filterDays, setFilterDays] = useState<string>("");
   const [filterBuilding, setFilterBuilding] = useState<string>("");
 
-  const { data: vacancies, isLoading } = useVacancies({
+  const { data: vacancies, isLoading, isError, refetch } = useVacancies({
     status: filterStatus || undefined,
     daysVacant: filterDays || undefined,
   });
@@ -579,6 +579,20 @@ export default function VacanciesContent() {
   const lostRent = metrics?.lostRent || 0;
 
   if (isLoading) return <PageSkeleton />;
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-text-dim animate-fade-in">
+        <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+          <AlertTriangle className="h-8 w-8 text-red-400" />
+        </div>
+        <p className="text-sm text-text-muted">Failed to load vacancy data. Please try again.</p>
+        <button onClick={() => refetch()} className="mt-3 text-xs text-accent hover:underline flex items-center gap-1">
+          <RefreshCw className="w-3 h-3" /> Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
