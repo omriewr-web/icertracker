@@ -1231,17 +1231,23 @@ model ImportFeedback {
 // ── Core Entity Models ──────────────────────────────────────────
 
 model Organization {
-  id             String          @id @default(cuid())
-  name           String
-  slug           String          @unique
-  plan           String          @default("trial")
-  isActive       Boolean         @default(true)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  users          User[]
-  buildings      Building[]
-  leases         Lease[]
-  activityEvents ActivityEvent[]
+  id                     String          @id @default(cuid())
+  name                   String
+  slug                   String          @unique
+  plan                   String          @default("trial")
+  isActive               Boolean         @default(true)
+  stripeCustomerId       String?
+  stripeSubscriptionId   String?
+  subscriptionStatus     String?
+  currentPeriodEnd       DateTime?
+  unitCount              Int             @default(0)
+  pricePerUnit           Decimal         @default(2.00) @db.Decimal(10, 2)
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  users                  User[]
+  buildings              Building[]
+  leases                 Lease[]
+  activityEvents         ActivityEvent[]
 
   @@map("organizations")
 }
