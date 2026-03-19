@@ -33,6 +33,7 @@ export const GET = withAuth(async (req, { user }) => {
       monthsOwed: true,
       leaseStatus: true,
       collectionScore: true,
+      legalCases: { where: { isActive: true }, select: { inLegal: true }, take: 1 },
       unit: {
         select: {
           unitNumber: true,
@@ -85,7 +86,7 @@ export const GET = withAuth(async (req, { user }) => {
   // Portfolio summary
   const summary = computeAging(tenants);
   const totalRent = tenants.reduce((s, t) => s + toNumber(t.actualRent), 0);
-  const inLegalCount = tenants.filter((t) => t.leaseStatus === "legal" || t.collectionScore >= 80).length;
+  const inLegalCount = tenants.filter((t) => t.legalCases[0]?.inLegal === true).length;
 
   return NextResponse.json({
     summary: {

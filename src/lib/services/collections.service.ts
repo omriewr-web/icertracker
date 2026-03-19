@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getTenantScope, getBuildingScope, EMPTY_SCOPE, canAccessBuilding } from "@/lib/data-scope";
 import type { CollectionActionType, Prisma } from "@prisma/client";
 import { COLLECTION_CASE_STATUSES } from "@/lib/constants/statuses";
+import { calcCollectionScore, getLeaseStatus } from "@/lib/scoring";
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -657,20 +658,17 @@ export async function recalculateTenantBalance(tenantId: string): Promise<Recalc
     const rent = Math.max(Number(tenant.actualRent), Number(tenant.marketRent), Number(tenant.legalRent));
     const monthsOwed = rent > 0 ? Math.round((totalBalance / rent) * 10) / 10 : 0;
 
-    // Collection score (0-100): higher = worse risk
-    let score = 0;
-    if (totalBalance > 0) score += 10;
-    if (b31_60 > 0) score += 15;
-    if (b61_90 > 0) score += 25;
-    if (b90plus > 0) score += 30;
-    if (inLegal) score += 20;
-    if (monthsOwed >= 3) score += 10;
-    if (!lastPayment) score += 10;
-    else {
-      const daysSincePayment = Math.round((Date.now() - new Date(lastPayment.date).getTime()) / (1000 * 60 * 60 * 24));
-      if (daysSincePayment > 90) score += 10;
-    }
-    const collectionScore = Math.min(100, score);
+    // Collection score — use canonical algorithm from scoring.ts
+    const leaseStatus = getLeaseStatus(tenant.leaseExpiration);
+    const collectionScore = calcCollectionScore({
+      balance: totalBalance,
+      marketRent: rent,
+      arrearsDays,
+      leaseStatus,
+      legalFlag: inLegal,
+      legalRecommended: false,
+      isVacant: false,
+    });
 
     await tx.tenant.update({
       where: { id: tenantId },
@@ -821,7 +819,7 @@ export async function getFullARReport(
       current: snap ? Number(snap.balance0_30) : balance,
       days30: snap ? Number(snap.balance31_60) : 0,
       days60: snap ? Number(snap.balance61_90) : 0,
-      days90: snap ? Number(snap.balance90plus) : 0,
+      days90: t.arrearsDays >= 120 ? 0 : (snap ? Number(snap.balance90plus) : 0),
       days120: t.arrearsDays >= 120 && snap ? Number(snap.balance90plus) : 0,
       status: t.collectionCases[0]?.status ?? "CURRENT",
       daysSinceNote,

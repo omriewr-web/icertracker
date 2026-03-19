@@ -32,7 +32,53 @@ export const GET = withAuth(async (req, { user, params }) => {
   });
 
   if (!tenant || tenant.isDeleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(tenant);
+
+  // Normalize Decimal fields to plain numbers for JSON serialization
+  const result = {
+    ...tenant,
+    marketRent: toNumber(tenant.marketRent),
+    legalRent: toNumber(tenant.legalRent),
+    dhcrLegalRent: toNumber(tenant.dhcrLegalRent),
+    prefRent: toNumber(tenant.prefRent),
+    actualRent: toNumber(tenant.actualRent),
+    deposit: toNumber(tenant.deposit),
+    balance: toNumber(tenant.balance),
+    monthsOwed: toNumber(tenant.monthsOwed),
+    iaiMonthlyIncrease: tenant.iaiMonthlyIncrease != null ? toNumber(tenant.iaiMonthlyIncrease) : null,
+    legalCases: tenant.legalCases.map((lc) => ({
+      ...lc,
+      arrearsBalance: lc.arrearsBalance != null ? toNumber(lc.arrearsBalance) : null,
+    })),
+    payments: tenant.payments.map((p) => ({ ...p, amount: toNumber(p.amount) })),
+    leases: tenant.leases.map((l) => ({
+      ...l,
+      monthlyRent: toNumber(l.monthlyRent),
+      legalRent: toNumber(l.legalRent),
+      preferentialRent: toNumber(l.preferentialRent),
+      subsidyAmount: toNumber(l.subsidyAmount),
+      tenantPortion: toNumber(l.tenantPortion),
+      securityDeposit: toNumber(l.securityDeposit),
+      currentBalance: toNumber(l.currentBalance),
+      recurringCharges: l.recurringCharges.map((rc) => ({
+        ...rc,
+        amount: toNumber(rc.amount),
+      })),
+      balanceSnapshots: l.balanceSnapshots.map((s) => ({
+        ...s,
+        currentCharges: toNumber(s.currentCharges),
+        currentBalance: toNumber(s.currentBalance),
+        pastDueBalance: toNumber(s.pastDueBalance),
+      })),
+    })),
+    balanceSnapshots: tenant.balanceSnapshots.map((s) => ({
+      ...s,
+      currentCharges: toNumber(s.currentCharges),
+      currentBalance: toNumber(s.currentBalance),
+      pastDueBalance: toNumber(s.pastDueBalance),
+    })),
+  };
+
+  return NextResponse.json(result);
 });
 
 export const PATCH = withAuth(async (req, { user, params }) => {
@@ -82,50 +128,54 @@ export const PATCH = withAuth(async (req, { user, params }) => {
     collectionScore,
   });
 
-  const tenant = await prisma.tenant.update({ where: { id }, data: updateData });
+  const tenant = await prisma.$transaction(async (tx) => {
+    const updated = await tx.tenant.update({ where: { id }, data: updateData });
 
-  // Dual-write: sync Lease record
-  const unitInfo = await prisma.unit.findUnique({
-    where: { id: tenant.unitId },
-    select: { buildingId: true, building: { select: { organizationId: true } } },
-  });
+    // Dual-write: sync Lease record
+    const unitInfo = await tx.unit.findUnique({
+      where: { id: updated.unitId },
+      select: { buildingId: true, building: { select: { organizationId: true } } },
+    });
 
-  await prisma.lease.upsert({
-    where: { id: `${id}-lease` },
-    create: {
-      id: `${id}-lease`,
-      organizationId: unitInfo?.building?.organizationId ?? null,
-      buildingId: unitInfo?.buildingId ?? null,
-      unitId: tenant.unitId,
-      tenantId: id,
-      isCurrent: true,
-      leaseStart: tenant.moveInDate,
-      leaseEnd: tenant.leaseExpiration,
-      moveInDate: tenant.moveInDate,
-      monthlyRent: toNumber(tenant.marketRent),
-      legalRent: toNumber(tenant.legalRent),
-      securityDeposit: toNumber(tenant.deposit),
-      currentBalance: toNumber(tenant.balance),
-      chargeCode: tenant.chargeCode ?? null,
-      isStabilized: tenant.isStabilized,
-      status: tenant.leaseExpiration
-        ? (tenant.leaseExpiration < new Date() ? "EXPIRED" : "ACTIVE")
-        : "MONTH_TO_MONTH",
-    },
-    update: {
-      leaseStart: tenant.moveInDate,
-      leaseEnd: tenant.leaseExpiration,
-      moveInDate: tenant.moveInDate,
-      monthlyRent: toNumber(tenant.marketRent),
-      legalRent: toNumber(tenant.legalRent),
-      securityDeposit: toNumber(tenant.deposit),
-      currentBalance: toNumber(tenant.balance),
-      chargeCode: tenant.chargeCode ?? null,
-      isStabilized: tenant.isStabilized,
-      status: tenant.leaseExpiration
-        ? (tenant.leaseExpiration < new Date() ? "EXPIRED" : "ACTIVE")
-        : "MONTH_TO_MONTH",
-    },
+    await tx.lease.upsert({
+      where: { id: `${id}-lease` },
+      create: {
+        id: `${id}-lease`,
+        organizationId: unitInfo?.building?.organizationId ?? null,
+        buildingId: unitInfo?.buildingId ?? null,
+        unitId: updated.unitId,
+        tenantId: id,
+        isCurrent: true,
+        leaseStart: updated.moveInDate,
+        leaseEnd: updated.leaseExpiration,
+        moveInDate: updated.moveInDate,
+        monthlyRent: toNumber(updated.marketRent),
+        legalRent: toNumber(updated.legalRent),
+        securityDeposit: toNumber(updated.deposit),
+        currentBalance: toNumber(updated.balance),
+        chargeCode: updated.chargeCode ?? null,
+        isStabilized: updated.isStabilized,
+        status: updated.leaseExpiration
+          ? (updated.leaseExpiration < new Date() ? "EXPIRED" : "ACTIVE")
+          : "MONTH_TO_MONTH",
+      },
+      update: {
+        leaseStart: updated.moveInDate,
+        leaseEnd: updated.leaseExpiration,
+        moveInDate: updated.moveInDate,
+        monthlyRent: toNumber(updated.marketRent),
+        legalRent: toNumber(updated.legalRent),
+        securityDeposit: toNumber(updated.deposit),
+        currentBalance: toNumber(updated.balance),
+        chargeCode: updated.chargeCode ?? null,
+        isStabilized: updated.isStabilized,
+        status: updated.leaseExpiration
+          ? (updated.leaseExpiration < new Date() ? "EXPIRED" : "ACTIVE")
+          : "MONTH_TO_MONTH",
+      },
+    });
+
+    return updated;
   });
 
   return NextResponse.json(tenant);

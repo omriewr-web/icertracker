@@ -41,30 +41,34 @@ export const PATCH = withAuth(async (req: NextRequest, { user, params }) => {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
   }
 
-  // Update tenant fields
-  const updatedTenant = await prisma.tenant.update({
-    where: { id: tenantId },
-    data: tenantData,
-    include: {
-      unit: {
-        select: {
-          id: true,
-          unitNumber: true,
-          regulationType: true,
-          dhcrRegistrationId: true,
-          building: { select: { id: true, address: true } },
+  // Update tenant and unit fields atomically
+  const updatedTenant = await prisma.$transaction(async (tx) => {
+    const updated = await tx.tenant.update({
+      where: { id: tenantId },
+      data: tenantData,
+      include: {
+        unit: {
+          select: {
+            id: true,
+            unitNumber: true,
+            regulationType: true,
+            dhcrRegistrationId: true,
+            building: { select: { id: true, address: true } },
+          },
         },
       },
-    },
-  });
-
-  // Update unit fields if any
-  if (Object.keys(unitData).length > 0) {
-    await prisma.unit.update({
-      where: { id: tenant.unitId },
-      data: unitData,
     });
-  }
+
+    // Update unit fields if any
+    if (Object.keys(unitData).length > 0) {
+      await tx.unit.update({
+        where: { id: tenant.unitId },
+        data: unitData,
+      });
+    }
+
+    return updated;
+  });
 
   // Normalize Decimal fields to numbers
   const result = {
