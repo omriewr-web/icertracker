@@ -4,6 +4,7 @@ import { withAuth, parseBody } from "@/lib/api-helpers";
 import { vendorCreateSchema } from "@/lib/validations";
 import { getOrgScope } from "@/lib/data-scope";
 import { toNumber } from "@/lib/utils/decimal";
+import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export const GET = withAuth(async (req, { user }) => {
     where.workOrders = { some: { buildingId } };
   }
 
-  const vendors = await prisma.vendor.findMany({ where, orderBy: { name: "asc" } });
+  const vendors = await prisma.vendor.findMany({ where, orderBy: { name: "asc" }, take: 200 });
   return NextResponse.json(
     vendors.map((v) => ({
       ...v,
@@ -28,8 +29,16 @@ export const GET = withAuth(async (req, { user }) => {
 
 export const POST = withAuth(async (req, { user }) => {
   const data = await parseBody(req, vendorCreateSchema);
-  const vendor = await prisma.vendor.create({
-    data: { ...(data as any), organizationId: user.organizationId },
-  });
+  const createData: Prisma.VendorUncheckedCreateInput = {
+    name: data.name,
+    company: data.company ?? null,
+    email: data.email ?? null,
+    phone: data.phone ?? null,
+    specialty: data.specialty ?? null,
+    hourlyRate: data.hourlyRate ?? null,
+    notes: data.notes ?? null,
+    organizationId: user.organizationId ?? null,
+  };
+  const vendor = await prisma.vendor.create({ data: createData });
   return NextResponse.json(vendor, { status: 201 });
 }, "maintenance");

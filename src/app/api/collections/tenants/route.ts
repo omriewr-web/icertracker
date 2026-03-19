@@ -9,13 +9,13 @@ export const GET = withAuth(async (req, { user }) => {
   const buildingId = url.searchParams.get("buildingId") || undefined;
   const status = url.searchParams.get("status") || undefined;
   const minBalance = url.searchParams.get("minBalance")
-    ? Number(url.searchParams.get("minBalance"))
+    ? (Number(url.searchParams.get("minBalance")) || 0)
     : undefined;
   const page = url.searchParams.get("page")
-    ? Number(url.searchParams.get("page"))
+    ? (Number(url.searchParams.get("page")) || 1)
     : 1;
   const pageSize = url.searchParams.get("pageSize")
-    ? Number(url.searchParams.get("pageSize"))
+    ? (Number(url.searchParams.get("pageSize")) || 50)
     : 50;
 
   const result = await getARReport(user, {

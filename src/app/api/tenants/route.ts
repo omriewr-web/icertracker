@@ -36,8 +36,8 @@ export const GET = withAuth(async (req, { user }) => {
   const sortField = url.searchParams.get("sort") || "balance";
   const sortDir = url.searchParams.get("dir") === "asc" ? "asc" : "desc";
 
-  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
-  const limit = Math.min(Math.max(1, parseInt(url.searchParams.get("limit") || "50")), 100);
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10) || 1);
+  const limit = Math.min(Math.max(1, parseInt(url.searchParams.get("limit") || "50", 10) || 50), 100);
   const skip = (page - 1) * limit;
 
   const scope = getTenantScope(user, buildingId);

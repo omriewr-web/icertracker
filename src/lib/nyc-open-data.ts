@@ -130,8 +130,8 @@ export async function fetchEcbViolations(block: string, lot: string, boroId: str
 }
 
 export async function fetchHpdComplaints(block: string, lot: string, boroId: string): Promise<FetchResult> {
-  // New merged dataset (ygpa-z7cr) uses block/lot without boroid
   return socrataFetch(ENDPOINTS.HPD_COMPLAINTS, {
+    boroid: boroId,
     block: padBlock(block),
     lot: padLot(lot),
   });

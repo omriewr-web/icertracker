@@ -27,6 +27,7 @@ export const GET = withAuth(async (req, { user }) => {
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
 
+  // No take limit: full dataset needed for aggregation summary counts
   const meters = await prisma.utilityMeter.findMany({
     where: { ...scope, isActive: true },
     include: {
@@ -71,7 +72,7 @@ export const GET = withAuth(async (req, { user }) => {
   const buildingMap = new Map<string, { id: string; address: string; totalAccounts: number; unpaidThisMonth: number; noCheckThisMonth: number; riskCount: number; transferNeeded: number }>();
 
   for (const m of meters) {
-    const meterForRisk = { ...m, utilityType: m.utilityType, unitId: m.unitId };
+    const meterForRisk = { ...m, utilityType: m.utilityType, unitId: m.unitId, classification: (m as any).classification };
     const flags = computeRiskFlags(meterForRisk);
     const hasActiveAccount = m.accounts.some((a) => a.status === "active");
     if (hasActiveAccount) assigned++;

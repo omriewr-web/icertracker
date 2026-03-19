@@ -6,6 +6,7 @@ import { getBuildingScope, EMPTY_SCOPE, assertBuildingAccess } from "@/lib/data-
 import { getDisplayAddress } from "@/lib/building-matching";
 import { WorkOrderView } from "@/types";
 import { toNumber } from "@/lib/utils/decimal";
+import { validateWorkOrderRelations } from "@/lib/work-order-relations";
 
 export const dynamic = "force-dynamic";
 
@@ -68,10 +69,15 @@ export const GET = withAuth(async (req, { user }) => {
   if (priority) where.priority = priority;
   if (category) where.category = category;
 
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10) || 1);
+  const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get("limit") || "200", 10) || 200));
+
   const orders = await prisma.workOrder.findMany({
     where,
     include,
     orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
+    skip: (page - 1) * limit,
+    take: limit,
   });
 
   return NextResponse.json(orders.map(mapWorkOrder));
@@ -82,6 +88,14 @@ export const POST = withAuth(async (req, { user }) => {
 
   const forbidden = await assertBuildingAccess(user, data.buildingId);
   if (forbidden) return forbidden;
+
+  await validateWorkOrderRelations({
+    buildingId: data.buildingId,
+    unitId: data.unitId,
+    tenantId: data.tenantId,
+    vendorId: data.vendorId,
+    assignedToId: data.assignedToId,
+  });
 
   const wo = await prisma.workOrder.create({
     data: {
@@ -107,6 +121,17 @@ export const POST = withAuth(async (req, { user }) => {
     },
     include,
   });
+
+  // Fire-and-forget comms event
+  try {
+    const { emitWorkOrderCreated } = await import("@/lib/comms/work-order-events.service");
+    await emitWorkOrderCreated(
+      { orgId: user.organizationId!, workOrderId: wo.id, buildingId: wo.buildingId ?? null },
+      { title: wo.title, priority: wo.priority }
+    );
+  } catch {
+    // Non-blocking
+  }
 
   return NextResponse.json(mapWorkOrder(wo), { status: 201 });
 }, "maintenance");

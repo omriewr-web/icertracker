@@ -73,10 +73,15 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
     if (dateTo) where.issuedDate.lte = new Date(dateTo);
   }
 
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10) || 1);
+  const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get("limit") || "200", 10) || 200));
+
   const violations = await prisma.violation.findMany({
     where,
     include: { building: { select: { address: true, altAddress: true } } },
     orderBy: { createdAt: "desc" },
+    skip: (page - 1) * limit,
+    take: limit,
   });
 
   return NextResponse.json(violations.map(mapViolation));

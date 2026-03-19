@@ -34,6 +34,7 @@ export const GET = withAuth(async (req, { user }) => {
 
   const now = new Date();
 
+  // Cap at 500 rows; daysVacant filtering happens post-query on computed fields
   const units = await prisma.unit.findMany({
     where,
     include: {
@@ -57,6 +58,7 @@ export const GET = withAuth(async (req, { user }) => {
       },
     },
     orderBy: [{ building: { address: "asc" } }, { unitNumber: "asc" }],
+    take: 500,
   });
 
   const result = units.map((u) => {

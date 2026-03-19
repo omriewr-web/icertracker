@@ -30,8 +30,8 @@ export const GET = withAuth(async (req, { user }) => {
   const limitParam = url.searchParams.get("limit");
   // When no pagination params are passed (dropdown usage), return all buildings
   const paginated = pageParam != null || limitParam != null;
-  const page = Math.max(1, parseInt(pageParam || "1", 10));
-  const limit = Math.min(500, Math.max(1, parseInt(limitParam || "500", 10)));
+  const page = Math.max(1, parseInt(pageParam || "1", 10) || 1);
+  const limit = Math.min(500, Math.max(1, parseInt(limitParam || "500", 10) || 500));
 
   const scope = getBuildingIdScope(user);
   if (scope === EMPTY_SCOPE) return NextResponse.json([]);

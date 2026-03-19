@@ -27,6 +27,9 @@ export const GET = withAuth(async (req, { user }) => {
   if (priority) where.priority = priority;
   if (health) where.health = health;
 
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10) || 1);
+  const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get("limit") || "200", 10) || 200));
+
   const projects = await prisma.project.findMany({
     where,
     include: {
@@ -35,6 +38,8 @@ export const GET = withAuth(async (req, { user }) => {
       _count: { select: { workOrders: true, violations: true, budgetLines: true } },
     },
     orderBy: { updatedAt: "desc" },
+    skip: (page - 1) * limit,
+    take: limit,
   });
 
   const mapped = projects.map((p) => {

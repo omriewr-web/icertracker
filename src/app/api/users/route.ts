@@ -4,12 +4,15 @@ import { withAuth, parseBody } from "@/lib/api-helpers";
 import { userCreateSchema } from "@/lib/validations";
 import { getOrgScope } from "@/lib/data-scope";
 import { canCreateRole } from "@/lib/permissions";
+import { assertUserAdminAccess } from "@/lib/user-management";
 import type { UserRole } from "@/types";
 import bcrypt from "bcryptjs";
 
 export const dynamic = "force-dynamic";
 
 export const GET = withAuth(async (req, { user }) => {
+  assertUserAdminAccess(user.role as UserRole);
+
   const orgScope = getOrgScope(user);
 
   const users = await prisma.user.findMany({
@@ -25,6 +28,7 @@ export const GET = withAuth(async (req, { user }) => {
       accessGrants: { select: { module: true, level: true, scopeType: true, scopeId: true } },
     },
     orderBy: { name: "asc" },
+    take: 200,
   });
 
   // Add module count summary
@@ -37,6 +41,8 @@ export const GET = withAuth(async (req, { user }) => {
 }, "users");
 
 export const POST = withAuth(async (req, { user }) => {
+  assertUserAdminAccess(user.role as UserRole);
+
   const data = await parseBody(req, userCreateSchema);
 
   // Enforce role creation permissions

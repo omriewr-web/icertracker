@@ -41,6 +41,7 @@ export const GET = withAuth(async (req, { user }) => {
       { severity: "asc" },
       { lastTriggeredAt: "desc" },
     ],
+    take: 200,
   });
 
   // Re-sort by severity priority (critical > high > medium > low)

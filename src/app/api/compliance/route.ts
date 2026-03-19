@@ -57,6 +57,9 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
   if (status) where.status = status;
   if (frequency) where.frequency = frequency;
 
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10) || 1);
+  const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get("limit") || "200", 10) || 200));
+
   const items = await prisma.complianceItem.findMany({
     where,
     include: {
@@ -64,6 +67,8 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
       assignedVendor: { select: { name: true } },
     },
     orderBy: { nextDueDate: "asc" },
+    skip: (page - 1) * limit,
+    take: limit,
   });
 
   return NextResponse.json(items.map(mapComplianceItem));

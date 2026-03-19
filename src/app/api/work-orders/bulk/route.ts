@@ -57,6 +57,45 @@ export const POST = withAuth(async (req, { user }) => {
     ? (value || null)
     : value;
 
+  // Cross-entity validation: verify vendor/user belongs to same org
+  if (updateValue) {
+    // Derive org from the first work order's building
+    const sampleBuilding = await prisma.building.findUnique({
+      where: { id: workOrders[0].buildingId },
+      select: { organizationId: true },
+    });
+    const orgId = sampleBuilding?.organizationId ?? null;
+
+    if (action === "assign_vendor") {
+      const vendor = await prisma.vendor.findUnique({
+        where: { id: updateValue },
+        select: { organizationId: true },
+      });
+      if (!vendor) {
+        return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
+      }
+      if (orgId && vendor.organizationId && vendor.organizationId !== orgId) {
+        return NextResponse.json({ error: "Vendor does not belong to the same organization" }, { status: 400 });
+      }
+    }
+
+    if (action === "assign_user") {
+      const assignee = await prisma.user.findUnique({
+        where: { id: updateValue },
+        select: { organizationId: true, active: true },
+      });
+      if (!assignee) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+      if (!assignee.active) {
+        return NextResponse.json({ error: "Assigned user must be active" }, { status: 400 });
+      }
+      if (orgId && assignee.organizationId && assignee.organizationId !== orgId) {
+        return NextResponse.json({ error: "User does not belong to the same organization" }, { status: 400 });
+      }
+    }
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     // Build activity entries
     const activities = workOrders.map((wo) => {

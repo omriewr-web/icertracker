@@ -17,6 +17,9 @@ export const GET = withAuth(async (req, { user }) => {
 
   const where: any = { ...scope };
 
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10) || 1);
+  const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get("limit") || "500", 10) || 500));
+
   const units = await prisma.unit.findMany({
     where,
     include: {
@@ -29,6 +32,8 @@ export const GET = withAuth(async (req, { user }) => {
       },
     },
     orderBy: [{ building: { address: "asc" } }, { unitNumber: "asc" }],
+    skip: (page - 1) * limit,
+    take: limit,
   });
 
   return NextResponse.json(

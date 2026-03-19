@@ -51,10 +51,11 @@ export const GET = withAuth(async (req, { user }) => {
       },
     },
     orderBy: [{ building: { address: "asc" } }, { unit: { unitNumber: "asc" } }],
+    take: 200,
   });
 
   const result = meters.map((m) => {
-    const meterForRisk = { ...m, utilityType: m.utilityType, unitId: m.unitId };
+    const meterForRisk = { ...m, utilityType: m.utilityType, unitId: m.unitId, classification: (m as any).classification };
     const flags = computeRiskFlags(meterForRisk);
     const primary = primaryRiskFlag(flags);
     const activeAccount = m.accounts.find((a) => a.status === "active");
@@ -133,7 +134,7 @@ export const GET = withAuth(async (req, { user }) => {
 }, "utilities");
 
 export const POST = withAuth(async (req, { user }) => {
-  const { buildingId, unitId, utilityType, providerName, meterNumber, serviceAddress, notes } = await parseBody(req, utilityMeterCreateSchema);
+  const { buildingId, unitId, utilityType, classification, providerName, meterNumber, serviceAddress, notes } = await parseBody(req, utilityMeterCreateSchema);
 
   // Verify building access
   const accessErr = await assertBuildingAccess(user, buildingId);
@@ -144,6 +145,7 @@ export const POST = withAuth(async (req, { user }) => {
       buildingId,
       unitId: unitId || null,
       utilityType,
+      classification: classification || "unit_submeter",
       providerName: providerName || null,
       meterNumber: meterNumber || null,
       serviceAddress: serviceAddress || null,
