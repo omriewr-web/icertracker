@@ -198,12 +198,15 @@ export default function UtilitiesContent() {
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <KpiCard label="Active Accounts" value={summary.activeAccounts} icon={Gauge} onClick={() => { setFilterCheckStatus(""); setFilterRisk(""); }} />
-          <KpiCard label="Paid This Month" value={summary.paidThisMonth} color="#4caf82" onClick={() => { setFilterCheckStatus("paid"); setFilterRisk(""); }} />
-          <KpiCard label="Unpaid This Month" value={summary.unpaidThisMonth} color={summary.unpaidThisMonth > 0 ? "#e05c5c" : undefined} onClick={() => { setFilterCheckStatus("unpaid"); setFilterRisk(""); }} />
-          <KpiCard label="Not Recorded" value={summary.noCheckThisMonth} color={summary.noCheckThisMonth > 0 ? "#e09a3e" : undefined} onClick={() => { setFilterCheckStatus("no_check"); setFilterRisk(""); }} />
-          <KpiCard label="Transfer Needed" value={summary.transferNeeded} color={summary.transferNeeded > 0 ? "#e05c5c" : undefined} icon={ArrowRightLeft} onClick={() => { setFilterCheckStatus(""); setFilterRisk("transfer"); }} />
-          <KpiCard label="Risk Signals" value={summary.withRiskSignals} color={summary.withRiskSignals > 0 ? "#e05c5c" : undefined} icon={AlertTriangle} onClick={() => { setFilterCheckStatus(""); setFilterRisk("risk"); }} />
+          <KpiCard label="Active Accounts" value={summary.activeAccounts} icon={Gauge} onClick={() => { setFilterCheckStatus(""); setFilterRisk(""); setFilterTransfer(""); setFilterRiskOnly(false); }} />
+          <KpiCard label="Paid This Month" value={summary.paidThisMonth} color="#4caf82" onClick={() => { setFilterCheckStatus("paid"); setFilterRisk(""); setFilterTransfer(""); setFilterRiskOnly(false); }} />
+          <KpiCard label="Unpaid This Month" value={summary.unpaidThisMonth} color={summary.unpaidThisMonth > 0 ? "#e05c5c" : undefined} onClick={() => { setFilterCheckStatus("unpaid"); setFilterRisk(""); setFilterTransfer(""); setFilterRiskOnly(false); }} />
+          {/* Filter value "not_recorded" matches currentMonthCheckStatus from meters route */}
+          <KpiCard label="Not Recorded" value={summary.noCheckThisMonth} color={summary.noCheckThisMonth > 0 ? "#e09a3e" : undefined} onClick={() => { setFilterCheckStatus("not_recorded"); setFilterRisk(""); setFilterTransfer(""); setFilterRiskOnly(false); }} />
+          {/* Uses filterTransfer="all" — the transfer filter, not risk filter */}
+          <KpiCard label="Transfer Needed" value={summary.transferNeeded} color={summary.transferNeeded > 0 ? "#e05c5c" : undefined} icon={ArrowRightLeft} onClick={() => { setFilterCheckStatus(""); setFilterRisk(""); setFilterTransfer("all"); setFilterRiskOnly(false); }} />
+          {/* Uses filterRiskOnly=true to show all meters with any non-"ok" risk flag */}
+          <KpiCard label="Risk Signals" value={summary.withRiskSignals} color={summary.withRiskSignals > 0 ? "#e05c5c" : undefined} icon={AlertTriangle} onClick={() => { setFilterCheckStatus(""); setFilterRisk(""); setFilterTransfer(""); setFilterRiskOnly(true); }} />
         </div>
       )}
 
@@ -365,6 +368,7 @@ function CreateMeterModal({ open, onClose, buildings }: { open: boolean; onClose
     buildingId: selectedBuildingId || "",
     unitId: "",
     utilityType: "electric",
+    classification: "unit_submeter",
     providerName: "",
     meterNumber: "",
     serviceAddress: "",
@@ -400,7 +404,7 @@ function CreateMeterModal({ open, onClose, buildings }: { open: boolean; onClose
       {
         onSuccess: () => {
           onClose();
-          setForm({ buildingId: selectedBuildingId || "", unitId: "", utilityType: "electric", providerName: "", meterNumber: "", serviceAddress: "", notes: "" });
+          setForm({ buildingId: selectedBuildingId || "", unitId: "", utilityType: "electric", classification: "unit_submeter", providerName: "", meterNumber: "", serviceAddress: "", notes: "" });
         },
       }
     );
@@ -432,6 +436,21 @@ function CreateMeterModal({ open, onClose, buildings }: { open: boolean; onClose
             <option value="">Common Area / Building-level</option>
             {units.map((u: any) => <option key={u.id} value={u.id}>{u.unitNumber}</option>)}
           </select>
+        </div>
+
+        <div>
+          <label className="block text-xs text-text-dim mb-1">Meter Classification</label>
+          <select
+            value={form.classification}
+            onChange={(e) => setForm({ ...form, classification: e.target.value })}
+            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent"
+          >
+            <option value="unit_submeter">Unit Submeter (tenant-responsible)</option>
+            <option value="building_master">Building Master (owner-responsible)</option>
+            <option value="common_area">Common Area (owner-responsible)</option>
+            <option value="shared_meter">Shared Meter (multiple units)</option>
+          </select>
+          <p className="text-xs text-text-dim mt-1">Building Master and Common Area meters will not trigger missing-unit alerts.</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

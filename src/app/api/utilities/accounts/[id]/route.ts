@@ -35,7 +35,7 @@ export const PATCH = withAuth(async (req, { user, params }) => {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { accountNumber, assignedPartyType, assignedPartyName, tenantId, startDate, endDate, status, closedWithBalance, notes } = await parseBody(req, utilityAccountUpdateSchema);
+  const { accountNumber, assignedPartyType, assignedPartyName, tenantId, startDate, endDate, status, closedWithBalance, closeReason, notes } = await parseBody(req, utilityAccountUpdateSchema);
 
   const account = await prisma.utilityAccount.update({
     where: { id },
@@ -48,6 +48,9 @@ export const PATCH = withAuth(async (req, { user, params }) => {
       ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
       ...(status !== undefined && { status }),
       ...(closedWithBalance !== undefined && { closedWithBalance }),
+      ...(closeReason !== undefined && { closeReason }),
+      // Record who closed the account
+      ...(status === "closed" && { closedByUserId: user.id }),
       ...(notes !== undefined && { notes }),
     },
   });

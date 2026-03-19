@@ -19,6 +19,7 @@ interface MeterForRisk {
   isActive: boolean;
   utilityType?: string;
   unitId?: string | null;
+  classification?: string;
   unit: {
     isVacant: boolean;
     tenant: {
@@ -100,9 +101,16 @@ export function computeRiskFlags(meter: MeterForRisk): UtilityRiskFlag[] {
     }
   }
 
-  // Unit-specific meter types without unit link
+  // Unit-specific meter types without unit link — only flag unit_submeter classification
+  // building_master, common_area, shared_meter: no unitId is expected and correct
   const unitSpecificTypes = ["electric", "gas", "water"];
-  if (meter.utilityType && unitSpecificTypes.includes(meter.utilityType) && meter.unitId === null) {
+  const classification = meter.classification || "unit_submeter";
+  if (
+    meter.utilityType &&
+    unitSpecificTypes.includes(meter.utilityType) &&
+    meter.unitId === null &&
+    classification === "unit_submeter"
+  ) {
     flags.push("meter_missing_unit");
   }
 

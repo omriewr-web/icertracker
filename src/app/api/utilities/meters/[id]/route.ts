@@ -47,7 +47,7 @@ export const PATCH = withAuth(async (req, { user, params }) => {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { utilityType, providerName, meterNumber, serviceAddress, isActive, notes, unitId } = await parseBody(req, utilityMeterUpdateSchema);
+  const { utilityType, providerName, meterNumber, serviceAddress, isActive, classification, notes, unitId } = await parseBody(req, utilityMeterUpdateSchema);
 
   const meter = await prisma.utilityMeter.update({
     where: { id },
@@ -57,6 +57,7 @@ export const PATCH = withAuth(async (req, { user, params }) => {
       ...(meterNumber !== undefined && { meterNumber }),
       ...(serviceAddress !== undefined && { serviceAddress }),
       ...(isActive !== undefined && { isActive }),
+      ...(classification !== undefined && { classification }),
       ...(notes !== undefined && { notes }),
       ...(unitId !== undefined && { unitId: unitId || null }),
     },

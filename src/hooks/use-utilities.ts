@@ -125,7 +125,7 @@ export function useCreateMeter() {
   return useMutation({
     mutationFn: async (data: {
       buildingId: string; unitId?: string; utilityType: string;
-      providerName?: string; meterNumber?: string; serviceAddress?: string; notes?: string;
+      classification?: string; providerName?: string; meterNumber?: string; serviceAddress?: string; notes?: string;
     }) => {
       const res = await fetch("/api/utilities/meters", {
         method: "POST",
@@ -195,7 +195,10 @@ export function useCreateAccount() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to create account");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to create account");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -204,7 +207,7 @@ export function useCreateAccount() {
       qc.invalidateQueries({ queryKey: ["utility-summary"] });
       toast.success("Account created");
     },
-    onError: () => toast.error("Failed to create account"),
+    onError: (err: Error) => toast.error(err.message || "Failed to create account"),
   });
 }
 

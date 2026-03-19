@@ -1039,12 +1039,14 @@ async function detectUtilityRisks(): Promise<DetectedSignal[]> {
     }
   }
 
-  // Meter missing unit link — unit-specific types (electric/gas/water) without unitId
+  // Meter missing unit link — only flag unit_submeter classification
+  // building_master, common_area, shared_meter without unitId are expected and correct
   const metersWithoutUnit = await prisma.utilityMeter.findMany({
     where: {
       isActive: true,
       unitId: null,
       utilityType: { in: ["electric", "gas", "water"] },
+      classification: "unit_submeter",
     },
     select: {
       id: true,

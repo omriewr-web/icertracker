@@ -330,6 +330,7 @@ export const utilityMeterCreateSchema = z.object({
   buildingId: z.string().min(1),
   unitId: z.string().nullable().optional(),
   utilityType: z.string().min(1),
+  classification: z.enum(["unit_submeter", "building_master", "common_area", "shared_meter"]).default("unit_submeter"),
   providerName: z.string().nullable().optional(),
   meterNumber: z.string().nullable().optional(),
   serviceAddress: z.string().nullable().optional(),
@@ -342,6 +343,7 @@ export const utilityMeterUpdateSchema = z.object({
   meterNumber: z.string().nullable().optional(),
   serviceAddress: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
+  classification: z.enum(["unit_submeter", "building_master", "common_area", "shared_meter"]).optional(),
   notes: z.string().nullable().optional(),
   unitId: z.string().nullable().optional(),
 });
@@ -365,6 +367,7 @@ export const utilityAccountUpdateSchema = z.object({
   endDate: z.string().nullable().optional(),
   status: z.string().optional(),
   closedWithBalance: z.boolean().optional(),
+  closeReason: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
 });
 
@@ -673,4 +676,32 @@ export const linkWorkOrderSchema = z.object({
 
 export const violationCertifySchema = z.object({
   notes: z.string().nullable().optional(),
+});
+
+// ── Import Staging Review Schema ────────────────────────────────
+
+export const importStagingReviewSchema = z.object({
+  id: z.string().min(1, "Staging batch id is required"),
+  action: z.enum(["approve", "reject"]),
+  notes: z.string().nullable().optional(),
+});
+
+// ── Comms Schemas ───────────────────────────────────────────
+
+export const conversationCreateSchema = z.object({
+  type: z.enum(["direct", "group", "work_order", "violation", "legal_case", "building", "unit", "turnover"]),
+  targetUserId: z.string().min(1).optional(),
+  title: z.string().min(1).optional(),
+  memberIds: z.array(z.string()).optional(),
+  relatedEntityType: z.string().nullable().optional(),
+  relatedEntityId: z.string().nullable().optional(),
+  buildingId: z.string().nullable().optional(),
+});
+
+export const messageCreateSchema = z.object({
+  body: z.string().min(1, "Message body is required"),
+  messageType: z.enum(["standard", "status_update", "blocker", "approval_request", "vendor_update", "internal_note", "system_event"]).optional(),
+  replyToMessageId: z.string().nullable().optional(),
+  mentionedUserIds: z.array(z.string()).optional(),
+  metadata: z.record(z.unknown()).nullable().optional(),
 });

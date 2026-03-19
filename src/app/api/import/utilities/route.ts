@@ -43,6 +43,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
 
   let imported = 0, updated = 0, skipped = 0;
   const errors: { row: number; field: string; reason: string }[] = [];
+  const matchLog: { row: number; matchedBy: string | null; meterId: string }[] = [];
 
   for (let i = 0; i < parsed.data.length; i++) {
     const row = parsed.data[i] as Record<string, any>;
@@ -67,15 +68,50 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     if (dryRun) { imported++; continue; }
 
     try {
-      // Find or create meter
-      const existingMeter = accountNumber
-        ? await prisma.utilityMeter.findFirst({
-            where: { buildingId, meterNumber: row.meterNumber || undefined },
+      // Find or create meter — match hierarchy: accountNumber > meterNumber+type > unit+type
+      let existingMeter: (Awaited<ReturnType<typeof prisma.utilityMeter.findFirst>> & { accounts?: any[] }) | null = null;
+      let matchedBy: string | null = null;
+
+      if (accountNumber) {
+        const byAccount = await prisma.utilityMeter.findFirst({
+          where: { buildingId, accounts: { some: { accountNumber } } },
+          include: { accounts: true },
+        });
+        if (byAccount) { existingMeter = byAccount; matchedBy = "accountNumber"; }
+      }
+
+      if (!existingMeter && row.meterNumber) {
+        const meterNum = String(row.meterNumber).trim();
+        const inferredType = provider.toLowerCase().includes("water") ? "water" : provider.toLowerCase().includes("gas") || provider.toLowerCase().includes("grid") ? "gas" : "electric";
+        if (meterNum) {
+          const byMeter = await prisma.utilityMeter.findFirst({
+            where: { buildingId, meterNumber: meterNum, utilityType: inferredType },
             include: { accounts: true },
-          })
-        : null;
+          });
+          if (byMeter) { existingMeter = byMeter; matchedBy = "meterNumber"; }
+        }
+      }
+
+      if (!existingMeter && row.unitNumber) {
+        const unitNum = String(row.unitNumber).trim();
+        const inferredType = provider.toLowerCase().includes("water") ? "water" : provider.toLowerCase().includes("gas") || provider.toLowerCase().includes("grid") ? "gas" : "electric";
+        if (unitNum) {
+          const unit = await prisma.unit.findFirst({
+            where: { buildingId, unitNumber: unitNum },
+            select: { id: true },
+          });
+          if (unit) {
+            const byUnit = await prisma.utilityMeter.findFirst({
+              where: { buildingId, unitId: unit.id, utilityType: inferredType },
+              include: { accounts: true },
+            });
+            if (byUnit) { existingMeter = byUnit; matchedBy = "unit+type"; }
+          }
+        }
+      }
 
       if (existingMeter) {
+        matchLog.push({ row: i + 1, matchedBy, meterId: existingMeter.id });
         // Update meter
         await prisma.utilityMeter.update({
           where: { id: existingMeter.id },
@@ -86,8 +122,8 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
           },
         });
         // Upsert account if accountNumber provided
-        if (accountNumber) {
-          const existingAccount = existingMeter.accounts.find((a) => a.accountNumber === accountNumber);
+        if (accountNumber && existingMeter.accounts) {
+          const existingAccount = existingMeter.accounts.find((a: any) => a.accountNumber === accountNumber);
           if (!existingAccount) {
             await prisma.utilityAccount.create({
               data: { utilityMeterId: existingMeter.id, accountNumber, assignedPartyType: "unknown" },
@@ -138,5 +174,5 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     },
   });
 
-  return NextResponse.json({ imported, updated, skipped, errors, warnings: [], importLogId: importLog.id, dryRun });
+  return NextResponse.json({ imported, updated, skipped, errors, warnings: [], matchLog, importLogId: importLog.id, dryRun });
 }, "upload");

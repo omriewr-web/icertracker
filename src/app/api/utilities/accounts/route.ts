@@ -19,18 +19,62 @@ export const POST = withAuth(async (req, { user }) => {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const account = await prisma.utilityAccount.create({
-    data: {
-      utilityMeterId,
-      accountNumber: accountNumber || null,
-      assignedPartyType,
-      assignedPartyName: assignedPartyName || null,
-      tenantId: tenantId || null,
-      startDate: startDate ? new Date(startDate) : null,
-      status: "active",
-      notes: notes || null,
-    },
-  });
+  // FIX 1c: Enforce one active account per meter — check + create in transaction
+  try {
+    const account = await prisma.$transaction(async (tx) => {
+      const existingActive = await tx.utilityAccount.findFirst({
+        where: { utilityMeterId, status: "active" },
+        select: { id: true, accountNumber: true, startDate: true },
+      });
 
-  return NextResponse.json(account, { status: 201 });
+      if (existingActive) {
+        throw new Error(
+          `CONFLICT:Meter already has an active account (id: ${existingActive.id}, ` +
+          `account #: ${existingActive.accountNumber || "N/A"}, ` +
+          `opened: ${existingActive.startDate?.toISOString().split("T")[0] || "unknown"}). ` +
+          `Close the current account before opening a new one.`
+        );
+      }
+
+      // FIX 2b: Snapshot tenant identity at account open time
+      let tenantNameSnapshot: string | null = null;
+      let leaseStartSnapshot: Date | null = null;
+      let leaseEndSnapshot: Date | null = null;
+
+      if (tenantId) {
+        const tenant = await tx.tenant.findUnique({
+          where: { id: tenantId },
+          select: { name: true, moveInDate: true, leaseExpiration: true },
+        });
+        if (tenant) {
+          tenantNameSnapshot = tenant.name;
+          leaseStartSnapshot = tenant.moveInDate ?? null;
+          leaseEndSnapshot = tenant.leaseExpiration ?? null;
+        }
+      }
+
+      return tx.utilityAccount.create({
+        data: {
+          utilityMeterId,
+          accountNumber: accountNumber || null,
+          assignedPartyType,
+          assignedPartyName: assignedPartyName || null,
+          tenantId: tenantId || null,
+          tenantNameSnapshot,
+          leaseStartSnapshot,
+          leaseEndSnapshot,
+          startDate: startDate ? new Date(startDate) : null,
+          status: "active",
+          notes: notes || null,
+        },
+      });
+    });
+
+    return NextResponse.json(account, { status: 201 });
+  } catch (err: any) {
+    if (err.message?.startsWith("CONFLICT:")) {
+      return NextResponse.json({ error: err.message.replace("CONFLICT:", "") }, { status: 409 });
+    }
+    throw err;
+  }
 }, "utilities");

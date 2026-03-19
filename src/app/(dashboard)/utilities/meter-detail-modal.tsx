@@ -79,6 +79,7 @@ export default function MeterDetailModal({ meterId, onClose }: { meterId: string
       providerName: meter.providerName || "",
       meterNumber: meter.meterNumber || "",
       serviceAddress: meter.serviceAddress || "",
+      classification: meter.classification || "unit_submeter",
       notes: meter.notes || "",
     });
   }
@@ -103,7 +104,7 @@ export default function MeterDetailModal({ meterId, onClose }: { meterId: string
         accountNumber: accountForm.accountNumber || undefined,
         assignedPartyType: accountForm.assignedPartyType,
         assignedPartyName: accountForm.assignedPartyName || undefined,
-        tenantId: accountForm.tenantId || undefined,
+        tenantId: accountForm.assignedPartyType === "tenant" ? (accountForm.tenantId || undefined) : undefined,
         startDate: accountForm.startDate || undefined,
         notes: accountForm.notes || undefined,
       },
@@ -135,6 +136,7 @@ export default function MeterDetailModal({ meterId, onClose }: { meterId: string
         status: "closed",
         endDate: new Date().toISOString(),
         closedWithBalance: closeWithBalance,
+        closeReason: closeWithBalance ? "closed_with_balance" : "account_closed",
         notes: closeNotes || undefined,
       },
       {
@@ -192,6 +194,16 @@ export default function MeterDetailModal({ meterId, onClose }: { meterId: string
                   </div>
                 </div>
                 <div>
+                  <label className="block text-xs text-text-dim mb-1">Meter Classification</label>
+                  <select value={editForm.classification} onChange={(e) => setEditForm({ ...editForm, classification: e.target.value })} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent">
+                    <option value="unit_submeter">Unit Submeter (tenant-responsible)</option>
+                    <option value="building_master">Building Master (owner-responsible)</option>
+                    <option value="common_area">Common Area (owner-responsible)</option>
+                    <option value="shared_meter">Shared Meter (multiple units)</option>
+                  </select>
+                  <p className="text-xs text-text-dim mt-1">Building Master and Common Area meters will not trigger missing-unit alerts.</p>
+                </div>
+                <div>
                   <label className="block text-xs text-text-dim mb-1">Notes</label>
                   <textarea value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} rows={2} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent resize-none" />
                 </div>
@@ -226,7 +238,8 @@ export default function MeterDetailModal({ meterId, onClose }: { meterId: string
               {activeAccounts.length > 0 ? (
                 <div className="space-y-2">
                   {activeAccounts.map((acc: any) => {
-                    const tenant = acc.tenant || meter.unit?.tenant;
+                    // FIX 2c: Use snapshotted tenant identity, not current unit occupant
+                    const tenant = acc.tenant || (acc.tenantNameSnapshot ? { name: acc.tenantNameSnapshot, leaseExpiration: acc.leaseEndSnapshot, moveOutDate: null, leaseStatus: null } : meter.unit?.tenant);
                     const leaseExpired = tenant?.leaseExpiration && new Date(tenant.leaseExpiration) < new Date();
                     const movedOut = tenant?.moveOutDate && new Date(tenant.moveOutDate) < new Date();
                     const moveOutSoon = tenant?.moveOutDate && !movedOut && new Date(tenant.moveOutDate).getTime() - Date.now() < 7 * 86400000;
@@ -318,7 +331,7 @@ export default function MeterDetailModal({ meterId, onClose }: { meterId: string
                     <div key={acc.id} className="bg-bg border border-border/50 rounded-lg p-3 opacity-70">
                       <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-4 gap-y-1 text-sm">
                         <div><span className="text-text-dim text-xs">Account #</span><p className="text-text-muted font-mono text-xs">{acc.accountNumber || "—"}</p></div>
-                        <div><span className="text-text-dim text-xs">Party</span><p className="text-text-muted">{acc.assignedPartyName || acc.assignedPartyType}</p></div>
+                        <div><span className="text-text-dim text-xs">Party</span><p className="text-text-muted">{acc.tenantNameSnapshot || acc.assignedPartyName || acc.assignedPartyType}</p></div>
                         <div><span className="text-text-dim text-xs">Opened</span><p className="text-text-muted">{formatDate(acc.startDate)}</p></div>
                         <div><span className="text-text-dim text-xs">Closed</span><p className="text-text-muted">{formatDate(acc.endDate)}</p></div>
                         <div>
@@ -328,6 +341,8 @@ export default function MeterDetailModal({ meterId, onClose }: { meterId: string
                           </p>
                         </div>
                       </div>
+                      {acc.closeReason && <p className="text-xs text-text-dim mt-0.5">Reason: {acc.closeReason.replace(/_/g, " ")}</p>}
+                      {acc.tenantNameSnapshot && <p className="text-xs text-text-dim mt-0.5">Responsible party recorded at account open on {formatDate(acc.startDate)}</p>}
                       {acc.notes && <p className="text-xs text-text-dim mt-1">{acc.notes}</p>}
                     </div>
                   ))}
@@ -340,6 +355,29 @@ export default function MeterDetailModal({ meterId, onClose }: { meterId: string
 
       {/* New Account Modal */}
       <Modal open={showNewAccount} onClose={() => setShowNewAccount(false)} title="Open New Account">
+        {/* FIX 1d: Warn if meter already has an active account */}
+        {activeAccounts.length > 0 && (
+          <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <p className="text-amber-400 font-medium">This meter already has an active account</p>
+                <p className="text-text-muted mt-1">
+                  Opened {formatDate(activeAccounts[0].startDate)}, assigned to {activeAccounts[0].assignedPartyName || activeAccounts[0].assignedPartyType}.
+                  You must close the current account before opening a new one.
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 text-amber-400 hover:text-amber-300"
+                  onClick={() => { setShowNewAccount(false); setCloseAccountId(activeAccounts[0].id); }}
+                >
+                  <XCircle className="w-3.5 h-3.5" /> Close Current Account First
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
         <form onSubmit={handleCreateAccount} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -347,8 +385,8 @@ export default function MeterDetailModal({ meterId, onClose }: { meterId: string
               <input value={accountForm.accountNumber} onChange={(e) => setAccountForm({ ...accountForm, accountNumber: e.target.value })} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent" />
             </div>
             <div>
-              <label className="block text-xs text-text-dim mb-1">Assigned Party *</label>
-              <select value={accountForm.assignedPartyType} onChange={(e) => setAccountForm({ ...accountForm, assignedPartyType: e.target.value })} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent" required>
+              <label className="block text-xs text-text-dim mb-1">Responsible Party *</label>
+              <select value={accountForm.assignedPartyType} onChange={(e) => setAccountForm({ ...accountForm, assignedPartyType: e.target.value, tenantId: "" })} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent" required>
                 <option value="tenant">Tenant</option>
                 <option value="owner">Owner</option>
                 <option value="management">Management</option>
@@ -356,6 +394,40 @@ export default function MeterDetailModal({ meterId, onClose }: { meterId: string
               </select>
             </div>
           </div>
+          {/* FIX 2b: Tenant selector when responsible party is tenant */}
+          {accountForm.assignedPartyType === "tenant" && meter?.unit?.tenant && (
+            <div>
+              <label className="block text-xs text-text-dim mb-1">Tenant *</label>
+              <select
+                value={accountForm.tenantId}
+                onChange={(e) => {
+                  const tid = e.target.value;
+                  const t = meter.unit?.tenant;
+                  setAccountForm({
+                    ...accountForm,
+                    tenantId: tid,
+                    assignedPartyName: t && tid ? t.name : accountForm.assignedPartyName,
+                  });
+                }}
+                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent"
+                required
+              >
+                <option value="">Select tenant...</option>
+                {meter.unit.tenant && (
+                  <option value={meter.unit.tenant.id}>
+                    {meter.unit.tenant.name}
+                    {meter.unit.tenant.leaseExpiration ? ` (lease ends ${formatDate(meter.unit.tenant.leaseExpiration)})` : ""}
+                  </option>
+                )}
+              </select>
+              <p className="text-xs text-text-dim mt-1">Tenant identity will be snapshotted at account open and preserved after turnover.</p>
+            </div>
+          )}
+          {accountForm.assignedPartyType === "tenant" && !meter?.unit?.tenant && (
+            <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded text-xs text-amber-400">
+              No active tenant on this unit. Select a different responsible party or assign a tenant to the unit first.
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-text-dim mb-1">Party Name</label>
@@ -372,7 +444,7 @@ export default function MeterDetailModal({ meterId, onClose }: { meterId: string
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" size="sm" onClick={() => setShowNewAccount(false)}>Cancel</Button>
-            <Button type="submit" size="sm" disabled={createAccount.isPending}>
+            <Button type="submit" size="sm" disabled={createAccount.isPending || activeAccounts.length > 0}>
               {createAccount.isPending ? "Creating..." : "Open Account"}
             </Button>
           </div>
