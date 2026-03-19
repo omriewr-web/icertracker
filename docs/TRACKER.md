@@ -99,6 +99,18 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - [x] UTL-4 (MEDIUM): Fix duplicate meter creation on import — match hierarchy: accountNumber > meterNumber+type > unit+type
 - [x] UTL-5 (MEDIUM): Exclude common/master meters from risk engine — classification field + backfill + classification-aware rules
 
+### Utility Phase 1+2 — Event History + Automation (2026-03-19)
+- [x] UP1-1: Schema — UtilityResponsibilityEvent, UtilityTask models + workflowState on UtilityAccount
+- [x] UP1-2: Responsibility event service — immutable audit log for all utility changes
+- [x] UP1-3: Utility task service — CRUD, batch creation, dashboard counts
+- [x] UP1-4: Event recording hooks — account open/close trigger event recording
+- [x] UP1-5: Event history on meter detail API + EventHistorySection in modal
+- [x] UP2-1: Automation service — onMoveOutRecorded, onUnitBecameVacant, onNewTenantCreated, onVacancyClosed
+- [x] UP2-2: Task API routes — GET/POST tasks, GET/PATCH tasks/[id], GET counts
+- [x] UP2-3: Vacancy + tenant route hooks — fire-and-forget automation on lifecycle events
+- [x] UP2-4: Signal engine — 3 new rules (task overdue, owner hold pending, old tenant active)
+- [x] UP2-5: Tests — 10 new automation tests (29 total utility tests)
+
 ### Atlas Comms V1 (2026-03-19)
 - [x] AC-1: Schema — Conversation, ConversationMember, Message, MessageAttachment, MessageReaction, MessageMention, PinnedMessage + enums
 - [x] AC-2: Service layer — conversation.service.ts (DM, group, entity threads, list, detail, archive, mute, members, mark-read)
