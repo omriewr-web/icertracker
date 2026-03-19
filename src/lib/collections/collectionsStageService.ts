@@ -153,6 +153,21 @@ export async function advanceStage(
   const actionDueBy = computeActionDueBy(newStage, protocol);
 
   return prisma.$transaction(async (tx) => {
+    const current = await tx.collectionStage.findUnique({
+      where: { tenantId },
+      select: { stage: true },
+    });
+
+    if (!current) {
+      throw new Error("Collection stage not found for this tenant");
+    }
+
+    if (newStage <= current.stage) {
+      throw new Error(
+        `Cannot regress stage from ${current.stage} to ${newStage}. Stage must advance forward.`
+      );
+    }
+
     return tx.collectionStage.update({
       where: { tenantId },
       data: {

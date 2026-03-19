@@ -178,7 +178,19 @@ export const PATCH = withAuth(async (req, { user, params }) => {
     return updated;
   });
 
-  return NextResponse.json(tenant);
+  // Normalize Decimal fields for JSON serialization (same as GET)
+  return NextResponse.json({
+    ...tenant,
+    marketRent: toNumber(tenant.marketRent),
+    legalRent: toNumber(tenant.legalRent),
+    dhcrLegalRent: toNumber(tenant.dhcrLegalRent),
+    prefRent: toNumber(tenant.prefRent),
+    actualRent: toNumber(tenant.actualRent),
+    deposit: toNumber(tenant.deposit),
+    balance: toNumber(tenant.balance),
+    monthsOwed: toNumber(tenant.monthsOwed),
+    iaiMonthlyIncrease: tenant.iaiMonthlyIncrease != null ? toNumber(tenant.iaiMonthlyIncrease) : null,
+  });
 }, "edit");
 
 export const DELETE = withAuth(async (req, { user, params }) => {

@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { withCronAuth } from "@/lib/with-cron-auth";
 import { refreshStageStatuses } from "@/lib/collections/collectionsBackfill";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  // Run for all active organizations
+export const POST = withCronAuth(async () => {
   const orgs = await prisma.organization.findMany({
     where: { isActive: true },
     select: { id: true },
@@ -23,4 +18,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ success: true, results });
-}
+});
