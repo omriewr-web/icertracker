@@ -124,6 +124,6 @@ export const config = {
      * - ODK/login, api/command/verify — ODK login (handled by handleODK above)
      * - _next/static, _next/image, favicon.ico — static assets
      */
-    "/((?!login|request|api/auth|api/health|api/work-orders/request|_next/static|_next/image|favicon.ico).*)",
+    "/((?!login|request|api/auth|api/health|api/work-orders/request|_next/static|_next/image|images|favicon.ico).*)",
   ],
 };
