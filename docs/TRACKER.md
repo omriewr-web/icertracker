@@ -1,6 +1,6 @@
 # AtlasPM — Project Tracker
 
-Last Updated: 2026-03-18 (Admin user management session)
+Last Updated: 2026-03-18 (Onboarding wizard v2 session)
 
 ---
 
@@ -62,11 +62,20 @@ Last Updated: 2026-03-18 (Admin user management session)
 - [x] P8: Admin UI — Team & Permissions page at /settings/users with invite/edit drawer
 - [x] P9: Schema — PermissionAuditLog model for tracking permission changes
 
+### Onboarding Wizard v2
+- [x] Part 1: Schema — UserPreferences model
+- [x] Part 2: Preferences API — GET/PATCH /api/user/preferences
+- [x] Part 3: Terms API — POST /api/user/terms with IP logging
+- [x] Part 4: 6-step wizard — Legal → Personal → Access → Briefing → Alerts → Tour
+- [x] Part 5: Preferences page at /settings/preferences + sidebar nav
+- [x] Fix: Moved [userId]/permissions → [id]/permissions to resolve Next.js slug conflict
+
 ---
 
 ## Active Work
-- Permission system v2 + admin UI complete — not yet deployed
-- Next: Deploy, test invite flow end-to-end, onboard real portfolio
+- Onboarding wizard v2 complete — not yet deployed
+- Permission system v2 complete — not yet deployed
+- Next: Deploy, test onboarding + invite flow end-to-end
 
 ## Deployment
 - Production: https://www.myatlaspm.com
@@ -81,3 +90,4 @@ Last Updated: 2026-03-18 (Admin user management session)
 - Permission system v2 runs alongside existing role system — old routes still use hasPermission(), new routes should use can()
 - Permission management UI built at /settings/users — needs sidebar nav link added
 - First-login password change flow not yet implemented (users receive temp password)
+- [userId] slug directory removed — permissions route moved to [id]/permissions
