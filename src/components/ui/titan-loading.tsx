@@ -9,10 +9,10 @@ interface TitanLoadingProps {
 }
 
 const TITAN_MESSAGES: Record<string, string> = {
-  argus: "Argus is watching...",
-  coeus: "Coeus is analyzing...",
-  prometheus: "Prometheus is gathering intelligence...",
-  themis: "Themis is reviewing...",
+  argus: "Analyzing risk...",
+  coeus: "Analyzing signals...",
+  prometheus: "Gathering intelligence...",
+  themis: "Reviewing case...",
 };
 
 export default function TitanLoading({ titan = "argus", message, className }: TitanLoadingProps) {

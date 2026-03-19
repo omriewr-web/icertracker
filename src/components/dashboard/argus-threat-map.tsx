@@ -168,7 +168,7 @@ export function ArgusThreatMap({ onSelect, selected }: Props) {
           textTransform: "uppercase",
         }}
       >
-        Argus scanning...
+        Scanning buildings...
       </div>
     );
   }
@@ -211,7 +211,7 @@ export function ArgusThreatMap({ onSelect, selected }: Props) {
           borderRadius: "3px",
         }}
       >
-        Argus Threat Map — New York City
+        Building Risk Map — New York City
       </div>
 
       {/* Stats overlay */}

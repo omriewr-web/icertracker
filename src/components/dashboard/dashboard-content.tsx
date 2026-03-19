@@ -125,7 +125,7 @@ export default function DashboardContent() {
 
       {/* === WAR ROOM: MAP + INTEL === */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-3">
-        {/* Left: Argus map */}
+        {/* Left: Risk map */}
         <div className="bg-atlas-navy-3 border border-border rounded-xl overflow-hidden">
           <div className="px-3.5 pt-2.5 pb-2 flex items-center justify-between">
             <div>
@@ -138,7 +138,7 @@ export default function DashboardContent() {
                 }}
                 className="text-text-dim mb-0.5"
               >
-                Argus Threat Map
+                Building Risk Map
               </div>
               <div className="text-xs font-semibold text-text-primary">{selectedPortfolio || "All Properties"} — Live</div>
             </div>
@@ -155,7 +155,7 @@ export default function DashboardContent() {
                 padding: "4px 10px",
               }}
             >
-              Run Argus Scan →
+              Run Risk Scan →
             </Link>
           </div>
           <ArgusThreatMap onSelect={setMapBuilding} selected={mapBuilding} />

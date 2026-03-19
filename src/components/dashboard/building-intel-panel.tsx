@@ -94,7 +94,7 @@ export function BuildingIntelPanel({ building }: { building: RiskBuilding | null
               marginBottom: "2px",
             }}
           >
-            Argus Risk Assessment
+            Risk Assessment
           </div>
           <div
             style={{
