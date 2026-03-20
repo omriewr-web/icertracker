@@ -162,7 +162,7 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - Note: Requires OPENAI_API_KEY and ANTHROPIC_API_KEY as GitHub repo secrets
 
 ## Active Work
-- Sentry observability hardened — structured error capture across API routes, crons, services; test page deployed
+- Sentry observability complete — test pages fixed and deployed, verified client+server error capture
 - Two-agent loop live — Codex audits every 6h, Claude repairs 1h later
 - Intelligence Layer V1 complete — cross-module attention scoring, action cards, decision learning loop, thread summaries
 - IMMEDIATE: Fix 3 Decimal serialization routes + 2 missing transactions + audit balance/vacancy sync call sites
@@ -174,7 +174,7 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - Production: https://www.myatlaspm.com
 - ODK: https://www.myatlaspm.com/odk
 - Last deploy: 2026-03-19
-- Build: 0 TypeScript errors, 45 static pages
+- Build: 0 TypeScript errors, 47 static pages
 
 ## Known Issues
 
