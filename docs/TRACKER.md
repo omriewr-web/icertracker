@@ -24,7 +24,7 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - [x] W3-C: Empty-state and loading-state audit (Dashboard, Users, Calendar, Scorecard fixed)
 - [x] W3-D: Redirect and alias cleanup
 - [x] W3-E: Dashboard metrics refinement
-- [x] W3-F: Sentry configuration fix — full observability stack: dev/prod sample rates, replay integration, component annotation, sourcemap upload+deletion, SentryUserContext, structured error capture in withAuth/withCronAuth/violation-sync/email-service, test page at /test-error (2026-03-19)
+- [x] W3-F: Sentry configuration fix — full observability stack: dev/prod sample rates, replay integration, component annotation, sourcemap upload+deletion, SentryUserContext, structured error capture in withAuth/withCronAuth/violation-sync/email-service, test page at /test-error, duplicate Replay init guard (2026-03-19)
 
 ### Wave 4 — Workflow Tests
 - [x] W4-A: Collections workflow tests
