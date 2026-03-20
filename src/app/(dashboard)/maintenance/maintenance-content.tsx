@@ -40,12 +40,17 @@ export default function MaintenanceContent() {
 
   const stats = useMemo(() => {
     const wos = workOrders || [];
+    const completed = wos.filter((w) => w.status === "COMPLETED");
+    const totalCost = completed.reduce((s, w) => s + (w.actualCost || 0), 0);
+    const hasAnyCost = completed.some((w) => w.actualCost != null && w.actualCost > 0);
     return {
       total: wos.length,
       open: wos.filter((w) => w.status === "OPEN").length,
       inProgress: wos.filter((w) => w.status === "IN_PROGRESS").length,
       urgent: wos.filter((w) => w.priority === "URGENT" && w.status !== "COMPLETED").length,
-      totalCost: wos.filter((w) => w.status === "COMPLETED").reduce((s, w) => s + (w.actualCost || 0), 0),
+      totalCost,
+      completedCount: completed.length,
+      hasAnyCost,
     };
   }, [workOrders]);
 
@@ -211,7 +216,7 @@ export default function MaintenanceContent() {
             <KpiCard label="Open" value={stats.open} color="#3B82F6" onClick={() => { setFilterStatus("OPEN"); setFilterPriority("all"); }} />
             <KpiCard label="In Progress" value={stats.inProgress} color="#F59E0B" onClick={() => { setFilterStatus("IN_PROGRESS"); setFilterPriority("all"); }} />
             <KpiCard label="Urgent" value={stats.urgent} color="#EF4444" onClick={() => { setFilterStatus("all"); setFilterPriority("URGENT"); }} />
-            <KpiCard label="Costs (Completed)" value={fmt$(stats.totalCost)} color="#10B981" onClick={() => { setFilterStatus("COMPLETED"); setFilterPriority("all"); }} />
+            <KpiCard label="Costs (Completed)" value={stats.hasAnyCost ? fmt$(stats.totalCost) : stats.completedCount > 0 ? "No costs recorded" : "—"} color="#10B981" onClick={() => { setFilterStatus("COMPLETED"); setFilterPriority("all"); }} />
           </div>
 
           {view === "list" && (

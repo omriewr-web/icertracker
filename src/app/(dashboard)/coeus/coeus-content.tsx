@@ -24,15 +24,6 @@ import {
   TrendingUp,
 } from "lucide-react";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
-import {
   useSignals,
   useRunScan,
   useAcknowledgeSignal,
@@ -90,14 +81,6 @@ function getEntityLink(signal: Signal): string {
 }
 
 const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
-
-const chartTooltipStyle = {
-  background: "linear-gradient(135deg, #141A24, #1A2232)",
-  border: "1px solid #2A3441",
-  borderRadius: 12,
-  color: "#E8ECF1",
-  boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
-};
 
 // ── Main Component ─────────────────────────────────────────────
 
@@ -292,18 +275,26 @@ export default function CoeusContent() {
           {/* Severity Chart */}
           <div className="bg-atlas-navy-3 border border-border rounded-xl p-4">
             <h3 className="text-xs font-medium text-text-dim uppercase tracking-wider mb-3">By Severity</h3>
-            <ResponsiveContainer width="100%" height={120}>
-              <BarChart data={severityChartData} layout="vertical" margin={{ left: 0, right: 10 }}>
-                <XAxis type="number" hide />
-                <YAxis type="category" dataKey="name" tick={{ fill: "#8899AA", fontSize: 11 }} axisLine={false} tickLine={false} width={60} />
-                <Tooltip contentStyle={chartTooltipStyle} formatter={(v: number) => [v, "Insights"]} />
-                <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={16}>
-                  {severityChartData.map((d, i) => (
-                    <Cell key={i} fill={d.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="space-y-2">
+              {severityChartData.map((d) => {
+                const maxCount = Math.max(...severityChartData.map((s) => s.count), 1);
+                const pct = (d.count / maxCount) * 100;
+                return (
+                  <div key={d.name} className="flex items-center gap-2">
+                    <span className="text-xs text-text-dim w-[52px] text-right shrink-0">{d.name}</span>
+                    <div className="flex-1 h-4 bg-white/5 rounded overflow-hidden">
+                      {d.count > 0 && (
+                        <div
+                          className="h-full rounded transition-all duration-500"
+                          style={{ width: `${pct}%`, backgroundColor: d.fill }}
+                        />
+                      )}
+                    </div>
+                    <span className="text-xs text-text-primary font-semibold w-8 text-right">{d.count}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* By Type */}
