@@ -6,6 +6,9 @@
 **TypeScript errors:** 0
 **Test results:** 467 passed / 0 failed (32 test files)
 
+## Fix Status (2026-03-19)
+62+ issues fixed across 13 automated passes. Remaining: M1 (CSRF — deferred, needs architecture), M2 (demo password — deferred by user), L12 (composite indexes — blocked on schema changes).
+
 ---
 
 ## CRITICAL ISSUES

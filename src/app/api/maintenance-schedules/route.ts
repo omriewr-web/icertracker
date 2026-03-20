@@ -19,6 +19,7 @@ export const GET = withAuth(async (req, { user }) => {
       unit: { select: { unitNumber: true } },
     },
     orderBy: { nextDueDate: "asc" },
+    take: 200,
   });
 
   return NextResponse.json(schedules);

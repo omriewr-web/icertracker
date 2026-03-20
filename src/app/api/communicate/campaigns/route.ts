@@ -16,6 +16,7 @@ export const GET = withAuth(async (_req, { user }) => {
     where: { orgId: user.organizationId },
     include: { _count: { select: { messages: true } } },
     orderBy: { createdAt: "desc" },
+    take: 100,
   });
   return NextResponse.json(campaigns);
 }, "collections");

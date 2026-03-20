@@ -40,6 +40,7 @@ export const GET = withAuth(async (req, { user }) => {
       },
     },
     orderBy: { collectionScore: "desc" },
+    take: 200,
   });
 
   const candidates = tenants

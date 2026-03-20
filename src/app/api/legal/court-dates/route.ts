@@ -21,6 +21,7 @@ export const GET = withAuth(async (req, { user }) => {
       tenant: tenantScope as object,
     },
     orderBy: { courtDate: "asc" },
+    take: 200,
     select: {
       id: true,
       courtDate: true,

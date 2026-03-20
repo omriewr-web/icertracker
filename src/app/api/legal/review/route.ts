@@ -39,6 +39,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
     const items = await prisma.legalImportQueue.findMany({
       where: { status: "pending" },
       orderBy: { createdAt: "desc" },
+      take: 200,
     });
     return NextResponse.json({ items });
   }
@@ -63,6 +64,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
       candidateTenantId: { in: orgTenantIds },
     },
     orderBy: { createdAt: "desc" },
+    take: 200,
   });
 
   return NextResponse.json({ items });

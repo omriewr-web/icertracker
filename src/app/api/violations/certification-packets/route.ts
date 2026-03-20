@@ -95,6 +95,7 @@ export const GET = withAuth(async (req, { user }) => {
   const packets = await prisma.certificationPacket.findMany({
     where: { buildingId },
     orderBy: { createdAt: "desc" },
+    take: 100,
     include: {
       preparedBy: { select: { id: true, name: true } },
       reviewedBy: { select: { id: true, name: true } },
