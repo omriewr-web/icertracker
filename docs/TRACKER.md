@@ -53,6 +53,8 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - [x] Pre-pilot business & architecture review (docs/AUDIT-CODEX-2026-03-18.md)
 - [x] Full codebase audit — Claude Code (docs/AUDIT-CLAUDE-CODE-2026-03-18.md)
 - [x] Full QA audit — 2026-03-19 (docs/QA-AUDIT-REPORT.md) — 4 critical, 13 high, 24 medium, 20 low findings
+- [x] QA audit fix run — 72+ fixes across 16 passes (security, data integrity, performance, UX, code quality)
+- [x] Page-by-page audit — 2026-03-19 (docs/PAGE-AUDIT.md) — 30+ pages audited, 20-item priority matrix
 
 ### Permission System v2
 - [x] P1: Schema — UserAccessGrant model + permission fields on User (commit 753c0cd)
@@ -167,13 +169,17 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - [x] npm script: sentry:loadtest
 - Note: Requires NEXT_PUBLIC_SENTRY_DSN as GitHub repo secret
 
+### Module Status Report (2026-03-20)
+- [x] Full 10-module status audit: docs/MODULE-STATUS.md
+- Collections 85%, Legal 80%, Work Orders 85%, Violations 70% (2 critical), Vacancies 80%, Owner Dashboard 60%, AI 75%, Comms 70%, Leasing 40%, Reports 50%
+- Top 5 priorities: fix Violations cross-org, fix turnover 404, consolidate Owner Dashboard, lease renewal workflow, server-side PDF reports
+
 ## Active Work
-- Sentry observability complete — test pages, load test script, and GitHub Actions workflow all deployed
-- Two-agent loop live — Codex audits every 6h, Claude repairs 1h later
-- Intelligence Layer V1 complete — cross-module attention scoring, action cards, decision learning loop, thread summaries
-- IMMEDIATE: Fix 3 Decimal serialization routes + 2 missing transactions + audit balance/vacancy sync call sites
-- NEXT: Migrate 12 old role-check routes to can() helper, add pagination to 7 unbounded queries
-- THEN: Start Stripe billing models and integration
+- Full QA audit complete — 72+ fixes applied, all CRITICAL and HIGH items resolved
+- Page-by-page audit complete — 30+ pages audited, priority matrix in docs/PAGE-AUDIT.md
+- IMMEDIATE (from page audit): Add TenantDetailModal to GlobalModals, fix legal pipeline perf, fix collections server-side filters
+- NEXT: Fix /communicate campaign mutation, add WO delete confirmation, create violation detail modal
+- THEN: Consolidate owner dashboards (W3-A), add search/sort to list pages, Stripe billing
 - ODK command center deployed — accessible at myatlaspm.com/odk
 
 ## Deployment
