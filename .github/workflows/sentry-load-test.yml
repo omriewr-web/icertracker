@@ -1,0 +1,31 @@
+name: Sentry Load Test
+
+on:
+  schedule:
+    - cron: "0 */2 * * *" # every 2 hours
+  workflow_dispatch: {}
+
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run single Sentry load test cycle
+        env:
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+          NEXT_PUBLIC_APP_URL: "https://www.myatlaspm.com"
+        run: node scripts/sentry-load-test.mjs --once
+
+      - name: Reminder
+        if: failure()
+        run: |
+          echo "::warning::If NEXT_PUBLIC_SENTRY_DSN is not set, add it as a GitHub repo secret."

@@ -21,7 +21,8 @@
     "postinstall": "prisma generate",
     "test": "vitest run",
     "test:watch": "vitest",
-    "deploy": "bash scripts/deploy.sh"
+    "deploy": "bash scripts/deploy.sh",
+    "sentry:loadtest": "node scripts/sentry-load-test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
