@@ -139,6 +139,12 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - [x] INT-8: Comms AI — AI Enhance button in MessageComposer, thread summary button in ConversationView
 - [x] INT-9: Hooks — useTenantAttention, useBuildingAttention, useAttentionRankings, useActionCards, useLogDecision, useSummarizeThread
 
+### Agent1 Null Safety & Rate Limiting Pass (2026-03-20)
+- [x] Optional chaining on all tenant.unit.building.address chains (7 files) — prevents null dereference when building relation is missing
+- [x] Input guard on checkRateLimit() for invalid/missing IP
+- [x] Replaced in-memory Map PIN rate limiter with DB-backed LoginAttempt pattern in command-auth.ts — survives deploys, scales across instances
+- [x] Failed PIN attempts now recorded in LoginAttempt table; cleared on successful auth
+
 ### Agent2 Hardening Pass (2026-03-20)
 - [x] Decimal serialization — replaced Number() with .toNumber() on all Prisma Decimal fields in ai-context.ts
 - [x] File size guard — added 50MB limit check in parseFile.ts before XLSX parsing
@@ -257,6 +263,6 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - 5 API routes missing try/catch error handling
 - 2 GET routes (tenants/notes, tenants/[id]/payments) missing permission string in withAuth
 - NYC Open Data sync has no rate limit handling or retry logic
-- ODK PIN rate limiting is in-memory only (resets on cold start)
+- ~~ODK PIN rate limiting is in-memory only (resets on cold start)~~ — FIXED: now DB-backed via LoginAttempt (2026-03-20)
 - 13 dashboard pages missing EmptyState components
 - 30+ console.log calls should use logger
