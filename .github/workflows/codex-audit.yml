@@ -35,7 +35,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           mkdir -p docs/audits
-          npx @openai/codex --print "$(cat docs/audits/CODEX-AUDIT-PROMPT.md)"
+          npx @openai/codex "$(cat docs/audits/CODEX-AUDIT-PROMPT.md)"
 
       - name: Commit audit report
         run: |
