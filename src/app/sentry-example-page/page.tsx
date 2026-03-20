@@ -1,8 +1,16 @@
 "use client";
 
 import * as Sentry from "@sentry/nextjs";
+import { useState } from "react";
 
 export default function SentryExamplePage() {
+  const [error, setError] = useState<Error | null>(null);
+
+  // Throwing from state triggers React's error boundary → Sentry captures via global-error
+  if (error) {
+    throw error;
+  }
+
   return (
     <div style={{ padding: "2rem", fontFamily: "sans-serif" }}>
       <h1>Sentry Test Page</h1>
@@ -20,9 +28,9 @@ export default function SentryExamplePage() {
           cursor: "pointer",
         }}
         onClick={() => {
-          const error = new Error("Sentry frontend test error");
-          Sentry.captureException(error);
-          throw error;
+          const err = new Error("Sentry test error from AtlasPM client");
+          Sentry.captureException(err);
+          setError(err);
         }}
       >
         Throw Test Error

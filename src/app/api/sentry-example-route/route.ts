@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
 
 export function GET() {
-  throw new Error("Sentry server-side test error");
+  throw new Error("Sentry test error from AtlasPM server");
 }
