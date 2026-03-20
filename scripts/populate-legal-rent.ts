@@ -1,13 +1,14 @@
 /**
- * Populate legalRent on vacant units using building-level averages
- * from occupied units' tenant rent data.
+ * Populate legalRent on vacant units from the best available source.
  *
- * Logic:
- *   1. For each building with vacant units, compute the average
- *      max(tenant.legalRent, tenant.marketRent) from occupied units.
- *   2. Set unit.legalRent = building average for each vacant unit
- *      where approvedRent, proposedRent, askingRent, AND legalRent are all null.
- *   3. Uses a Prisma transaction to batch update.
+ * Rent source hierarchy (per unit):
+ *   1. Unit's own tenant — max(tenant.marketRent, tenant.legalRent)
+ *      (tenant record often still linked even after move-out)
+ *   2. DhcrRent table — matched by [buildingId, unitNumber]
+ *   3. Building average — avg of occupied tenants' max(marketRent, legalRent)
+ *
+ * Only updates units where ALL four rent fields are null:
+ *   approvedRent, proposedRent, askingRent, legalRent
  *
  * Run: npx tsx scripts/populate-legal-rent.ts
  */
@@ -17,17 +18,33 @@ import { PrismaClient, Prisma } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  // 1. Find all vacant residential units missing ALL rent fields
-  const vacantUnits = await prisma.unit.findMany({
+  // 1. Find all vacant residential units where no rent field has a usable value
+  //    (null or zero both mean "not set" for the lost rent calculation)
+  const allVacant = await prisma.unit.findMany({
     where: {
       isVacant: true,
       isResidential: true,
-      approvedRent: null,
-      proposedRent: null,
-      askingRent: null,
-      legalRent: null,
     },
-    select: { id: true, unitNumber: true, buildingId: true },
+    select: {
+      id: true,
+      unitNumber: true,
+      buildingId: true,
+      legalRent: true,
+      askingRent: true,
+      proposedRent: true,
+      approvedRent: true,
+      tenant: { select: { marketRent: true, legalRent: true } },
+    },
+  });
+
+  // Filter to only units where the entire rent chain resolves to 0
+  const vacantUnits = allVacant.filter((u) => {
+    const rent =
+      (Number(u.approvedRent) || 0) ||
+      (Number(u.proposedRent) || 0) ||
+      (Number(u.askingRent) || 0) ||
+      (Number(u.legalRent) || 0);
+    return rent === 0;
   });
 
   if (vacantUnits.length === 0) {
@@ -35,14 +52,22 @@ async function main() {
     return;
   }
 
-  console.log(`Found ${vacantUnits.length} vacant units with no rent data.`);
+  console.log(`Found ${vacantUnits.length} vacant units with no usable rent data.\n`);
 
-  // 2. Get all unique buildings these units belong to
+  // 2. Load DHCR rent data for all relevant buildings
   const buildingIds = [...new Set(vacantUnits.map((u) => u.buildingId))];
+  const dhcrRents = await prisma.dhcrRent.findMany({
+    where: { buildingId: { in: buildingIds } },
+    select: { buildingId: true, unitNumber: true, legalRent: true },
+  });
+  const dhcrMap = new Map<string, number>();
+  for (const d of dhcrRents) {
+    const key = `${d.buildingId}:${d.unitNumber.toLowerCase().trim()}`;
+    dhcrMap.set(key, Number(d.legalRent));
+  }
 
-  // 3. For each building, compute average rent from occupied tenants
+  // 3. Compute building-level average rent as fallback
   const buildingAvgRent = new Map<string, number>();
-
   for (const buildingId of buildingIds) {
     const tenants = await prisma.tenant.findMany({
       where: {
@@ -52,9 +77,9 @@ async function main() {
     });
 
     if (tenants.length > 0) {
-      const rents = tenants.map((t) =>
-        Math.max(Number(t.legalRent) || 0, Number(t.marketRent) || 0)
-      ).filter((r) => r > 0);
+      const rents = tenants
+        .map((t) => Math.max(Number(t.legalRent) || 0, Number(t.marketRent) || 0))
+        .filter((r) => r > 0);
 
       if (rents.length > 0) {
         const avg = rents.reduce((a, b) => a + b, 0) / rents.length;
@@ -63,29 +88,64 @@ async function main() {
     }
   }
 
-  // 4. Build update operations
+  // 4. Determine rent for each unit using hierarchy
   const updates: Prisma.PrismaPromise<unknown>[] = [];
-  let updatedCount = 0;
-  let skippedCount = 0;
+  let fromTenant = 0;
+  let fromDhcr = 0;
+  let fromAvg = 0;
+  let skipped = 0;
 
   for (const unit of vacantUnits) {
-    const avgRent = buildingAvgRent.get(unit.buildingId);
-    if (avgRent && avgRent > 0) {
+    let rent = 0;
+    let source = "";
+
+    // Source 1: Unit's own tenant
+    if (unit.tenant) {
+      const tr = Math.max(Number(unit.tenant.marketRent) || 0, Number(unit.tenant.legalRent) || 0);
+      if (tr > 0) {
+        rent = tr;
+        source = "tenant";
+      }
+    }
+
+    // Source 2: DHCR rent
+    if (rent === 0) {
+      const dhcrKey = `${unit.buildingId}:${unit.unitNumber.toLowerCase().trim()}`;
+      const dhcrRent = dhcrMap.get(dhcrKey);
+      if (dhcrRent && dhcrRent > 0) {
+        rent = dhcrRent;
+        source = "dhcr";
+      }
+    }
+
+    // Source 3: Building average
+    if (rent === 0) {
+      const avg = buildingAvgRent.get(unit.buildingId);
+      if (avg && avg > 0) {
+        rent = avg;
+        source = "building-avg";
+      }
+    }
+
+    if (rent > 0) {
       updates.push(
         prisma.unit.update({
           where: { id: unit.id },
-          data: { legalRent: new Prisma.Decimal(avgRent) },
+          data: { legalRent: new Prisma.Decimal(rent) },
         })
       );
-      updatedCount++;
+      if (source === "tenant") fromTenant++;
+      else if (source === "dhcr") fromDhcr++;
+      else fromAvg++;
+      console.log(`  SET ${unit.unitNumber} → $${rent.toFixed(2)} (${source})`);
     } else {
-      console.log(`  SKIP unit ${unit.id} (${unit.unitNumber}) — no rent data in building`);
-      skippedCount++;
+      console.log(`  SKIP ${unit.unitNumber} — no rent data available`);
+      skipped++;
     }
   }
 
   if (updates.length === 0) {
-    console.log("No updates to make — no buildings had rent data. Done.");
+    console.log("\nNo updates to make — no rent data found anywhere. Done.");
     return;
   }
 
@@ -94,21 +154,26 @@ async function main() {
   await prisma.$transaction(updates);
 
   console.log(`\nDone.`);
-  console.log(`  Updated: ${updatedCount} units (legalRent set to building average)`);
-  console.log(`  Skipped: ${skippedCount} units (no building rent data)`);
+  console.log(`  From tenant record:   ${fromTenant}`);
+  console.log(`  From DHCR:            ${fromDhcr}`);
+  console.log(`  From building avg:    ${fromAvg}`);
+  console.log(`  Skipped (no data):    ${skipped}`);
+  console.log(`  Total updated:        ${updates.length}`);
 
-  // 6. Verify
-  const stillNull = await prisma.unit.count({
-    where: {
-      isVacant: true,
-      isResidential: true,
-      legalRent: null,
-      approvedRent: null,
-      proposedRent: null,
-      askingRent: null,
-    },
+  // 6. Verify — recheck how many vacant units still resolve to $0
+  const recheck = await prisma.unit.findMany({
+    where: { isVacant: true, isResidential: true },
+    select: { legalRent: true, askingRent: true, proposedRent: true, approvedRent: true },
   });
-  console.log(`  Remaining vacant units with no rent: ${stillNull}`);
+  const stillZero = recheck.filter((u) => {
+    const r =
+      (Number(u.approvedRent) || 0) ||
+      (Number(u.proposedRent) || 0) ||
+      (Number(u.askingRent) || 0) ||
+      (Number(u.legalRent) || 0);
+    return r === 0;
+  }).length;
+  console.log(`\n  Remaining vacant units with $0 rent: ${stillZero}`);
 }
 
 main()
