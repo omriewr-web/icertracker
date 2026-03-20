@@ -59,65 +59,69 @@ export async function computeTenantAttention(
   tenantId: string,
   orgId: string
 ): Promise<AttentionScore> {
-  const [tenant, signals, legalCase, collectionStage, lastNote, recentWOs] =
-    await Promise.all([
-      prisma.tenant.findUnique({
-        where: { id: tenantId },
-        select: {
-          balance: true,
-          marketRent: true,
-          arrearsDays: true,
-          leaseExpiration: true,
-          collectionScore: true,
-          unit: {
-            select: {
-              isVacant: true,
-              vacantSince: true,
-              buildingId: true,
-              workOrders: {
-                where: {
-                  status: { in: ["OPEN", "IN_PROGRESS", "PENDING_REVIEW"] },
-                },
-                select: { priority: true, dueDate: true },
+  // Consolidated: 6 queries → 2 (single tenant include + signal count)
+  const [tenant, signals] = await Promise.all([
+    prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        balance: true,
+        marketRent: true,
+        arrearsDays: true,
+        leaseExpiration: true,
+        collectionScore: true,
+        unit: {
+          select: {
+            isVacant: true,
+            vacantSince: true,
+            buildingId: true,
+            workOrders: {
+              where: {
+                status: { in: ["OPEN", "IN_PROGRESS", "PENDING_REVIEW"] },
               },
+              select: { priority: true, dueDate: true },
             },
           },
         },
-      }),
-      prisma.operationalSignal.count({
-        where: {
-          tenantId,
-          organizationId: orgId,
-          status: "active",
+        legalCases: {
+          where: { isActive: true },
+          select: { stage: true, courtDate: true },
+          take: 1,
         },
-      }),
-      prisma.legalCase.findFirst({
-        where: { tenantId, isActive: true },
-        select: { stage: true, courtDate: true },
-      }),
-      prisma.collectionStage.findUnique({
-        where: { tenantId },
-        select: {
-          stage: true,
-          actionOverdue: true,
-          daysPastDue: true,
-          lastActionAt: true,
+        collectionStage: {
+          select: {
+            stage: true,
+            actionOverdue: true,
+            daysPastDue: true,
+            lastActionAt: true,
+          },
         },
-      }),
-      prisma.collectionNote.findFirst({
-        where: { tenantId },
-        orderBy: { createdAt: "desc" },
-        select: { createdAt: true },
-      }),
-      prisma.workOrder.findMany({
-        where: {
-          tenantId,
-          status: { in: ["OPEN", "IN_PROGRESS", "PENDING_REVIEW"] },
+        collectionNotes: {
+          orderBy: { createdAt: "desc" as const },
+          select: { createdAt: true },
+          take: 1,
         },
-        select: { priority: true, dueDate: true },
-        take: 10,
-      }),
-    ]);
+        workOrders: {
+          where: {
+            status: { in: ["OPEN", "IN_PROGRESS", "PENDING_REVIEW"] },
+          },
+          select: { priority: true, dueDate: true },
+          take: 10,
+        },
+      },
+    }),
+    prisma.operationalSignal.count({
+      where: {
+        tenantId,
+        organizationId: orgId,
+        status: "active",
+      },
+    }),
+  ]);
+
+  const legalCase = tenant?.legalCases?.[0] ?? null;
+  const collectionStage = tenant?.collectionStage ?? null;
+  const lastNote = tenant?.collectionNotes?.[0] ?? null;
+  const recentWOs = tenant?.workOrders ?? [];
 
   if (!tenant) {
     return {
