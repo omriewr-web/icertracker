@@ -139,6 +139,11 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - [x] INT-8: Comms AI — AI Enhance button in MessageComposer, thread summary button in ConversationView
 - [x] INT-9: Hooks — useTenantAttention, useBuildingAttention, useAttentionRankings, useActionCards, useLogDecision, useSummarizeThread
 
+### Lost Rent Metric Fix (2026-03-20)
+- [x] Backfilled legalRent on vacant units via 3-tier hierarchy: tenant record → DHCR data → building average
+- [x] Improved populate-legal-rent.ts to handle zero-valued rent fields (not just null)
+- [x] Result: 175 vacant units now have usable rent data, Lost Rent metric shows $344K/mo (was $0)
+
 ### Agent1 Null Safety & Rate Limiting Pass (2026-03-20)
 - [x] Optional chaining on all tenant.unit.building.address chains (7 files) — prevents null dereference when building relation is missing
 - [x] Input guard on checkRateLimit() for invalid/missing IP
