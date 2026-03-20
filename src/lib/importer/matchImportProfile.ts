@@ -6,7 +6,7 @@ import { CONFIDENCE_THRESHOLDS } from "./types";
 /**
  * Compute similarity between two fingerprints (0-1).
  */
-function fingerprintSimilarity(a: ImportFingerprint, b: ImportFingerprint): number {
+function fingerprintSimilarity(a: ImportFingerprint, b: ImportFingerprint, cachedSetA?: Set<string>): number {
   let score = 0;
   let weights = 0;
 
@@ -24,7 +24,7 @@ function fingerprintSimilarity(a: ImportFingerprint, b: ImportFingerprint): numb
   weights += 0.5;
 
   // Normalized header overlap (weight: 5 — most important)
-  const setA = new Set(a.normalizedHeaders);
+  const setA = cachedSetA ?? new Set(a.normalizedHeaders);
   const setB = new Set(b.normalizedHeaders);
   const intersection = [...setA].filter((h) => setB.has(h)).length;
   const union = new Set([...setA, ...setB]).size;
@@ -69,9 +69,12 @@ export async function matchImportProfile(
   let bestProfile: typeof profiles[0] | null = null;
   let bestScore = 0;
 
+  // Cache the input fingerprint's header Set to avoid recreating it each iteration
+  const inputHeaderSet = new Set(fingerprint.normalizedHeaders);
+
   for (const profile of profiles) {
     const savedFingerprint = profile.fingerprintJson as unknown as ImportFingerprint;
-    const score = fingerprintSimilarity(fingerprint, savedFingerprint);
+    const score = fingerprintSimilarity(fingerprint, savedFingerprint, inputHeaderSet);
     if (score > bestScore) {
       bestScore = score;
       bestProfile = profile;

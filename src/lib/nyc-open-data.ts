@@ -53,11 +53,14 @@ function padLot(lot: string): string {
   return lot.replace(/^0+/, "").padStart(4, "0");
 }
 
+export type FetchErrorCode = "NETWORK" | "HTTP" | "PARSE" | "TIMEOUT" | "UNKNOWN";
+
 export interface FetchResult {
   rows: any[];
   url: string;
   status: number;
   error?: string;
+  errorCode?: FetchErrorCode;
 }
 
 async function socrataFetch(
@@ -88,19 +91,25 @@ async function socrataFetch(
     if (!res.ok) {
       const body = await res.text();
       logger.error(`[NYC Open Data] Error body: ${body.substring(0, 500)}`);
-      return { rows: [], url: finalUrl, status: res.status, error: `${res.status} ${res.statusText}` };
+      return { rows: [], url: finalUrl, status: res.status, error: `${res.status} ${res.statusText}`, errorCode: "HTTP" };
     }
 
-    const data = await res.json();
+    let data: any;
+    try {
+      data = await res.json();
+    } catch (parseErr: any) {
+      logger.error(`[NYC Open Data] JSON parse error: ${parseErr.message}`);
+      return { rows: [], url: finalUrl, status: res.status, error: `Failed to parse response: ${parseErr.message}`, errorCode: "PARSE" };
+    }
     logger.info(`[NYC Open Data] Got ${data.length} rows from ${endpoint}`);
     return { rows: data, url: finalUrl, status: res.status };
   } catch (err: any) {
     if (err instanceof Error && err.name === "AbortError") {
       logger.error(`[NYC Open Data] Request timed out after 15s: ${finalUrl}`);
-      return { rows: [], url: finalUrl, status: 0, error: `NYC Open Data request timed out after 15s: ${finalUrl}` };
+      return { rows: [], url: finalUrl, status: 0, error: `NYC Open Data request timed out after 15s: ${finalUrl}`, errorCode: "TIMEOUT" };
     }
     logger.error({ err: err.message }, `[NYC Open Data] Network error`);
-    return { rows: [], url: finalUrl, status: 0, error: err.message };
+    return { rows: [], url: finalUrl, status: 0, error: err.message, errorCode: "NETWORK" };
   } finally {
     clearTimeout(timeoutId);
   }

@@ -53,7 +53,8 @@ const YARDI_STREET_CODES: Record<string, string> = {
  *      "606icer" → "606" (icer maps to multiple streets, still useful with number)
  *      "10w132"  → null (directional codes handled by entity extraction instead)
  */
-export function decodeYardiCode(code: string): string | null {
+export function decodeYardiCode(code: string | null | undefined): string | null {
+  if (!code) return null;
   // Match leading digits + trailing alpha
   const m = code.match(/^(\d+)([a-z]+)$/i);
   if (!m) return null;
@@ -64,7 +65,8 @@ export function decodeYardiCode(code: string): string | null {
   return null;
 }
 
-export function normalizeAddress(addr: string): string {
+export function normalizeAddress(addr: string | null | undefined): string {
+  if (!addr) return "";
   let result = addr.toLowerCase().trim();
   // Expand abbreviations (word-boundary match)
   for (const [abbr, full] of Object.entries(ABBREVIATIONS)) {
@@ -75,11 +77,13 @@ export function normalizeAddress(addr: string): string {
   return result;
 }
 
-export function normalizeBlockLot(val: string): string {
+export function normalizeBlockLot(val: string | null | undefined): string {
+  if (!val) return "";
   return val.replace(/^0+/, "").trim();
 }
 
-export function normalizeEntity(entity: string): string {
+export function normalizeEntity(entity: string | null | undefined): string {
+  if (!entity) return "";
   return entity
     .toLowerCase()
     .replace(ENTITY_NOISE, "")
@@ -119,9 +123,11 @@ interface ExistingBuilding {
  *   6. Entity name containment match
  */
 export function findMatchingBuilding(
-  candidate: BuildingCandidate,
-  existingBuildings: ExistingBuilding[]
+  candidate: BuildingCandidate | null | undefined,
+  existingBuildings: ExistingBuilding[] | null | undefined
 ): { id: string; matchedBy: string } | null {
+  if (!candidate || !existingBuildings) return null;
+
   // ── 1. Exact normalized address match ──
   const normAddr = normalizeAddress(candidate.address);
   if (normAddr.length >= 5) {
@@ -224,7 +230,8 @@ export async function fetchBuildingsForMatching(organizationId?: string | null) 
  * e.g. "Atlas of 111 West 136th Street LLC(111w136)" → "111 West 136th Street"
  *      "1776 Castle Hill Apt Owners, LLC(1776cast)" → "1776 Castle Hill"
  */
-export function extractAddressFromEntity(name: string): string | null {
+export function extractAddressFromEntity(name: string | null | undefined): string | null {
+  if (!name) return null;
   // Remove yardiId parenthesized suffix
   let clean = name.replace(/\([^)]+\)$/, "").trim();
   // Remove LLC/Inc/etc and common suffixes
@@ -251,7 +258,8 @@ export function extractAddressFromEntity(name: string): string | null {
 /**
  * Get the best display address for a building, preferring altAddress over extracted address over raw address.
  */
-export function getDisplayAddress(building: { address: string; altAddress?: string | null }): string {
+export function getDisplayAddress(building: { address: string; altAddress?: string | null } | null | undefined): string {
+  if (!building) return "";
   if (building.altAddress?.trim()) return building.altAddress.trim();
   return extractAddressFromEntity(building.address) || building.address;
 }
@@ -261,9 +269,11 @@ export function getDisplayAddress(building: { address: string; altAddress?: stri
  * Priority: 1) block+lot  2) normalized address  3) yardiId/building_id
  */
 export function matchBuildingByRow(
-  row: { address: string; block?: string | null; lot?: string | null; buildingId?: string | null },
-  existing: Array<{ id: string; address: string; block: string | null; lot: string | null; yardiId: string }>
+  row: { address: string; block?: string | null; lot?: string | null; buildingId?: string | null } | null | undefined,
+  existing: Array<{ id: string; address: string; block: string | null; lot: string | null; yardiId: string }> | null | undefined
 ): { id: string; matchedBy: string } | null {
+  if (!row || !existing) return null;
+
   // 1. Block + Lot match (primary)
   if (row.block && row.lot) {
     const normBlock = normalizeBlockLot(row.block);
@@ -291,7 +301,8 @@ export function matchBuildingByRow(
   return null;
 }
 
-export function generateYardiId(address: string): string {
+export function generateYardiId(address: string | null | undefined): string {
+  if (!address) return `IMPORT-unknown-${Date.now()}`;
   const sanitized = address
     .replace(/[^a-zA-Z0-9]/g, "-")
     .substring(0, 30);
@@ -306,7 +317,8 @@ export function generateYardiId(address: string): string {
  *
  * Takes street number + first meaningful street word(s), drops suffix (Street/Avenue/etc).
  */
-export function generatePropertyId(address: string): string {
+export function generatePropertyId(address: string | null | undefined): string {
+  if (!address) return "unknown";
   const norm = address.toLowerCase().trim();
   // Take text before first comma (multi-address buildings)
   const primary = norm.split(",")[0].trim();
