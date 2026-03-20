@@ -150,6 +150,10 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - [x] File size guard — added 50MB limit check in parseFile.ts before XLSX parsing
 - [x] Error message standardization — consistent format in validateUpload.ts
 
+### Agent3 Hardening Pass 2 (2026-03-20)
+- [x] ai-context.ts: verified already uses getBuildingIdScope(user) + EMPTY_SCOPE — no change needed
+- [x] attention/score.ts: consolidated computeTenantAttention from 6 queries → 2 (nested includes for legalCases, collectionStage, collectionNotes, workOrders)
+
 ### Auto-Repair Run (2026-03-19 21:30)
 - [x] M3: Cron timing-safe auth — collections-refresh now uses withCronAuth()
 - [x] H8: Tenant PATCH Decimal serialization — all Decimal fields normalized via toNumber()
