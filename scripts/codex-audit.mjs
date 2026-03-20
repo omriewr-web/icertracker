@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Codex Audit Script — calls OpenAI API directly (no interactive CLI needed).
- * Reads key source files, sends them with the audit prompt to gpt-4o,
+ * Codex Audit Script — calls Anthropic API directly.
+ * Reads key source files, sends them with the audit prompt to claude-sonnet-4-20250514,
  * writes the response to docs/audits/audit-YYYY-MM-DD-HHMM-codex.md
  */
 
@@ -10,9 +10,9 @@ import { readFileSync, writeFileSync, readdirSync, statSync, existsSync, mkdirSy
 import { join, relative, extname } from "path";
 import { execSync } from "child_process";
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-if (!OPENAI_API_KEY) {
-  console.error("OPENAI_API_KEY is not set");
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+if (!ANTHROPIC_API_KEY) {
+  console.error("ANTHROPIC_API_KEY is not set");
   process.exit(1);
 }
 
@@ -123,7 +123,7 @@ try {
   trackerContent = readFileSync(join(ROOT, "docs", "TRACKER.md"), "utf-8");
 } catch {}
 
-// ── Call OpenAI API ─────────────────────────────────────────────
+// ── Call Anthropic API ───────────────────────────────────────────
 
 const now = new Date();
 const timestamp = now.toISOString().replace("T", " ").slice(0, 16) + " UTC";
@@ -149,36 +149,37 @@ ${fileContents.join("")}
 
 Write your audit report now. Use the exact format from the prompt. The output filename should be: docs/audits/audit-${fileTimestamp}-codex.md`;
 
-console.log("Calling OpenAI API (gpt-4o)...");
+console.log("Calling Anthropic API (claude-sonnet-4-20250514)...");
 
-const response = await fetch("https://api.openai.com/v1/chat/completions", {
+const response = await fetch("https://api.anthropic.com/v1/messages", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${OPENAI_API_KEY}`,
+    "x-api-key": ANTHROPIC_API_KEY,
+    "anthropic-version": "2023-06-01",
   },
   body: JSON.stringify({
-    model: "gpt-4o",
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 8000,
+    system: systemMessage,
     messages: [
-      { role: "system", content: systemMessage },
       { role: "user", content: userMessage },
     ],
-    max_tokens: 8000,
     temperature: 0.2,
   }),
 });
 
 if (!response.ok) {
   const errBody = await response.text();
-  console.error(`OpenAI API error ${response.status}: ${errBody}`);
+  console.error(`Anthropic API error ${response.status}: ${errBody}`);
   process.exit(1);
 }
 
 const data = await response.json();
-const reportContent = data.choices?.[0]?.message?.content;
+const reportContent = data.content?.[0]?.text;
 
 if (!reportContent) {
-  console.error("No content in OpenAI response");
+  console.error("No content in Anthropic response");
   process.exit(1);
 }
 
@@ -187,5 +188,5 @@ if (!reportContent) {
 const outputFile = join(AUDIT_DIR, `audit-${fileTimestamp}-codex.md`);
 writeFileSync(outputFile, reportContent, "utf-8");
 console.log(`Audit report written to: ${outputFile}`);
-console.log(`Tokens used: ${data.usage?.total_tokens || "unknown"}`);
+console.log(`Tokens: input=${data.usage?.input_tokens || "?"} output=${data.usage?.output_tokens || "?"}`);
 process.exit(0);
