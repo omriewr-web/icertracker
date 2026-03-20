@@ -155,6 +155,10 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - [x] File size guard — added 50MB limit check in parseFile.ts before XLSX parsing
 - [x] Error message standardization — consistent format in validateUpload.ts
 
+### UI Fixes (2026-03-20)
+- [x] Signals BY SEVERITY bars not rendering — replaced Recharts BarChart (broken in CSS grid) with CSS bars; removed unused recharts imports
+- [x] Work Orders Costs (Completed) shows $0.00 — now shows "No costs recorded" when completed WOs exist but have no actualCost entered
+
 ### Agent3 Hardening Pass 2 (2026-03-20)
 - [x] ai-context.ts: verified already uses getBuildingIdScope(user) + EMPTY_SCOPE — no change needed
 - [x] attention/score.ts: consolidated computeTenantAttention from 6 queries → 2 (nested includes for legalCases, collectionStage, collectionNotes, workOrders)
