@@ -169,6 +169,13 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - [x] npm script: sentry:loadtest
 - Note: Requires NEXT_PUBLIC_SENTRY_DSN as GitHub repo secret
 
+### Agent3 Hardening Pass (2026-03-20)
+- [x] building-matching: null guards on all 10 exported functions
+- [x] nyc-open-data: distinct FetchErrorCode (NETWORK/HTTP/PARSE/TIMEOUT) on socrataFetch
+- [x] ai/asset-manager: removed dead AI_GUARDRAIL comment
+- [x] ai-config: AI_MODEL reads ATLAS_AI_MODEL env var with fallback, mythology comment replaced
+- [x] importer/matchImportProfile: cached input fingerprint header Set outside loop
+
 ### Module Status Report (2026-03-20)
 - [x] Full 10-module status audit: docs/MODULE-STATUS.md
 - Collections 85%, Legal 80%, Work Orders 85%, Violations 70% (2 critical), Vacancies 80%, Owner Dashboard 60%, AI 75%, Comms 70%, Leasing 40%, Reports 50%
