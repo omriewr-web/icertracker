@@ -139,6 +139,10 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - [x] INT-8: Comms AI — AI Enhance button in MessageComposer, thread summary button in ConversationView
 - [x] INT-9: Hooks — useTenantAttention, useBuildingAttention, useAttentionRankings, useActionCards, useLogDecision, useSummarizeThread
 
+### Owner Portal & Violations Route Fix (2026-03-20)
+- [x] Owner Portal unit count: filtered to isResidential units only, dropped stale Building.totalUnits scalar (was 1111, now matches 921)
+- [x] /violations → /compliance: added permanent redirect in next.config.js (sidebar already pointed to /compliance)
+
 ### Lost Rent Metric Fix (2026-03-20)
 - [x] Backfilled legalRent on vacant units via 3-tier hierarchy: tenant record → DHCR data → building average
 - [x] Improved populate-legal-rent.ts to handle zero-valued rent fields (not just null)
