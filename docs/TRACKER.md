@@ -139,6 +139,11 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - [x] INT-8: Comms AI — AI Enhance button in MessageComposer, thread summary button in ConversationView
 - [x] INT-9: Hooks — useTenantAttention, useBuildingAttention, useAttentionRankings, useActionCards, useLogDecision, useSummarizeThread
 
+### Agent2 Hardening Pass (2026-03-20)
+- [x] Decimal serialization — replaced Number() with .toNumber() on all Prisma Decimal fields in ai-context.ts
+- [x] File size guard — added 50MB limit check in parseFile.ts before XLSX parsing
+- [x] Error message standardization — consistent format in validateUpload.ts
+
 ### Auto-Repair Run (2026-03-19 21:30)
 - [x] M3: Cron timing-safe auth — collections-refresh now uses withCronAuth()
 - [x] H8: Tenant PATCH Decimal serialization — all Decimal fields normalized via toNumber()
