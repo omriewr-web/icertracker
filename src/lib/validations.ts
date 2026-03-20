@@ -522,7 +522,6 @@ export const assignBuildingsSchema = z.object({
 // ── Lease Schemas ───────────────────────────────────────────
 
 export const leaseCreateSchema = z.object({
-  organizationId: z.string().min(1),
   buildingId: z.string().min(1),
   unitId: z.string().min(1),
   tenantId: z.string().min(1),

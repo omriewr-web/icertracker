@@ -11,11 +11,15 @@ export const POST = withCronAuth(async () => {
     select: { id: true },
   });
 
-  const results = [];
-  for (const org of orgs) {
-    const result = await refreshStageStatuses(org.id);
-    results.push({ orgId: org.id, ...result });
-  }
+  const settled = await Promise.allSettled(
+    orgs.map((org) => refreshStageStatuses(org.id).then((r) => ({ orgId: org.id, ...r })))
+  );
+
+  const results = settled.map((s) =>
+    s.status === "fulfilled"
+      ? s.value
+      : { orgId: "unknown", error: s.reason instanceof Error ? s.reason.message : "Unknown error" }
+  );
 
   return NextResponse.json({ success: true, results });
 });
