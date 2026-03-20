@@ -6,6 +6,8 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import crypto from "crypto";
+import { prisma } from "./prisma";
+import logger from "./logger";
 
 const COOKIE_NAME = "odk-session";
 const EXPIRES_IN = "8h";
@@ -48,25 +50,52 @@ export function verifyPin(input: string): boolean {
   return crypto.timingSafeEqual(a, b);
 }
 
-// ── In-memory rate limiter for PIN attempts ──
-const attempts = new Map<string, { count: number; resetAt: number }>();
+// ── DB-backed rate limiter for PIN attempts ──
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
 
-export function checkRateLimit(ip: string): { allowed: boolean; remainingMs?: number } {
-  const now = Date.now();
-  const entry = attempts.get(ip);
-  if (!entry || now > entry.resetAt) {
-    attempts.set(ip, { count: 1, resetAt: now + LOCKOUT_MS });
+export async function checkRateLimit(ip: string): Promise<{ allowed: boolean; remainingMs?: number }> {
+  if (!ip || typeof ip !== "string") return { allowed: false };
+
+  const windowStart = new Date(Date.now() - LOCKOUT_MS);
+
+  try {
+    // Cleanup old records (>24h) — fire-and-forget
+    prisma.loginAttempt.deleteMany({
+      where: { createdAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) }, username: { startsWith: "pin:" } },
+    }).catch(() => {});
+
+    const failedCount = await prisma.loginAttempt.count({
+      where: {
+        username: `pin:${ip}`,
+        success: false,
+        createdAt: { gte: windowStart },
+      },
+    });
+
+    if (failedCount >= MAX_ATTEMPTS) {
+      return { allowed: false, remainingMs: LOCKOUT_MS };
+    }
+
+    return { allowed: true };
+  } catch (err) {
+    logger.warn({ err }, "Command rate limit DB check failed, allowing attempt");
     return { allowed: true };
   }
-  entry.count++;
-  if (entry.count > MAX_ATTEMPTS) {
-    return { allowed: false, remainingMs: entry.resetAt - now };
-  }
-  return { allowed: true };
 }
 
-export function resetRateLimit(ip: string): void {
-  attempts.delete(ip);
+export async function recordFailedPinAttempt(ip: string): Promise<void> {
+  try {
+    await prisma.loginAttempt.create({
+      data: { username: `pin:${ip}`, ipAddress: ip, success: false, failReason: "invalid_pin" },
+    });
+  } catch {}
+}
+
+export async function resetRateLimit(ip: string): Promise<void> {
+  try {
+    await prisma.loginAttempt.deleteMany({
+      where: { username: `pin:${ip}` },
+    });
+  } catch {}
 }

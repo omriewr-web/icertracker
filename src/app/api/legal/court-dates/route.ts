@@ -53,8 +53,8 @@ export const GET = withAuth(async (req, { user }) => {
     tenantId: c.tenant.id,
     tenantName: c.tenant.name,
     unitNumber: c.tenant.unit.unitNumber,
-    buildingId: c.tenant.unit.building.id,
-    buildingAddress: c.tenant.unit.building.address,
+    buildingId: c.tenant.unit.building?.id || "",
+    buildingAddress: c.tenant.unit.building?.address || "",
     assignedUserName: c.assignedUser?.name || null,
     attorneyName: c.attorneyContact
       ? `${c.attorneyContact.name}${c.attorneyContact.company ? ` — ${c.attorneyContact.company}` : ""}`

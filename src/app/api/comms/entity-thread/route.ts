@@ -94,7 +94,7 @@ export const GET = withAuth(async (req, { user }) => {
     if (!(await canAccessBuilding(user, tenant.unit.buildingId))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    title = `${tenant.name} · ${tenant.unit.unitNumber} ${tenant.unit.building.address}`;
+    title = `${tenant.name} · ${tenant.unit.unitNumber} ${tenant.unit.building?.address || ""}`;
     buildingId = tenant.unit.buildingId;
   }
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyPin, signCommandToken, checkRateLimit, resetRateLimit } from "@/lib/command-auth";
+import { verifyPin, signCommandToken, checkRateLimit, resetRateLimit, recordFailedPinAttempt } from "@/lib/command-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +9,7 @@ function getIp(req: NextRequest): string {
 
 export async function POST(req: NextRequest) {
   const ip = getIp(req);
-  const { allowed, remainingMs } = checkRateLimit(ip);
+  const { allowed, remainingMs } = await checkRateLimit(ip);
   if (!allowed) {
     return NextResponse.json(
       { error: "Too many attempts. Try again later.", retryAfterMs: remainingMs },
@@ -29,11 +29,12 @@ export async function POST(req: NextRequest) {
   }
 
   if (!verifyPin(body.pin)) {
+    await recordFailedPinAttempt(ip);
     return NextResponse.json({ error: "Access denied" }, { status: 401 });
   }
 
   // Correct PIN — reset rate limit and issue token
-  resetRateLimit(ip);
+  await resetRateLimit(ip);
   const token = await signCommandToken();
 
   const response = NextResponse.json({ success: true });

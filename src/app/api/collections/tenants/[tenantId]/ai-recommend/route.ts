@@ -122,7 +122,7 @@ export const GET = withAuth(async (req, { user, params }) => {
       ).join("\n")
     : "No collection notes on record.";
 
-  const userMessage = `Tenant: ${tenant.name}, Unit ${tenant.unit.unitNumber} at ${tenant.unit.building.address}
+  const userMessage = `Tenant: ${tenant.name}, Unit ${tenant.unit.unitNumber} at ${tenant.unit.building?.address || ""}
 Total balance: $${balance.toFixed(2)} (${arrearsDays} days outstanding)
 Aging: ${aging}
 Collection score: ${collectionScore}/100

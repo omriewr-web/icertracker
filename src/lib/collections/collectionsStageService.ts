@@ -275,7 +275,7 @@ export async function getOverdueAlerts(
     tenantId: s.tenant.id,
     tenantName: s.tenant.name,
     unitNumber: s.tenant.unit.unitNumber,
-    buildingAddress: s.tenant.unit.building.address,
+    buildingAddress: s.tenant.unit.building?.address || "",
     balance: Number(s.tenant.balance),
     stage: s.stage,
     daysPastDue: s.daysPastDue,
