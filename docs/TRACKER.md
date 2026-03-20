@@ -24,7 +24,7 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - [x] W3-C: Empty-state and loading-state audit (Dashboard, Users, Calendar, Scorecard fixed)
 - [x] W3-D: Redirect and alias cleanup
 - [x] W3-E: Dashboard metrics refinement
-- [x] W3-F: Sentry configuration fix — full SDK setup with instrumentation hooks, replay, tunnel route, source maps (2026-03-19); config hardened with env-driven org/project, replaysOnErrorSampleRate:1.0, tracesSampleRate:0.2, hideSourceMaps, disableLogger, test page+route added (2026-03-19)
+- [x] W3-F: Sentry configuration fix — full observability stack: dev/prod sample rates, replay integration, component annotation, sourcemap upload+deletion, SentryUserContext, structured error capture in withAuth/withCronAuth/violation-sync/email-service, test page at /test-error (2026-03-19)
 
 ### Wave 4 — Workflow Tests
 - [x] W4-A: Collections workflow tests
@@ -162,6 +162,7 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - Note: Requires OPENAI_API_KEY and ANTHROPIC_API_KEY as GitHub repo secrets
 
 ## Active Work
+- Sentry observability hardened — structured error capture across API routes, crons, services; test page deployed
 - Two-agent loop live — Codex audits every 6h, Claude repairs 1h later
 - Intelligence Layer V1 complete — cross-module attention scoring, action cards, decision learning loop, thread summaries
 - IMMEDIATE: Fix 3 Decimal serialization routes + 2 missing transactions + audit balance/vacancy sync call sites
@@ -172,8 +173,8 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 ## Deployment
 - Production: https://www.myatlaspm.com
 - ODK: https://www.myatlaspm.com/odk
-- Last deploy: 2026-03-18
-- Build: 0 TypeScript errors, 34 static pages
+- Last deploy: 2026-03-19
+- Build: 0 TypeScript errors, 45 static pages
 
 ## Known Issues
 
@@ -217,7 +218,7 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - Demo seed is strong for a guided demo but too small to fully simulate a 1,000-unit client environment
 - Long-running imports, syncs, and cron-style workloads still sit on the Vercel/serverless model; background workers are the next infrastructure need
 - Documentation drift exists: requested roadmap filename differs from repo, tracker was more optimistic than the current product state, and onboarding docs still reference an admin password directly
-- Sentry fully configured (2026-03-19) — set NEXT_PUBLIC_SENTRY_DSN and SENTRY_AUTH_TOKEN in Vercel env vars for source map uploads; test page at /sentry-example-page and test route at /api/sentry-example-route available for verification
+- Sentry fully configured (2026-03-19) — full observability with structured capture, replay, sourcemaps; set NEXT_PUBLIC_SENTRY_DSN and SENTRY_AUTH_TOKEN in Vercel env vars; test at /test-error and /sentry-example-page
 - Prisma 5.22.0 → 7.x upgrade available (major version, not urgent)
 - ESLint config needs interactive setup (npm run lint prompts for config selection)
 - Existing DB rows with old CollectionCase.status values (new_arrears, reminder_sent) still work via normalizer but should be migrated to canonical values (monitoring, demand_sent) when convenient
