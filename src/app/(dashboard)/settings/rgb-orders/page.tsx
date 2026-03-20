@@ -3,9 +3,32 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import { Plus, Trash2, AlertTriangle, Info, Pencil } from "lucide-react";
+import { Plus, Trash2, AlertTriangle, Info, Pencil, Download } from "lucide-react";
 import Button from "@/components/ui/button";
 import Modal from "@/components/ui/modal";
+
+function useSeedDefaults() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/settings/rgb-orders/seed", { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to seed orders");
+      }
+      return res.json() as Promise<{ created: number; skipped: number; total: number }>;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["rgb-orders"] });
+      if (data.created > 0) {
+        toast.success(`Seeded ${data.created} historical RGB orders (${data.skipped} already existed)`);
+      } else {
+        toast.success("All historical orders already exist");
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -287,6 +310,7 @@ export default function RgbOrdersPage() {
   const createMut = useCreateOrder();
   const updateMut = useUpdateOrder();
   const deleteMut = useDeleteOrder();
+  const seedMut = useSeedDefaults();
 
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -354,10 +378,21 @@ export default function RgbOrdersPage() {
             Manage Rent Guidelines Board orders and percentage rates.
           </p>
         </div>
-        <Button onClick={() => setShowCreate(true)} size="md">
-          <Plus className="w-4 h-4" />
-          Add New Order
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => seedMut.mutate()}
+            disabled={seedMut.isPending}
+          >
+            <Download className="w-4 h-4" />
+            {seedMut.isPending ? "Seeding..." : "Seed Historical Orders"}
+          </Button>
+          <Button onClick={() => setShowCreate(true)} size="md">
+            <Plus className="w-4 h-4" />
+            Add New Order
+          </Button>
+        </div>
       </div>
 
       {/* Alert banner */}
