@@ -1,0 +1,49 @@
+name: Claude Repair
+
+on:
+  schedule:
+    - cron: '0 1,7,13,19 * * *'
+  workflow_dispatch:
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Pull latest to pick up Codex audit commit
+        run: git pull --rebase origin main
+
+      - name: Run Claude Code repair
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          mkdir -p docs/audits
+          npx @anthropic-ai/claude-code --print "$(cat docs/audits/CLAUDE-REPAIR-PROMPT.md)"
+
+      - name: Push repair commits
+        run: |
+          git config user.name "claude-repair[bot]"
+          git config user.email "claude-repair[bot]@users.noreply.github.com"
+          git add docs/audits/ docs/TRACKER.md
+          git diff --cached --quiet || git commit -m "chore: repair report $(date -u '+%Y-%m-%d %H:%M') UTC"
+          git push

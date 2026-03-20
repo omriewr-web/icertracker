@@ -1,0 +1,46 @@
+name: Codex Audit
+
+on:
+  schedule:
+    - cron: '0 0,6,12,18 * * *'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run Codex audit
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          mkdir -p docs/audits
+          npx @openai/codex --print "$(cat docs/audits/CODEX-AUDIT-PROMPT.md)"
+
+      - name: Commit audit report
+        run: |
+          git config user.name "codex-audit[bot]"
+          git config user.email "codex-audit[bot]@users.noreply.github.com"
+          git add docs/audits/
+          git diff --cached --quiet || git commit -m "audit: Codex report $(date -u '+%Y-%m-%d %H:%M') UTC"
+          git push
