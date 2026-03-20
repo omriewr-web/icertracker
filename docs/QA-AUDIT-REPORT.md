@@ -7,7 +7,13 @@
 **Test results:** 467 passed / 0 failed (32 test files)
 
 ## Fix Status (2026-03-19)
-62+ issues fixed across 13 automated passes. Remaining: M1 (CSRF — deferred, needs architecture), M2 (demo password — deferred by user), L12 (composite indexes — blocked on schema changes).
+65+ issues fixed across 14 automated passes. Original audit fully resolved except: M1 (CSRF — deferred, needs architecture), M2 (demo password — deferred by user), L12 (composite indexes — blocked on schema changes).
+
+### Phase 2 Issues (found in follow-up scan)
+- **P2-1 (MEDIUM):** 63 `console.log/error` calls in 20 files should use centralized Pino logger
+- **P2-2 (LOW):** Duplicate org-scoping boilerplate in 5 routes — extractable to `getOrgFilter()` helper
+- **P2-3 (LOW):** Duplicate import log init pattern in 8 routes — extractable to shared helper
+- **P2-4 (LOW):** 6 hardcoded URLs in /odk internal page (intentional, PIN-protected)
 
 ---
 

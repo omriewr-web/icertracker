@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import logger from "./logger";
 import {
   detectBoroId,
   fetchHpdViolations,
@@ -38,17 +39,17 @@ export async function syncBuildingViolations(
   });
 
   if (!building || !building.block || !building.lot) {
-    console.log(`[Sync] Skipping building ${buildingId}: missing block/lot`);
+    logger.info(`[Sync] Skipping building ${buildingId}: missing block/lot`);
     return [{ buildingId, address: building?.address || "", source: "ALL", newCount: 0, updatedCount: 0, rowsFetched: 0, error: "Missing block/lot" }];
   }
 
   const boroId = detectBoroId(building.address, building.zip);
   if (!boroId) {
-    console.log(`[Sync] Skipping building ${building.address}: could not detect borough`);
+    logger.info(`[Sync] Skipping building ${building.address}: could not detect borough`);
     return [{ buildingId, address: building.address, source: "ALL", newCount: 0, updatedCount: 0, rowsFetched: 0, error: `Could not detect borough from address "${building.address}" zip "${building.zip}"` }];
   }
 
-  console.log(`[Sync] Building: ${building.address} | block=${building.block} lot=${building.lot} boroId=${boroId}`);
+  logger.info(`[Sync] Building: ${building.address} | block=${building.block} lot=${building.lot} boroId=${boroId}`);
 
   const activeSources: Source[] = (sources?.length
     ? sources.filter((s): s is Source => ["HPD", "DOB", "ECB", "HPD_COMPLAINTS"].includes(s))
@@ -85,12 +86,12 @@ export async function syncBuildingViolations(
       const rows = fetchResult!.rows;
 
       if (fetchResult!.error) {
-        console.error(`[Sync] ${source} API error: ${fetchResult!.error}`);
+        logger.error(`[Sync] ${source} API error: ${fetchResult!.error}`);
         results.push({ buildingId, address: building.address, source, newCount: 0, updatedCount: 0, rowsFetched: 0, apiUrl: fetchResult!.url, error: fetchResult!.error });
         continue;
       }
 
-      console.log(`[Sync] ${source}: ${rows.length} rows fetched`);
+      logger.info(`[Sync] ${source}: ${rows.length} rows fetched`);
 
       for (const row of rows) {
         const mapped = mapper!(row, buildingId);
@@ -139,10 +140,10 @@ export async function syncBuildingViolations(
         data: { buildingId, source, newCount, updatedCount, status: "completed" },
       });
 
-      console.log(`[Sync] ${source} done: ${newCount} new, ${updatedCount} updated`);
+      logger.info(`[Sync] ${source} done: ${newCount} new, ${updatedCount} updated`);
       results.push({ buildingId, address: building.address, source, newCount, updatedCount, rowsFetched: rows.length, apiUrl: fetchResult!.url });
     } catch (err: any) {
-      console.error(`[Sync] Error for ${source} on ${building.address}:`, err);
+      logger.error({ err }, `[Sync] Error for ${source} on ${building.address}`);
       captureBusinessMessage("Failed violation sync", {
         level: "error",
         tags: {
@@ -194,7 +195,7 @@ export async function syncAllBuildings(
   });
 
   const total = buildings.length;
-  console.log(`[Sync] Syncing ${total} buildings with block/lot data (batch size ${BATCH_SIZE})`);
+  logger.info(`[Sync] Syncing ${total} buildings with block/lot data (batch size ${BATCH_SIZE})`);
 
   const allResults: SyncResult[] = [];
 
@@ -202,14 +203,14 @@ export async function syncAllBuildings(
     const batch = buildings.slice(i, i + BATCH_SIZE);
     const batchResults = await Promise.all(
       batch.map((b) => syncBuildingViolations(b.id, sources).catch((err) => {
-        console.error(`[Sync] Building ${b.id} failed:`, err);
+        logger.error({ err }, `[Sync] Building ${b.id} failed`);
         return [{ buildingId: b.id, address: "", source: "ALL", newCount: 0, updatedCount: 0, rowsFetched: 0, error: err.message }] as SyncResult[];
       }))
     );
     const flatResults = batchResults.flat();
     allResults.push(...flatResults);
     const synced = Math.min(i + BATCH_SIZE, total);
-    console.log(`[Sync] Progress: ${synced}/${total} buildings`);
+    logger.info(`[Sync] Progress: ${synced}/${total} buildings`);
     if (onProgress) onProgress(synced, total, flatResults);
 
     // Throttle: avoid overwhelming the DB and external APIs

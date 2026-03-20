@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import logger from "@/lib/logger";
 import type { ViolationSource, WorkOrderCategory, WorkOrderPriority } from "@prisma/client";
 
 interface InterceptorResult {
@@ -123,7 +124,7 @@ export async function interceptViolation(
       escalationScheduled: false,
     };
   } catch (err: any) {
-    console.error(`[Interceptor] Error processing violation ${violation.id}:`, err.message);
+    logger.error({ err: err.message }, `[Interceptor] Error processing violation ${violation.id}`);
     return {
       workOrderId: null,
       ruleApplied: null,

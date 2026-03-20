@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import logger from "@/lib/logger";
 import { withAuth } from "@/lib/api-helpers";
 import { analyzeImport } from "@/lib/importer/analyzeImport";
 import { REQUIRED_FIELDS } from "@/lib/importer/headerAliases";
@@ -87,7 +88,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       aiUsed: result.aiUsed,
     });
   } catch (err: any) {
-    console.error("Import analysis error:", err);
+    logger.error({ err }, "Import analysis error");
     return NextResponse.json(
       { error: err.message || "Analysis failed" },
       { status: 500 },

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import logger from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { canAccessBuilding } from "@/lib/data-scope";
@@ -82,7 +83,7 @@ export const PATCH = withAuth(async (req, { user, params }) => {
         });
       }
     } catch (e) {
-      console.error("Failed to record utility close event:", e);
+      logger.error({ err: e }, "Failed to record utility close event");
     }
   }
 

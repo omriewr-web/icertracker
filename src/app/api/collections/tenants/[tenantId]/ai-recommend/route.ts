@@ -1,6 +1,7 @@
 // AI_GUARDRAIL: This service returns recommendations only.
 // It must never directly mutate financial records.
 import { NextRequest, NextResponse } from "next/server";
+import logger from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { assertTenantAccess } from "@/lib/data-scope";
@@ -193,7 +194,7 @@ For each action include: action title, brief explanation, and urgency level (Hig
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[AI Recommend] Error:", message);
+    logger.error({ err: message }, "[AI Recommend] Error");
     return NextResponse.json({ error: "AI recommendation unavailable" }, { status: 503 });
   }
 }, "collections");

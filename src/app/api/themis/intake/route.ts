@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import logger from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { getBuildingScope, EMPTY_SCOPE, assertBuildingAccess } from "@/lib/data-scope";
@@ -53,7 +54,7 @@ export const POST = withAuth(async (req, { user }) => {
   });
 
   // Fire-and-forget AI extraction
-  runAIExtraction(intake.id).catch(console.error);
+  runAIExtraction(intake.id).catch((err) => logger.error({ err }, "AI extraction failed"));
 
   return NextResponse.json(intake, { status: 201 });
 }, "maintenance");

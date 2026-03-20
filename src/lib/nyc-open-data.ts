@@ -1,5 +1,7 @@
 // NYC Open Data (Socrata) integration for violation fetching
 
+import logger from "./logger";
+
 const SOCRATA_BASE = "https://data.cityofnewyork.us/resource";
 
 export const ENDPOINTS: Record<string, string> = {
@@ -70,7 +72,7 @@ async function socrataFetch(
   url.searchParams.set("$limit", String(limit));
 
   const finalUrl = url.toString();
-  console.log(`[NYC Open Data] Fetching: ${finalUrl}`);
+  logger.info(`[NYC Open Data] Fetching: ${finalUrl}`);
 
   const headers: Record<string, string> = { Accept: "application/json" };
   const appToken = process.env.NYC_OPEN_DATA_APP_TOKEN;
@@ -81,23 +83,23 @@ async function socrataFetch(
 
   try {
     const res = await fetch(finalUrl, { headers, cache: "no-store", signal: controller.signal });
-    console.log(`[NYC Open Data] Response: ${res.status} ${res.statusText}`);
+    logger.info(`[NYC Open Data] Response: ${res.status} ${res.statusText}`);
 
     if (!res.ok) {
       const body = await res.text();
-      console.error(`[NYC Open Data] Error body: ${body.substring(0, 500)}`);
+      logger.error(`[NYC Open Data] Error body: ${body.substring(0, 500)}`);
       return { rows: [], url: finalUrl, status: res.status, error: `${res.status} ${res.statusText}` };
     }
 
     const data = await res.json();
-    console.log(`[NYC Open Data] Got ${data.length} rows from ${endpoint}`);
+    logger.info(`[NYC Open Data] Got ${data.length} rows from ${endpoint}`);
     return { rows: data, url: finalUrl, status: res.status };
   } catch (err: any) {
     if (err instanceof Error && err.name === "AbortError") {
-      console.error(`[NYC Open Data] Request timed out after 15s: ${finalUrl}`);
+      logger.error(`[NYC Open Data] Request timed out after 15s: ${finalUrl}`);
       return { rows: [], url: finalUrl, status: 0, error: `NYC Open Data request timed out after 15s: ${finalUrl}` };
     }
-    console.error(`[NYC Open Data] Network error:`, err.message);
+    logger.error({ err: err.message }, `[NYC Open Data] Network error`);
     return { rows: [], url: finalUrl, status: 0, error: err.message };
   } finally {
     clearTimeout(timeoutId);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import logger from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { canAccessBuilding } from "@/lib/data-scope";
@@ -95,7 +96,7 @@ export const POST = withAuth(async (req, { user }) => {
         });
       }
     } catch (e) {
-      console.error("Failed to record utility event:", e);
+      logger.error({ err: e }, "Failed to record utility event");
     }
 
     return NextResponse.json(account, { status: 201 });

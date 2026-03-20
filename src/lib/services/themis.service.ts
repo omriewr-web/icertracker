@@ -1,6 +1,7 @@
 // AI_GUARDRAIL: This service returns recommendations only.
 // It must never directly mutate financial records.
 import { prisma } from "@/lib/prisma";
+import logger from "@/lib/logger";
 import { Prisma, WorkOrderCategory } from "@prisma/client";
 import Anthropic from "@anthropic-ai/sdk";
 import { triageWorkOrderTrade } from "@/lib/ai/asset-manager";
@@ -106,7 +107,7 @@ export async function runAIExtraction(intakeId: string): Promise<AIExtractionRes
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    console.error("[Themis] ANTHROPIC_API_KEY not configured");
+    logger.error("[Themis] ANTHROPIC_API_KEY not configured");
     return null;
   }
 
@@ -156,7 +157,7 @@ export async function runAIExtraction(intakeId: string): Promise<AIExtractionRes
     const text = response.content[0]?.type === "text" ? response.content[0].text : "";
     const parsed = safeParse<AIExtractionResult>(text);
     if (!parsed) {
-      console.error("[Themis] Failed to parse AI extraction response");
+      logger.error("[Themis] Failed to parse AI extraction response");
       return null;
     }
 
@@ -187,7 +188,7 @@ export async function runAIExtraction(intakeId: string): Promise<AIExtractionRes
 
     return { ...parsed, suggestedPriority: priority, suggestedCategory: parsed.suggestedCategory || trade };
   } catch (err: any) {
-    console.error("[Themis] AI extraction error:", err.message);
+    logger.error({ err: err.message }, "[Themis] AI extraction error");
     return null;
   }
 }
@@ -283,7 +284,7 @@ export async function runAIReview(draftId: string): Promise<AIReviewResult> {
 
     return { flaggedIssues: uniqueFlags, completenessScore: result.completenessScore, readyForPromotion: result.readyForPromotion };
   } catch (err: any) {
-    console.error("[Themis] AI review error:", err.message);
+    logger.error({ err: err.message }, "[Themis] AI review error");
     return fallback;
   }
 }
@@ -377,7 +378,7 @@ export async function enrichWithPortfolioContext(intakeId: string) {
       tenantNotes,
     };
   } catch (err: any) {
-    console.error("[Themis] Portfolio context error:", err.message);
+    logger.error({ err: err.message }, "[Themis] Portfolio context error");
     return empty;
   }
 }
@@ -586,7 +587,7 @@ export async function generateTenantResponseEmail(
     const text = response.content[0]?.type === "text" ? response.content[0].text : "";
     return safeParse<{ subject: string; body: string }>(text) ?? fallback;
   } catch (err: any) {
-    console.error("[Themis] Email generation error:", err.message);
+    logger.error({ err: err.message }, "[Themis] Email generation error");
     return fallback;
   }
 }
@@ -624,7 +625,7 @@ export async function autoLinkViolations(
         data: { similarWOIds: [...existing, ...violationRefs] },
       });
     } catch (err: any) {
-      console.error("[Themis] Auto-link violations error:", err.message);
+      logger.error({ err: err.message }, "[Themis] Auto-link violations error");
     }
   }
 

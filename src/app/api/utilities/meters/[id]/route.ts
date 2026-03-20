@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import logger from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { canAccessBuilding } from "@/lib/data-scope";
@@ -42,7 +43,7 @@ export const GET = withAuth(async (req, { user, params }) => {
       eventHistory = await getMeterEventHistory(orgId, id);
     }
   } catch (e) {
-    console.error("Failed to fetch meter event history:", e);
+    logger.error({ err: e }, "Failed to fetch meter event history");
   }
 
   return NextResponse.json({ ...meter, eventHistory });

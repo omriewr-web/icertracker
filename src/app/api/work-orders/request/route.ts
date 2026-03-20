@@ -4,6 +4,7 @@
 // Protected by: building token (GET) + rate limiting (POST) + honeypot field (POST).
 
 import { NextRequest, NextResponse } from "next/server";
+import logger from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { tenantRequestSchema } from "@/lib/validations";
 import { assertUnitBelongsToBuilding } from "@/lib/work-order-relations";
@@ -182,7 +183,7 @@ export async function POST(req: NextRequest) {
         source: "public-request",
       },
     });
-    console.error("Request portal error:", error);
+    logger.error({ err: error }, "Request portal error");
     return NextResponse.json({ error: "Failed to submit request" }, { status: 500 });
   }
 }

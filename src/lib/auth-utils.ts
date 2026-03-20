@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth";
+import logger from "./logger";
 import { NextResponse } from "next/server";
 import { authOptions } from "./auth";
 import { loadFreshAuthUserById } from "./auth-state";
@@ -39,7 +40,7 @@ export function handleApiError(error: unknown) {
   if (error instanceof AuthError) {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
-  console.error(error);
+  logger.error({ err: error }, "API error");
   return NextResponse.json(
     { error: "Internal server error" },
     { status: 500 }

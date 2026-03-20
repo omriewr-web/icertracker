@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import logger from "@/lib/logger";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { AI_MODEL } from "@/lib/ai-config";
 import { enhanceTextSchema } from "@/lib/validations";
@@ -44,7 +45,7 @@ export const POST = withAuth(async (req) => {
     return NextResponse.json({ enhanced: textBlock.text.trim(), context: data.context });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error("[AI Enhance] Error:", msg);
+    logger.error({ err: msg }, "[AI Enhance] Error");
     return NextResponse.json({ error: "Enhancement unavailable" }, { status: 503 });
   }
 }, "dash");

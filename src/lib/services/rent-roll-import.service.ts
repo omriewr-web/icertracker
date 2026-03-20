@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import logger from "@/lib/logger";
 import { LeaseStatus } from "@prisma/client";
 import type { ParsedRentRollRow, ParsedVacantRow } from "@/lib/parsers/rent-roll.parser";
 import { findMatchingBuilding, fetchBuildingsForMatching, extractAddressFromEntity, generatePropertyId } from "@/lib/building-matching";
@@ -77,7 +78,7 @@ export async function importRentRollData(
     );
     if (match) {
       buildingMap.set(code.toLowerCase().trim(), match.id);
-      console.log(`[rent-roll] Matched building code "${code}" via ${match.matchedBy}`);
+      logger.info(`[rent-roll] Matched building code "${code}" via ${match.matchedBy}`);
 
       // Always upsert entity name on building from rent roll section
       if (entity) {
@@ -98,7 +99,7 @@ export async function importRentRollData(
             where: { id: match.id },
             data: { propertyId: propId },
           }).catch(() => {});
-          console.log(`[rent-roll] Auto-generated propertyId "${propId}" for building ${building.address}`);
+          logger.info(`[rent-roll] Auto-generated propertyId "${propId}" for building ${building.address}`);
         } else {
           // Try with suffix
           for (let suffix = 2; suffix <= 10; suffix++) {
@@ -109,7 +110,7 @@ export async function importRentRollData(
                 where: { id: match.id },
                 data: { propertyId: candidate },
               }).catch(() => {});
-              console.log(`[rent-roll] Auto-generated propertyId "${candidate}" for building ${building.address}`);
+              logger.info(`[rent-roll] Auto-generated propertyId "${candidate}" for building ${building.address}`);
               break;
             }
           }
@@ -123,7 +124,7 @@ export async function importRentRollData(
         entity,
         rowCount: codeRowCounts.get(code) || 0,
       });
-      console.log(`[rent-roll] WARNING: No match for code "${code}" entity "${entity}" extractedAddr "${extractedAddr}"`);
+      logger.warn(`[rent-roll] No match for code "${code}" entity "${entity}" extractedAddr "${extractedAddr}"`);
     }
   }
 

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import logger from "@/lib/logger";
 import { getArrearsCategory, getArrearsDays, getLeaseStatus, calcCollectionScore } from "@/lib/scoring";
 import { findMatchingBuilding, fetchBuildingsForMatching, normalizeAddress, extractAddressFromEntity } from "@/lib/building-matching";
 import type { LeaseStatus } from "@prisma/client";
@@ -87,12 +88,12 @@ export async function commitRentRollImport(
             buildingId = match.id;
             matchedBuildingIds.add(match.id);
             const matchedBuilding = existingBuildings.find((b) => b.id === match.id);
-            console.log(`Matched building [${matchedBuilding?.address}] via ${match.matchedBy} [${yardiCode || extractedAddr || propKey}]`);
+            logger.info(`Matched building [${matchedBuilding?.address}] via ${match.matchedBy} [${yardiCode || extractedAddr || propKey}]`);
           } else {
             buildingId = null;
             const code = yardiCode || extractedAddr || propKey;
             unmatchedCodes.push(code);
-            console.log(`WARNING: No building match for yardiId [${yardiCode}] extractedAddr [${extractedAddr}] entity [${propKey}]`);
+            logger.warn(`No building match for yardiId [${yardiCode}] extractedAddr [${extractedAddr}] entity [${propKey}]`);
           }
           buildingCache.set(cacheKey, buildingId);
         }
@@ -135,7 +136,7 @@ export async function commitRentRollImport(
           // Promote the t-code to residentId if we don't already have one
           if (!residentId) residentId = tenantName;
           tenantName = `[Needs Review] ${tenantName}`;
-          console.log(`WARNING: Row ${row.rowIndex + 1}: Name "${t.name}" looks like a Yardi code — marked for review`);
+          logger.warn(`Row ${row.rowIndex + 1}: Name "${t.name}" looks like a Yardi code — marked for review`);
         }
 
         // ── Compute derived fields ──
@@ -280,6 +281,6 @@ export async function commitRentRollImport(
     }
   }, { timeout: 120_000 });
 
-  console.log(`Import complete: ${imported} imported (${tenantsCreated} created), ${skipped} skipped, ${matchedBuildingIds.size} buildings matched, ${unmatchedCodes.length} unmatched codes: [${unmatchedCodes.join(", ")}]`);
+  logger.info(`Import complete: ${imported} imported (${tenantsCreated} created), ${skipped} skipped, ${matchedBuildingIds.size} buildings matched, ${unmatchedCodes.length} unmatched codes: [${unmatchedCodes.join(", ")}]`);
   return { imported, skipped, errors, tenantsCreated, buildingsMatched: matchedBuildingIds.size, unmatchedCodes };
 }

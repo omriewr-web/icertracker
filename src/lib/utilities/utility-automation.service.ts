@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import logger from "@/lib/logger";
 import { recordMoveOut, recordOwnerHoldStarted, recordMoveIn } from "./responsibility-event.service";
 import { createUtilityTasksBatch, type CreateTaskParams } from "./utility-task.service";
 
@@ -47,7 +48,7 @@ export async function onMoveOutRecorded(params: {
           triggeredByUserId: params.triggeredByUserId,
         });
       } catch (e) {
-        console.error("Failed to record move-out event:", e);
+        logger.error({ err: e }, "Failed to record move-out event");
       }
 
       const base: Omit<CreateTaskParams, "taskType" | "title" | "dueAt"> & { description?: string } = {
@@ -96,7 +97,7 @@ export async function onMoveOutRecorded(params: {
       await createUtilityTasksBatch(tasks);
     }
   } catch (e) {
-    console.error("Utility automation failed on move-out:", e);
+    logger.error({ err: e }, "Utility automation failed on move-out");
   }
 }
 
@@ -131,7 +132,7 @@ export async function onUnitBecameVacant(params: {
           triggeredByUserId: params.triggeredByUserId,
         });
       } catch (e) {
-        console.error("Failed to record owner hold started:", e);
+        logger.error({ err: e }, "Failed to record owner hold started");
       }
 
       tasks.push({
@@ -153,7 +154,7 @@ export async function onUnitBecameVacant(params: {
       await createUtilityTasksBatch(tasks);
     }
   } catch (e) {
-    console.error("Utility automation failed on unit became vacant:", e);
+    logger.error({ err: e }, "Utility automation failed on unit became vacant");
   }
 }
 
@@ -197,7 +198,7 @@ export async function onNewTenantCreated(params: {
           triggeredByUserId: params.triggeredByUserId,
         });
       } catch (e) {
-        console.error("Failed to record move-in event:", e);
+        logger.error({ err: e }, "Failed to record move-in event");
       }
 
       tasks.push({
@@ -236,7 +237,7 @@ export async function onNewTenantCreated(params: {
       await createUtilityTasksBatch(tasks);
     }
   } catch (e) {
-    console.error("Utility automation failed on new tenant:", e);
+    logger.error({ err: e }, "Utility automation failed on new tenant");
   }
 }
 
@@ -259,6 +260,6 @@ export async function onVacancyClosed(params: {
       },
     });
   } catch (e) {
-    console.error("Utility automation failed on vacancy closed:", e);
+    logger.error({ err: e }, "Utility automation failed on vacancy closed");
   }
 }
