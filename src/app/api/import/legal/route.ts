@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
 import { normalizeAddress } from "@/lib/building-matching";
 import { matchLegalCase, type LegalCaseRow, type TenantRecord, type MatchResult } from "@/lib/legal-matching";
+import { getOrgScope } from "@/lib/data-scope";
 import { LegalStage } from "@prisma/client";
 import { toNumber } from "@/lib/utils/decimal";
 import { startImportLog, completeImportLog } from "@/lib/utils/import-log";
@@ -86,9 +87,8 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   }
 
   // Build lookup maps (scoped to user's org)
-  const orgFilter = user.role === "SUPER_ADMIN" ? {} : { organizationId: user.organizationId };
   const buildings = await prisma.building.findMany({
-    where: orgFilter,
+    where: getOrgScope(user),
     select: { id: true, address: true, altAddress: true },
   });
   const addressToBuildingId = new Map<string, string>();

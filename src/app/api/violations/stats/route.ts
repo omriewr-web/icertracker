@@ -12,15 +12,8 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
   const log = logger.child({ route: "/api/violations/stats", userId: user.id });
   log.info({ action: "start" });
 
-  // Only SUPER_ADMIN bypasses org filter; ADMIN is still scoped to their org
-  const isSuperAdmin = user.role === 'SUPER_ADMIN';
-  const orgFilter = isSuperAdmin
-    ? {}
-    : user.organizationId
-      ? { organizationId: user.organizationId }
-      : null;
-
-  if (orgFilter === null) {
+  // Non-SUPER_ADMIN without org sees nothing (defense-in-depth)
+  if (user.role !== "SUPER_ADMIN" && !user.organizationId) {
     return NextResponse.json({ totalOpen: 0, classACount: 0, classBCount: 0, classCCount: 0, totalPenalties: 0, upcomingHearings: 0 });
   }
 

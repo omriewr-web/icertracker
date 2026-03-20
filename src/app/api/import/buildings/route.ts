@@ -4,6 +4,7 @@ import { withAuth } from "@/lib/api-helpers";
 import { parseBuildingDataExcel, buildingRowToPrismaData } from "@/lib/parsers/buildingParser";
 import { matchBuildingByRow, generateYardiId, generatePropertyId } from "@/lib/building-matching";
 import { startImportLog, completeImportLog } from "@/lib/utils/import-log";
+import { getOrgScope } from "@/lib/data-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -42,9 +43,8 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   }
 
   // Load existing buildings for matching (scoped to user's org)
-  const orgFilter = user.role === "SUPER_ADMIN" ? {} : { organizationId: user.organizationId };
   const existingBuildings = await prisma.building.findMany({
-    where: orgFilter,
+    where: getOrgScope(user),
     select: {
       id: true,
       address: true,

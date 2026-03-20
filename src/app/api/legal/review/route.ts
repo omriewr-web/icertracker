@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api-helpers";
 import { LegalStage } from "@prisma/client";
-import { assertTenantAccess, getOrgScope } from "@/lib/data-scope";
+import { assertTenantAccess } from "@/lib/data-scope";
 import { legalReviewSchema } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
@@ -24,14 +24,8 @@ function parseStage(value: string | undefined | null): LegalStage {
 
 // GET — List pending review items (scoped to user's org via candidate tenants)
 export const GET = withAuth(async (req: NextRequest, { user }) => {
-  const isSuperAdmin = user.role === 'SUPER_ADMIN';
-  const orgFilter = isSuperAdmin
-    ? {}
-    : user.organizationId
-      ? { organizationId: user.organizationId }
-      : null;
-
-  if (orgFilter === null) {
+  // Non-SUPER_ADMIN without org sees nothing (defense-in-depth)
+  if (user.role !== "SUPER_ADMIN" && !user.organizationId) {
     return NextResponse.json({ items: [] }, { status: 200 });
   }
 

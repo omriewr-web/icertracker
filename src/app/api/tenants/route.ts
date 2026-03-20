@@ -17,14 +17,8 @@ export const GET = withAuth(async (req, { user }) => {
   const log = logger.child({ route: "/api/tenants", userId: user.id });
   log.info({ action: "start" });
 
-  const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
-  const orgFilter = isAdmin
-    ? {}
-    : user.organizationId
-      ? { organizationId: user.organizationId }
-      : null;
-
-  if (orgFilter === null) {
+  // Non-SUPER_ADMIN without org sees nothing (defense-in-depth)
+  if (user.role !== "SUPER_ADMIN" && !user.organizationId) {
     return NextResponse.json({ tenants: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 0 } });
   }
 
