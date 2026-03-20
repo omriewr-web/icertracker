@@ -184,7 +184,7 @@ function EmptyState({ onQuickAction, tenantMode }: { onQuickAction: (prompt: str
       <Sparkles className="w-10 h-10 text-accent mb-3" />
       <h3 className="text-text-primary font-medium mb-1">Atlas AI</h3>
       <p className="text-text-dim text-xs mb-6 text-center max-w-sm">
-        Hi, I'm Atlas AI — your AtlasPM assistant. I have access to your full portfolio data. Ask me anything about your tenants, buildings, collections, or legal cases.
+        Hi, I&apos;m Atlas AI — your AtlasPM assistant. I have access to your full portfolio data. Ask me anything about your tenants, buildings, collections, or legal cases.
       </p>
       <div className="w-full space-y-2">
         {quickActions.map((qa) => (

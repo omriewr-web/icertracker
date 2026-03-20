@@ -220,7 +220,8 @@ export default function OwnerDashboardContent() {
             Owner Dashboard
           </h1>
           <p className="text-xs text-text-dim tracking-[0.15em] mt-1 font-mono">
-            // PORTFOLIO PERFORMANCE OVERVIEW
+            {/* PORTFOLIO PERFORMANCE OVERVIEW */}
+            PORTFOLIO PERFORMANCE OVERVIEW
           </p>
         </div>
         <div className="print:hidden">

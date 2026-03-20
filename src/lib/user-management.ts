@@ -81,10 +81,10 @@ export function buildPresetPermissions(
   const base = PERMISSION_PRESETS[preset];
   const merged = { ...base };
 
-  for (const module of MODULES) {
-    const override = overrides?.[module];
+  for (const mod of MODULES) {
+    const override = overrides?.[mod];
     if (override) {
-      merged[module] = override;
+      merged[mod] = override;
     }
   }
 
@@ -101,14 +101,14 @@ export function buildDangerousPrivileges(
   };
 }
 
-function getInvokerLevel(invoker: UserWithGrants, module: Module): PermissionLevel {
+function getInvokerLevel(invoker: UserWithGrants, mod: Module): PermissionLevel {
   if (invoker.accessGrants.length === 0 && canAccessUserAdmin(invoker.role as UserRole)) {
     return "full";
   }
 
   return getEffectiveLevel(
     invoker.accessGrants,
-    module,
+    mod,
     "org",
     invoker.organizationId ?? undefined
   );
@@ -118,13 +118,13 @@ export function assertGrantedModulesWithinInvoker(
   invoker: UserWithGrants,
   targetPermissions: ModulePermissions
 ): void {
-  for (const module of MODULES) {
-    const targetLevel = targetPermissions[module];
-    const invokerLevel = getInvokerLevel(invoker, module);
+  for (const mod of MODULES) {
+    const targetLevel = targetPermissions[mod];
+    const invokerLevel = getInvokerLevel(invoker, mod);
 
     if (LEVEL_RANK[targetLevel] > LEVEL_RANK[invokerLevel]) {
       throw new ApiRequestError(
-        `Cannot grant ${targetLevel} on ${module} - exceeds your own access level (${invokerLevel})`,
+        `Cannot grant ${targetLevel} on ${mod} - exceeds your own access level (${invokerLevel})`,
         403
       );
     }

@@ -85,15 +85,15 @@ export function can(
   const dotIndex = action.indexOf(".");
   if (dotIndex === -1) return false;
 
-  const module = action.slice(0, dotIndex) as Module;
+  const mod = action.slice(0, dotIndex) as Module;
   const requiredLevel = action.slice(dotIndex + 1) as PermissionLevel;
 
-  if (!(module in LEVEL_RANK) && !MODULES.includes(module)) return false;
+  if (!(mod in LEVEL_RANK) && !MODULES.includes(mod)) return false;
   if (!(requiredLevel in LEVEL_RANK)) return false;
 
   const effective = getEffectiveLevel(
     user.accessGrants,
-    module,
+    mod,
     resource?.scopeType,
     resource?.scopeId
   );
@@ -119,13 +119,13 @@ export async function createGrantsFromPreset(
   const merged: ModulePermissions = { ...base, ...overrides };
 
   await prisma.$transaction(
-    MODULES.map((module) =>
+    MODULES.map((mod) =>
       prisma.userAccessGrant.upsert({
         where: {
           userId_orgId_module_scopeType_scopeId: {
             userId,
             orgId,
-            module,
+            module: mod,
             scopeType: "org",
             scopeId: orgId,
           },
@@ -133,13 +133,13 @@ export async function createGrantsFromPreset(
         create: {
           userId,
           orgId,
-          module,
-          level: merged[module],
+          module: mod,
+          level: merged[mod],
           scopeType: "org",
           scopeId: orgId,
         },
         update: {
-          level: merged[module],
+          level: merged[mod],
         },
       })
     )

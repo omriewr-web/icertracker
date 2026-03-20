@@ -1136,7 +1136,7 @@ export default function CollectionsContent() {
       {/* ── Quick Action: Mark Resolved ── */}
       <Modal open={!!resolveTarget} onClose={() => { setResolveTarget(null); setResolveNote(""); }} title={`Mark Resolved — ${resolveTarget?.name || ""}`}>
         <div className="space-y-3">
-          <p className="text-sm text-text-muted">Mark this tenant's collection case as resolved.</p>
+          <p className="text-sm text-text-muted">Mark this tenant&apos;s collection case as resolved.</p>
           <textarea
             value={resolveNote}
             onChange={(e) => setResolveNote(e.target.value)}

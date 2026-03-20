@@ -26,8 +26,8 @@ const outcomeSchema = z.object({
 
 export const GET = withAuth(async (req, { user }) => {
   const { searchParams } = new URL(req.url);
-  const module = searchParams.get("module") || undefined;
-  const stats = await getRecommendationStats(user.organizationId!, module);
+  const mod = searchParams.get("module") || undefined;
+  const stats = await getRecommendationStats(user.organizationId!, mod);
   return NextResponse.json({ stats });
 }, "dash");
 
