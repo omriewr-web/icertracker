@@ -163,7 +163,7 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 
 ### Sentry Load Test (2026-03-19)
 - [x] scripts/sentry-load-test.mjs — continuous load test generating errors, warnings, and performance transactions
-- [x] GitHub Actions workflow (.github/workflows/sentry-load-test.yml) — runs every 2h
+- [x] GitHub Actions workflow (.github/workflows/sentry-load-test.yml) — runs every 2h, pushed to both remotes
 - [x] npm script: sentry:loadtest
 - Note: Requires NEXT_PUBLIC_SENTRY_DSN as GitHub repo secret
 
