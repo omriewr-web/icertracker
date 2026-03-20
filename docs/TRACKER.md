@@ -169,7 +169,8 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 
 ### CI Pipeline Fix (2026-03-20)
 - [x] Created .eslintrc.json (next/core-web-vitals) — fixes interactive prompt in CI
-- [x] Added pool: "forks" to vitest.config.ts — fixes ERR_REQUIRE_ESM in CI
+- [x] Added pool: "forks" to vitest.config.ts — partial ERR_REQUIRE_ESM fix
+- [x] Renamed vitest.config.ts → vitest.config.mts — forces ESM module loading, fully resolves ERR_REQUIRE_ESM in CI
 - [x] Fixed 9 ESLint errors: `module` variable shadowing (3 files), unescaped JSX entities (4 files)
 - [x] Lint: 0 errors, 15 warnings (all pre-existing, non-blocking)
 - [x] Tests: 1068 passed, 0 failed
