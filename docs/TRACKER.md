@@ -153,7 +153,16 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 2. H7: Signal engine N+1 sequential DB calls in loops
 3. H12: 7+ pages silently break on API failure (no isError checks)
 
+### Two-Agent Audit/Repair Loop (2026-03-19)
+- [x] Codex audit workflow — runs every 6h (0/6/12/18 UTC), reads code, writes structured findings
+- [x] Claude repair workflow — runs 1h after audit (1/7/13/19 UTC), fixes top 1-3 safe issues
+- [x] Audit prompt: docs/audits/CODEX-AUDIT-PROMPT.md
+- [x] Repair prompt: docs/audits/CLAUDE-REPAIR-PROMPT.md
+- [x] GitHub Actions: .github/workflows/codex-audit.yml, claude-repair.yml
+- Note: Requires OPENAI_API_KEY and ANTHROPIC_API_KEY as GitHub repo secrets
+
 ## Active Work
+- Two-agent loop live — Codex audits every 6h, Claude repairs 1h later
 - Intelligence Layer V1 complete — cross-module attention scoring, action cards, decision learning loop, thread summaries
 - IMMEDIATE: Fix 3 Decimal serialization routes + 2 missing transactions + audit balance/vacancy sync call sites
 - NEXT: Migrate 12 old role-check routes to can() helper, add pagination to 7 unbounded queries
