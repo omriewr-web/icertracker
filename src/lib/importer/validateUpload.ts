@@ -31,7 +31,7 @@ type UploadValidation = {
 export async function validateUpload(formData: FormData): Promise<UploadValidation> {
   const file = formData.get("file") as File | null;
   if (!file) {
-    return { valid: false, error: "No file provided", code: "MISSING_FILE", status: 400 };
+    return { valid: false, error: "No file provided. Please select a file to upload.", code: "MISSING_FILE", status: 400 };
   }
 
   const fileName = file.name || "upload";
@@ -41,7 +41,7 @@ export async function validateUpload(formData: FormData): Promise<UploadValidati
   if (!ALLOWED_EXTENSIONS.includes(extension)) {
     return {
       valid: false,
-      error: `Invalid file type ".${extension}". Allowed: ${ALLOWED_EXTENSIONS.join(", ")}`,
+      error: `Unsupported file type ".${extension}". Allowed types: ${ALLOWED_EXTENSIONS.join(", ")}.`,
       code: "INVALID_FILE_TYPE",
       status: 400,
     };
@@ -51,7 +51,7 @@ export async function validateUpload(formData: FormData): Promise<UploadValidati
   if (file.type && !ALLOWED_MIMES.includes(file.type)) {
     return {
       valid: false,
-      error: `Invalid MIME type "${file.type}". Upload an .xlsx, .xls, or .csv file.`,
+      error: `Unsupported file format "${file.type}". Allowed types: ${ALLOWED_EXTENSIONS.join(", ")}.`,
       code: "INVALID_MIME_TYPE",
       status: 400,
     };
@@ -61,7 +61,7 @@ export async function validateUpload(formData: FormData): Promise<UploadValidati
   if (file.size > MAX_FILE_SIZE) {
     return {
       valid: false,
-      error: `File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum: 10MB.`,
+      error: `File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size: ${MAX_FILE_SIZE / 1024 / 1024} MB.`,
       code: "FILE_TOO_LARGE",
       status: 413,
     };

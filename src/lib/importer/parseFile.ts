@@ -1,7 +1,13 @@
 import * as XLSX from "xlsx";
 import type { ParsedImportFile, FileType, MergedCellInfo } from "./types";
 
+const MAX_BUFFER_SIZE = 50 * 1024 * 1024; // 50MB
+
 export function parseImportFile(buffer: Buffer, fileName: string): ParsedImportFile {
+  if (buffer.length > MAX_BUFFER_SIZE) {
+    throw new Error("File too large — maximum 50 MB allowed.");
+  }
+
   const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
   const fileType: FileType = ext === "csv" ? "csv" : ext === "xls" ? "xls" : "xlsx";
 

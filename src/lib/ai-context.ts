@@ -52,8 +52,8 @@ export async function buildPortfolioContext(user: AiUser, tenantId?: string): Pr
   const buildingSummary = buildings.map((b) => {
     const occupied = b.units.filter((u) => !u.isVacant).length;
     const vacant = b.units.filter((u) => u.isVacant).length;
-    const totalBalance = b.units.reduce((s, u) => s + Number(u.tenant?.balance ?? 0), 0);
-    const totalRent = b.units.reduce((s, u) => s + Number(u.tenant?.marketRent ?? 0), 0);
+    const totalBalance = b.units.reduce((s, u) => s + (u.tenant?.balance?.toNumber() ?? 0), 0);
+    const totalRent = b.units.reduce((s, u) => s + (u.tenant?.marketRent?.toNumber() ?? 0), 0);
     return `  - ${b.address}: ${b._count.units} units (${occupied} occupied, ${vacant} vacant), Total balance: ${fmt$(totalBalance)}, Monthly rent roll: ${fmt$(totalRent)}`;
   }).join("\n");
 
@@ -70,20 +70,20 @@ export async function buildPortfolioContext(user: AiUser, tenantId?: string): Pr
     orderBy: { balance: "desc" },
   });
 
-  const totalBalance = tenants.reduce((s, t) => s + Number(t.balance), 0);
-  const totalRent = tenants.reduce((s, t) => s + Number(t.marketRent), 0);
-  const inArrears = tenants.filter((t) => Number(t.balance) > 0);
+  const totalBalance = tenants.reduce((s, t) => s + (t.balance?.toNumber() ?? 0), 0);
+  const totalRent = tenants.reduce((s, t) => s + (t.marketRent?.toNumber() ?? 0), 0);
+  const inArrears = tenants.filter((t) => (t.balance?.toNumber() ?? 0) > 0);
 
   sections.push(`PORTFOLIO SUMMARY:\n  Total tenants: ${tenants.length}\n  Total outstanding balance: ${fmt$(totalBalance)}\n  Total monthly rent roll: ${fmt$(totalRent)}\n  Tenants in arrears: ${inArrears.length}`);
 
   // Top 30 tenants by balance (most useful for AI)
   const topTenants = tenants.slice(0, 30).map((t) => {
-    const balance = Number(t.balance);
-    const rent = Number(t.marketRent);
+    const balance = t.balance?.toNumber() ?? 0;
+    const rent = t.marketRent?.toNumber() ?? 0;
     const monthsOwed = rent > 0 ? (balance / rent).toFixed(1) : "N/A";
     const lc = t.legalCases?.[0];
     const legal = lc ? `IN LEGAL (${lc.stage}, Case: ${lc.caseNumber || "pending"}, Attorney: ${lc.attorney || "unassigned"})` : "No legal";
-    return `  - ${t.name} | Unit ${t.unit.unitNumber} @ ${t.unit.building.address} | Balance: ${fmt$(balance)} | Rent: ${fmt$(rent)} | ${monthsOwed} months owed | Score: ${t.collectionScore} | Arrears: ${t.arrearsCategory} (${t.arrearsDays} days) | Lease: ${t.leaseStatus} (exp: ${fmtDate(t.leaseExpiration)}) | ${legal} | Notes: ${t._count.notes}, Payments: ${t._count.payments}`;
+    return `  - ${t.name} | Unit ${t.unit.unitNumber} @ ${t.unit.building?.address || ""} | Balance: ${fmt$(balance)} | Rent: ${fmt$(rent)} | ${monthsOwed} months owed | Score: ${t.collectionScore} | Arrears: ${t.arrearsCategory} (${t.arrearsDays} days) | Lease: ${t.leaseStatus} (exp: ${fmtDate(t.leaseExpiration)}) | ${legal} | Notes: ${t._count.notes}, Payments: ${t._count.payments}`;
   }).join("\n");
 
   sections.push(`TOP TENANTS BY BALANCE:\n${topTenants}`);
@@ -104,7 +104,7 @@ export async function buildPortfolioContext(user: AiUser, tenantId?: string): Pr
 
   if (recentNotes.length > 0) {
     const notesText = recentNotes.map((n) =>
-      `  - [${fmtDate(n.createdAt)}] ${n.tenant.name} (${n.tenant.unit.unitNumber} @ ${n.tenant.unit.building.address}) - ${n.category}: "${n.text.slice(0, 200)}" — by ${n.author.name}`
+      `  - [${fmtDate(n.createdAt)}] ${n.tenant.name} (${n.tenant.unit.unitNumber} @ ${n.tenant.unit.building?.address || ""}) - ${n.category}: "${n.text.slice(0, 200)}" — by ${n.author.name}`
     ).join("\n");
     sections.push(`RECENT NOTES (last 30 days, ${recentNotes.length}):\n${notesText}`);
   }
@@ -129,7 +129,7 @@ export async function buildPortfolioContext(user: AiUser, tenantId?: string): Pr
   if (legalCases.length > 0) {
     const legalText = legalCases.map((c) => {
       const lastNote = c.notes[0];
-      return `  - ${c.tenant.name} (${c.tenant.unit.unitNumber} @ ${c.tenant.unit.building.address}) | Stage: ${c.stage} | Case#: ${c.caseNumber || "pending"} | Attorney: ${c.attorney || "unassigned"} | Balance: ${fmt$(Number(c.tenant.balance))} | Filed: ${fmtDate(c.filedDate)} | Last note: ${lastNote ? `[${fmtDate(lastNote.createdAt)}] "${lastNote.text.slice(0, 100)}"` : "None"}`;
+      return `  - ${c.tenant.name} (${c.tenant.unit.unitNumber} @ ${c.tenant.unit.building?.address || ""}) | Stage: ${c.stage} | Case#: ${c.caseNumber || "pending"} | Attorney: ${c.attorney || "unassigned"} | Balance: ${fmt$(c.tenant.balance?.toNumber() ?? 0)} | Filed: ${fmtDate(c.filedDate)} | Last note: ${lastNote ? `[${fmtDate(lastNote.createdAt)}] "${lastNote.text.slice(0, 100)}"` : "None"}`;
     }).join("\n");
     sections.push(`ACTIVE LEGAL CASES (${legalCases.length}):\n${legalText}`);
   }
@@ -148,7 +148,7 @@ export async function buildPortfolioContext(user: AiUser, tenantId?: string): Pr
 
   if (vacantUnits.length > 0) {
     const vacText = vacantUnits.map((u) =>
-      `  - Unit ${u.unitNumber} @ ${u.building.address} | Condition: ${u.vacancyInfo?.condition || "Unknown"} | Proposed rent: ${u.vacancyInfo?.proposedRent ? fmt$(Number(u.vacancyInfo.proposedRent)) : "Not set"} | Ready: ${u.vacancyInfo?.readyDate ? fmtDate(u.vacancyInfo.readyDate) : "TBD"}`
+      `  - Unit ${u.unitNumber} @ ${u.building.address} | Condition: ${u.vacancyInfo?.condition || "Unknown"} | Proposed rent: ${u.vacancyInfo?.proposedRent ? fmt$(u.vacancyInfo.proposedRent.toNumber()) : "Not set"} | Ready: ${u.vacancyInfo?.readyDate ? fmtDate(u.vacancyInfo.readyDate) : "TBD"}`
     ).join("\n");
     sections.push(`VACANT UNITS (${vacantUnits.length}):\n${vacText}`);
   }
@@ -168,7 +168,7 @@ export async function buildPortfolioContext(user: AiUser, tenantId?: string): Pr
 
   if (recentPayments.length > 0) {
     const payText = recentPayments.map((p) =>
-      `  - [${fmtDate(p.date)}] ${p.tenant.name} (${p.tenant.unit.unitNumber} @ ${p.tenant.unit.building.address}): ${fmt$(Number(p.amount))} via ${p.method || "unknown"}`
+      `  - [${fmtDate(p.date)}] ${p.tenant.name} (${p.tenant.unit.unitNumber} @ ${p.tenant.unit.building?.address || ""}): ${fmt$(p.amount?.toNumber() ?? 0)} via ${p.method || "unknown"}`
     ).join("\n");
     sections.push(`RECENT PAYMENTS (last 30 days, ${recentPayments.length}):\n${payText}`);
   }
@@ -189,7 +189,7 @@ export async function buildPortfolioContext(user: AiUser, tenantId?: string): Pr
   if (expiringLeases.length > 0) {
     const leaseText = expiringLeases.map((t) => {
       const daysLeft = Math.ceil((t.leaseExpiration!.getTime() - now.getTime()) / 86400000);
-      return `  - ${t.name} (${t.unit.unitNumber} @ ${t.unit.building.address}) | Expires: ${fmtDate(t.leaseExpiration)} (${daysLeft} days) | Rent: ${fmt$(Number(t.marketRent))} | Balance: ${fmt$(Number(t.balance))}`;
+      return `  - ${t.name} (${t.unit.unitNumber} @ ${t.unit.building?.address || ""}) | Expires: ${fmtDate(t.leaseExpiration)} (${daysLeft} days) | Rent: ${fmt$(t.marketRent?.toNumber() ?? 0)} | Balance: ${fmt$(t.balance?.toNumber() ?? 0)}`;
     }).join("\n");
     sections.push(`LEASES EXPIRING WITHIN 90 DAYS (${expiringLeases.length}):\n${leaseText}`);
   }
@@ -271,17 +271,17 @@ async function buildTenantContext(user: AiUser, tenantId: string): Promise<strin
 
   if (!tenant) return "Tenant not found.";
 
-  const balance = Number(tenant.balance);
-  const rent = Number(tenant.marketRent);
+  const balance = tenant.balance?.toNumber() ?? 0;
+  const rent = tenant.marketRent?.toNumber() ?? 0;
   const monthsOwed = rent > 0 ? (balance / rent).toFixed(1) : "0";
 
   sections.push(`TENANT PROFILE:
   Name: ${tenant.name}
-  Unit: ${tenant.unit.unitNumber} @ ${tenant.unit.building.address}
+  Unit: ${tenant.unit.unitNumber} @ ${tenant.unit.building?.address || ""}
   Email: ${tenant.email || "None"} | Phone: ${tenant.phone || "None"}
   Balance: ${fmt$(balance)} | Market Rent: ${fmt$(rent)} | Months owed: ${monthsOwed}
-  Legal Rent: ${fmt$(Number(tenant.legalRent))} | Pref Rent: ${fmt$(Number(tenant.prefRent))}
-  Deposit: ${fmt$(Number(tenant.deposit))}
+  Legal Rent: ${fmt$(tenant.legalRent?.toNumber() ?? 0)} | Pref Rent: ${fmt$(tenant.prefRent?.toNumber() ?? 0)}
+  Deposit: ${fmt$(tenant.deposit?.toNumber() ?? 0)}
   Arrears: ${tenant.arrearsCategory} (${tenant.arrearsDays} days)
   Collection Score: ${tenant.collectionScore}/100
   Lease: ${tenant.leaseStatus} | Expires: ${fmtDate(tenant.leaseExpiration)}
@@ -309,7 +309,7 @@ async function buildTenantContext(user: AiUser, tenantId: string): Promise<strin
 
   if (tenant.payments.length > 0) {
     const payText = tenant.payments.map((p) =>
-      `  [${fmtDate(p.date)}] ${fmt$(Number(p.amount))} via ${p.method || "unknown"} (ref: ${p.reference || "none"})`
+      `  [${fmtDate(p.date)}] ${fmt$(p.amount?.toNumber() ?? 0)} via ${p.method || "unknown"} (ref: ${p.reference || "none"})`
     ).join("\n");
     sections.push(`PAYMENT HISTORY (${tenant.payments.length} most recent):\n${payText}`);
   }
