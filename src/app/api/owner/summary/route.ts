@@ -16,8 +16,8 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
       id: true,
       address: true,
       altAddress: true,
-      totalUnits: true,
       units: {
+        where: { isResidential: true },
         select: {
           id: true,
           isVacant: true,
@@ -38,7 +38,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
     },
   });
 
-  const totalUnits = buildings.reduce((sum, b) => sum + (b.totalUnits || b.units.length), 0);
+  const totalUnits = buildings.reduce((sum, b) => sum + b.units.length, 0);
   const vacantUnits = buildings.reduce((sum, b) => sum + b.units.filter((u) => u.isVacant).length, 0);
   const occupied = totalUnits - vacantUnits;
   const occupancyRate = totalUnits > 0 ? Math.round((occupied / totalUnits) * 100) : 0;

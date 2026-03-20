@@ -12,6 +12,15 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  async redirects() {
+    return [
+      {
+        source: "/violations",
+        destination: "/compliance",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
@@ -36,12 +45,16 @@ module.exports = withSentryConfig(nextConfig, {
   debug: isDev,
   tunnelRoute: "/monitoring",
   hideSourceMaps: true,
-  disableLogger: !isDev,
   widenClientFileUpload: true,
   sourcemaps: {
     deleteSourcemapsAfterUpload: true,
   },
-  reactComponentAnnotation: {
-    enabled: true,
+  webpack: {
+    treeshake: {
+      removeDebugLogging: !isDev,
+    },
+    reactComponentAnnotation: {
+      enabled: true,
+    },
   },
 });
