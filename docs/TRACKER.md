@@ -159,6 +159,13 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - [x] ai-context.ts: verified already uses getBuildingIdScope(user) + EMPTY_SCOPE — no change needed
 - [x] attention/score.ts: consolidated computeTenantAttention from 6 queries → 2 (nested includes for legalCases, collectionStage, collectionNotes, workOrders)
 
+### CI Pipeline Fix (2026-03-20)
+- [x] Created .eslintrc.json (next/core-web-vitals) — fixes interactive prompt in CI
+- [x] Added pool: "forks" to vitest.config.ts — fixes ERR_REQUIRE_ESM in CI
+- [x] Fixed 9 ESLint errors: `module` variable shadowing (3 files), unescaped JSX entities (4 files)
+- [x] Lint: 0 errors, 15 warnings (all pre-existing, non-blocking)
+- [x] Tests: 1068 passed, 0 failed
+
 ### Auto-Repair Run (2026-03-19 21:30)
 - [x] M3: Cron timing-safe auth — collections-refresh now uses withCronAuth()
 - [x] H8: Tenant PATCH Decimal serialization — all Decimal fields normalized via toNumber()
@@ -260,7 +267,7 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - Documentation drift exists: requested roadmap filename differs from repo, tracker was more optimistic than the current product state, and onboarding docs still reference an admin password directly
 - Sentry fully configured (2026-03-19) — full observability with structured capture, replay, sourcemaps; set NEXT_PUBLIC_SENTRY_DSN and SENTRY_AUTH_TOKEN in Vercel env vars; test at /test-error and /sentry-example-page
 - Prisma 5.22.0 → 7.x upgrade available (major version, not urgent)
-- ESLint config needs interactive setup (npm run lint prompts for config selection)
+- ~~ESLint config needs interactive setup (npm run lint prompts for config selection)~~ — FIXED: .eslintrc.json created (2026-03-20)
 - Existing DB rows with old CollectionCase.status values (new_arrears, reminder_sent) still work via normalizer but should be migrated to canonical values (monitoring, demand_sent) when convenient
 - Permission management UI built at /settings/users — needs sidebar nav link added
 - First-login password change flow not yet implemented (users receive temp password)
