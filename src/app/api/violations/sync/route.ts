@@ -3,6 +3,7 @@ import { withAuth, parseBody } from "@/lib/api-helpers";
 import { violationSyncSchema } from "@/lib/validations";
 import { syncBuildingViolations, syncAllBuildings } from "@/lib/violation-sync";
 import { assertBuildingAccess } from "@/lib/data-scope";
+import { captureBusinessMessage, captureSentryException } from "@/lib/sentry-observability";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,23 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   // Single building sync — fast, no streaming needed
   if (body.buildingId) {
     const results = await syncBuildingViolations(body.buildingId, body.sources);
+    for (const result of results) {
+      if (!result.error) continue;
+
+      captureBusinessMessage("Failed violation sync", {
+        level: "error",
+        tags: {
+          buildingId: result.buildingId,
+          userId: user.id,
+          source: result.source,
+        },
+        extra: {
+          error: result.error,
+          address: result.address,
+        },
+        fingerprint: ["violation-sync-failed", result.buildingId, result.source],
+      });
+    }
     const totalNew = results.reduce((sum, r) => sum + r.newCount, 0);
     const totalUpdated = results.reduce((sum, r) => sum + r.updatedCount, 0);
     return NextResponse.json({ results, totalNew, totalUpdated });
@@ -45,8 +63,44 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
         const totalNew = allResults.reduce((sum, r) => sum + r.newCount, 0);
         const totalUpdated = allResults.reduce((sum, r) => sum + r.updatedCount, 0);
         const totalErrors = allResults.filter(r => r.error).length;
+        if (totalErrors > 0) {
+          captureBusinessMessage("Failed violation sync", {
+            level: "error",
+            tags: {
+              organizationId: user.organizationId,
+              userId: user.id,
+              scope: "all-buildings",
+            },
+            extra: {
+              totalErrors,
+              sources: body.sources ?? [],
+            },
+            fingerprint: ["violation-sync-failed", user.organizationId ?? "unscoped", "all-buildings"],
+          });
+        }
         send({ type: "done", totalNew, totalUpdated, totalErrors, buildingCount: allResults.length });
       } catch (err: any) {
+        captureBusinessMessage("Failed violation sync", {
+          level: "error",
+          tags: {
+            organizationId: user.organizationId,
+            userId: user.id,
+            scope: "all-buildings",
+          },
+          extra: {
+            error: err.message,
+            sources: body.sources ?? [],
+          },
+          fingerprint: ["violation-sync-failed", user.organizationId ?? "unscoped", "stream"],
+        });
+        captureSentryException(err, {
+          level: "error",
+          tags: {
+            organizationId: user.organizationId,
+            userId: user.id,
+            scope: "all-buildings",
+          },
+        });
         send({ type: "error", message: err.message });
       } finally {
         controller.close();

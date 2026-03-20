@@ -1,5 +1,9 @@
 import { Resend } from "resend";
 import { prisma } from "./prisma";
+import {
+  captureBusinessMessage,
+  captureSentryException,
+} from "./sentry-observability";
 
 function getResend() {
   const apiKey = process.env.RESEND_API_KEY;
@@ -42,6 +46,32 @@ export async function sendEmail(params: {
 
     return data;
   } catch (err: any) {
+    captureBusinessMessage("Email delivery failed", {
+      level: "error",
+      tags: {
+        tenantId: params.tenantId,
+        userId: params.sentById,
+        emailType: params.type,
+      },
+      extra: {
+        recipientEmail: params.to,
+        subject: params.subject,
+      },
+      fingerprint: ["email-delivery-failed", params.type],
+    });
+    captureSentryException(err, {
+      level: "error",
+      tags: {
+        tenantId: params.tenantId,
+        userId: params.sentById,
+        emailType: params.type,
+      },
+      extra: {
+        recipientEmail: params.to,
+        subject: params.subject,
+      },
+    });
+
     // Log the failed send attempt
     try {
       await prisma.emailLog.create({

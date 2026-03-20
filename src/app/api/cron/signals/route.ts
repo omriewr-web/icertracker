@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withCronAuth } from "@/lib/with-cron-auth";
 import { runSignalScan } from "@/lib/signals/engine";
 import { checkCertificationDeadlines } from "@/lib/services/certification-alerts.service";
+import { captureBusinessMessage, captureSentryException } from "@/lib/sentry-observability";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,22 @@ export const GET = withCronAuth(async () => {
 
     return NextResponse.json({ ok: true, ...signalResult, certDeadlines: certResult });
   } catch (err: any) {
+    captureBusinessMessage("Signals cron failed", {
+      level: "error",
+      tags: {
+        jobName: "signals",
+      },
+      extra: {
+        error: err.message,
+      },
+      fingerprint: ["cron-failed", "signals"],
+    });
+    captureSentryException(err, {
+      level: "error",
+      tags: {
+        jobName: "signals",
+      },
+    });
     try { await prisma.cronLog.updateMany({ where: { jobName: "signals", status: "RUNNING" }, data: { status: "FAILED", completedAt: new Date(), error: err.message } }); } catch {}
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }

@@ -13,6 +13,7 @@ import {
 import type { FetchResult } from "./nyc-open-data";
 import { interceptViolation } from "./services/violation-interceptor.service";
 import type { ViolationSource } from "@prisma/client";
+import { captureBusinessMessage, captureSentryException } from "./sentry-observability";
 
 type Source = "HPD" | "DOB" | "ECB" | "HPD_COMPLAINTS";
 
@@ -142,6 +143,30 @@ export async function syncBuildingViolations(
       results.push({ buildingId, address: building.address, source, newCount, updatedCount, rowsFetched: rows.length, apiUrl: fetchResult!.url });
     } catch (err: any) {
       console.error(`[Sync] Error for ${source} on ${building.address}:`, err);
+      captureBusinessMessage("Failed violation sync", {
+        level: "error",
+        tags: {
+          buildingId,
+          organizationId: building.organizationId,
+          source,
+        },
+        extra: {
+          address: building.address,
+          error: err.message,
+        },
+        fingerprint: ["violation-sync-failed", buildingId, source],
+      });
+      captureSentryException(err, {
+        level: "error",
+        tags: {
+          buildingId,
+          organizationId: building.organizationId,
+          source,
+        },
+        extra: {
+          address: building.address,
+        },
+      });
       await prisma.violationSyncLog.create({
         data: { buildingId, source, newCount: 0, updatedCount: 0, status: `error: ${err.message}` },
       });

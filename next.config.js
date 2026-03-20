@@ -1,4 +1,5 @@
 const { withSentryConfig } = require("@sentry/nextjs");
+const isDev = process.env.NODE_ENV === "development";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -30,8 +31,17 @@ const nextConfig = {
 module.exports = withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
-  silent: true,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !isDev,
+  debug: isDev,
   tunnelRoute: "/monitoring",
   hideSourceMaps: true,
-  disableLogger: true,
+  disableLogger: !isDev,
+  widenClientFileUpload: true,
+  sourcemaps: {
+    deleteSourcemapsAfterUpload: true,
+  },
+  reactComponentAnnotation: {
+    enabled: true,
+  },
 });

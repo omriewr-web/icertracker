@@ -8,6 +8,7 @@ import { WorkOrderView } from "@/types";
 import { toNumber } from "@/lib/utils/decimal";
 import { validateWorkOrderRelations } from "@/lib/work-order-relations";
 import { WorkOrderStatus, WorkOrderPriority, WorkOrderCategory } from "@prisma/client";
+import { captureBusinessMessage, captureSentryException } from "@/lib/sentry-observability";
 
 export const dynamic = "force-dynamic";
 
@@ -99,29 +100,51 @@ export const POST = withAuth(async (req, { user }) => {
   });
 
   const wo = await prisma.workOrder.create({
-    data: {
-      title: data.title,
-      description: data.description,
-      status: data.status as WorkOrderStatus,
-      priority: data.priority as WorkOrderPriority,
-      category: data.category as WorkOrderCategory,
-      photos: data.photos ?? undefined,
-      estimatedCost: data.estimatedCost,
-      actualCost: data.actualCost,
-      scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : null,
-      completedDate: data.completedDate ? new Date(data.completedDate) : null,
-      buildingId: data.buildingId,
-      unitId: data.unitId || null,
-      tenantId: data.tenantId || null,
-      vendorId: data.vendorId || null,
-      assignedToId: data.assignedToId || null,
-      createdById: user.id,
-      dueDate: data.dueDate ? new Date(data.dueDate) : null,
-      sourceType: data.sourceType || null,
-      sourceId: data.sourceId || null,
-    },
-    include,
-  });
+      data: {
+        title: data.title,
+        description: data.description,
+        status: data.status as WorkOrderStatus,
+        priority: data.priority as WorkOrderPriority,
+        category: data.category as WorkOrderCategory,
+        photos: data.photos ?? undefined,
+        estimatedCost: data.estimatedCost,
+        actualCost: data.actualCost,
+        scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : null,
+        completedDate: data.completedDate ? new Date(data.completedDate) : null,
+        buildingId: data.buildingId,
+        unitId: data.unitId || null,
+        tenantId: data.tenantId || null,
+        vendorId: data.vendorId || null,
+        assignedToId: data.assignedToId || null,
+        createdById: user.id,
+        dueDate: data.dueDate ? new Date(data.dueDate) : null,
+        sourceType: data.sourceType || null,
+        sourceId: data.sourceId || null,
+      },
+      include,
+    }).catch((error) => {
+      captureBusinessMessage("Failed work order creation", {
+        level: "error",
+        tags: {
+          buildingId: data.buildingId,
+          userId: user.id,
+        },
+        extra: {
+          category: data.category,
+          priority: data.priority,
+          sourceType: data.sourceType ?? null,
+        },
+        fingerprint: ["work-order-create-failed", data.buildingId],
+      });
+      captureSentryException(error, {
+        level: "error",
+        tags: {
+          buildingId: data.buildingId,
+          userId: user.id,
+        },
+      });
+      throw error;
+    });
 
   // Fire-and-forget comms event
   try {
@@ -130,8 +153,24 @@ export const POST = withAuth(async (req, { user }) => {
       { orgId: user.organizationId!, workOrderId: wo.id, buildingId: wo.buildingId ?? null },
       { title: wo.title, priority: wo.priority }
     );
-  } catch {
-    // Non-blocking
+  } catch (error) {
+    captureBusinessMessage("Work order comms event failed", {
+      level: "warning",
+      tags: {
+        workOrderId: wo.id,
+        buildingId: wo.buildingId,
+        userId: user.id,
+      },
+      fingerprint: ["work-order-comms-event-failed", wo.id],
+    });
+    captureSentryException(error, {
+      level: "warning",
+      tags: {
+        workOrderId: wo.id,
+        buildingId: wo.buildingId,
+        userId: user.id,
+      },
+    });
   }
 
   return NextResponse.json(mapWorkOrder(wo), { status: 201 });

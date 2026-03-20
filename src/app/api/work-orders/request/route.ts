@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { tenantRequestSchema } from "@/lib/validations";
 import { assertUnitBelongsToBuilding } from "@/lib/work-order-relations";
 import { WorkOrderPriority, WorkOrderCategory } from "@prisma/client";
+import { captureBusinessMessage, captureSentryException } from "@/lib/sentry-observability";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,7 @@ function getClientIp(req: NextRequest): string {
 }
 
 export async function POST(req: NextRequest) {
+  let requestBuildingId: string | undefined;
   try {
     const ip = getClientIp(req);
 
@@ -132,6 +134,7 @@ export async function POST(req: NextRequest) {
     }
 
     const data = tenantRequestSchema.parse(body);
+    requestBuildingId = data.buildingId;
 
     // Verify building token matches
     const building = await prisma.building.findUnique({
@@ -164,6 +167,21 @@ export async function POST(req: NextRequest) {
     if (error.name === "ZodError") {
       return NextResponse.json({ error: "Validation failed", details: error.errors }, { status: 400 });
     }
+    captureBusinessMessage("Failed work order creation", {
+      level: "error",
+      tags: {
+        buildingId: requestBuildingId ?? "unknown",
+        source: "public-request",
+      },
+      fingerprint: ["public-work-order-create-failed", requestBuildingId ?? "unknown"],
+    });
+    captureSentryException(error, {
+      level: "error",
+      tags: {
+        buildingId: requestBuildingId ?? "unknown",
+        source: "public-request",
+      },
+    });
     console.error("Request portal error:", error);
     return NextResponse.json({ error: "Failed to submit request" }, { status: 500 });
   }

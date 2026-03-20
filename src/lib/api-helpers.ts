@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import * as Sentry from "@sentry/nextjs";
 import { authOptions } from "./auth";
 import { loadFreshAuthUserById } from "./auth-state";
 import { hasPermission } from "./permissions";
@@ -7,6 +8,11 @@ import type { UserRole } from "@/types";
 import { ZodError } from "zod";
 import logger from "./logger";
 import { ApiRequestError, ApiValidationError } from "./request-errors";
+import {
+  captureSentryException,
+  captureSlowRoute,
+  startObservedServerSpan,
+} from "./sentry-observability";
 
 export interface AuthUser {
   id: string;
@@ -22,6 +28,11 @@ type ApiHandler = (req: NextRequest, ctx: { user: AuthUser; params?: any }) => P
 
 export function withAuth(handler: ApiHandler, perm?: string) {
   return async (req: NextRequest, context?: { params?: any }) => {
+    const route = new URL(req.url).pathname;
+    const method = req.method;
+    const requestId = req.headers.get("x-request-id") ?? `req_${Date.now()}`;
+    const startedAt = Date.now();
+
     try {
       const session = await getServerSession(authOptions);
       if (!session?.user?.id) {
@@ -49,7 +60,33 @@ export function withAuth(handler: ApiHandler, perm?: string) {
       if (perm && !hasPermission(user.role, perm)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
-      return await handler(req, { user, params: context?.params });
+
+      Sentry.setUser({
+        id: user.id,
+        email: user.email || undefined,
+      });
+      Sentry.setTag("organizationId", user.organizationId ?? "unscoped");
+      Sentry.setTag("requestId", requestId);
+      Sentry.setTag("route", route);
+      Sentry.setTag("method", method);
+      if (perm) {
+        Sentry.setTag("permission", perm);
+      }
+
+      const response = await startObservedServerSpan(`${method} ${route}`, "http.server", () =>
+        Promise.resolve(handler(req, { user, params: context?.params })),
+      );
+
+      captureSlowRoute({
+        route,
+        method,
+        durationMs: Date.now() - startedAt,
+        userId: user.id,
+        organizationId: user.organizationId,
+        requestId,
+      });
+
+      return response;
     } catch (error: any) {
       if (error instanceof ApiValidationError) {
         return NextResponse.json(
@@ -68,7 +105,19 @@ export function withAuth(handler: ApiHandler, perm?: string) {
         );
       }
 
-      const route = new URL(req.url).pathname;
+      captureSentryException(error, {
+        tags: {
+          route,
+          method,
+          requestId,
+          permission: perm,
+        },
+        extra: {
+          query: Object.fromEntries(new URL(req.url).searchParams.entries()),
+        },
+        fingerprint: ["api-error", method, route],
+      });
+
       logger.error({ err: error, route }, "API error");
       // Only expose message for known API errors; hide internal details
       const isApiError = typeof error.status === "number" && error.status < 500;
