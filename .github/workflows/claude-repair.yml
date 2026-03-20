@@ -33,14 +33,12 @@ jobs:
       - name: Pull latest to pick up Codex audit commit
         run: git pull --rebase origin main
 
-      - name: Run Claude Code repair
+      - name: Run Claude repair script
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          mkdir -p docs/audits
-          npx @anthropic-ai/claude-code "$(cat docs/audits/CLAUDE-REPAIR-PROMPT.md)"
+        run: node scripts/claude-repair.mjs
 
-      - name: Push repair commits
+      - name: Push repair report
         run: |
           git config user.name "claude-repair[bot]"
           git config user.email "claude-repair[bot]@users.noreply.github.com"

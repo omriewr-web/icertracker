@@ -168,10 +168,11 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 
 ### Two-Agent Audit/Repair Loop (2026-03-19)
 - [x] Codex audit workflow — runs every 6h (0/6/12/18 UTC), reads code, writes structured findings
-- [x] Claude repair workflow — runs 1h after audit (1/7/13/19 UTC), fixes top 1-3 safe issues
+- [x] Claude repair workflow — runs 1h after audit (2/8/14/20 UTC), analyzes top safe issues
 - [x] Audit prompt: docs/audits/CODEX-AUDIT-PROMPT.md
 - [x] Repair prompt: docs/audits/CLAUDE-REPAIR-PROMPT.md
 - [x] GitHub Actions: .github/workflows/codex-audit.yml, claude-repair.yml
+- [x] Fix: replaced `npx @anthropic-ai/claude-code` (requires interactive auth) with direct API script `scripts/claude-repair.mjs` (2026-03-20)
 - Note: Requires OPENAI_API_KEY and ANTHROPIC_API_KEY as GitHub repo secrets
 
 ### Sentry Load Test (2026-03-19)
