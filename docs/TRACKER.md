@@ -161,8 +161,14 @@ Last Updated: 2026-03-19 (Full QA Audit Complete)
 - [x] GitHub Actions: .github/workflows/codex-audit.yml, claude-repair.yml
 - Note: Requires OPENAI_API_KEY and ANTHROPIC_API_KEY as GitHub repo secrets
 
+### Sentry Load Test (2026-03-19)
+- [x] scripts/sentry-load-test.mjs — continuous load test generating errors, warnings, and performance transactions
+- [x] GitHub Actions workflow (.github/workflows/sentry-load-test.yml) — runs every 2h
+- [x] npm script: sentry:loadtest
+- Note: Requires NEXT_PUBLIC_SENTRY_DSN as GitHub repo secret
+
 ## Active Work
-- Sentry observability complete — test pages fixed and deployed, verified client+server error capture
+- Sentry observability complete — test pages, load test script, and GitHub Actions workflow all deployed
 - Two-agent loop live — Codex audits every 6h, Claude repairs 1h later
 - Intelligence Layer V1 complete — cross-module attention scoring, action cards, decision learning loop, thread summaries
 - IMMEDIATE: Fix 3 Decimal serialization routes + 2 missing transactions + audit balance/vacancy sync call sites
