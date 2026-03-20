@@ -33,9 +33,7 @@ jobs:
       - name: Run Codex audit
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          mkdir -p docs/audits
-          npx @openai/codex "$(cat docs/audits/CODEX-AUDIT-PROMPT.md)"
+        run: node scripts/codex-audit.mjs
 
       - name: Commit audit report
         run: |
