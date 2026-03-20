@@ -2,7 +2,7 @@ name: Claude Repair
 
 on:
   schedule:
-    - cron: '0 1,7,13,19 * * *'
+    - cron: '0 2,8,14,20 * * *'
   workflow_dispatch:
 
 jobs:
